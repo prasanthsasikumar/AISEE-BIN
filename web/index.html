@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AISEE-BIN Map Editor</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>AISEE-BIN <span>map editor</span></h1>
+  <div class="toolbar">
+    <label>Map <select id="slug"><option value="default">Loading…</option></select></label>
+    <button id="refresh" title="Reload maps and versions">↻</button>
+    <span class="sep"></span>
+    <button id="modeSelect" class="mode active" title="Select / drag nodes, pan, zoom">Select</button>
+    <button id="modeAdd" class="mode" title="Click on the canvas to add a node">+ Node</button>
+    <button id="modeConnect" class="mode" title="Click two nodes to add or remove an edge">Connect</button>
+    <button id="modePath" class="mode" title="Click along a corridor to lay waypoints; click an existing node to end there; Esc to stop">Path</button>
+    <span class="sep"></span>
+    <button id="undo" title="Undo (⌘Z / Ctrl+Z)" disabled>↶ Undo</button>
+    <button id="redo" title="Redo (⌘⇧Z / Ctrl+Y)" disabled>↷ Redo</button>
+    <span class="sep"></span>
+    <button id="fit" title="Fit view to content">Fit</button>
+    <label class="chk"><input type="checkbox" id="showPoints" checked> points</label>
+    <label class="chk"><input type="checkbox" id="showLabels" checked> labels</label>
+  </div>
+  <div class="toolbar right">
+    <input id="note" placeholder="what changed?" size="18">
+    <button id="save" class="primary" disabled>Save as new version</button>
+  </div>
+</header>
+
+<main>
+  <aside id="left">
+    <h2>Versions</h2>
+    <ul id="versions" class="list"><li class="muted">Loading…</li></ul>
+    <div id="versionInfo" class="muted small"></div>
+  </aside>
+
+  <section id="canvasWrap">
+    <canvas id="canvas"></canvas>
+    <div id="hint" class="hint">Drag or middle-drag to pan · wheel to zoom · drag a node to move it · Delete removes the selection · ⌘Z undo</div>
+    <div id="coords" class="coords"></div>
+  </section>
+
+  <aside id="right">
+    <h2>Map</h2>
+    <label>Name <input id="mapName"></label>
+    <div id="mapStats" class="muted small"></div>
+    <div id="connectivity" class="warn small" hidden></div>
+    <button id="autoConnect" hidden>Auto-connect isolated places</button>
+
+    <div id="nodePanel" hidden>
+      <h2>Node <code id="nodeId"></code></h2>
+      <label>Name <input id="nodeName"></label>
+      <label>Type
+        <select id="nodeCategory">
+          <option value="destination">Destination (navigable)</option>
+          <option value="junction">Junction (routing only)</option>
+          <option value="exhibit">Exhibit (navigable + announced)</option>
+          <option value="hazard">Hazard (announced, warning haptic)</option>
+        </select>
+      </label>
+      <label>Spoken description <textarea id="nodeDetails" rows="3"></textarea></label>
+      <label>Aliases (comma separated) <input id="nodeAliases" placeholder="bathroom, toilet"></label>
+      <div class="row">
+        <label>x (m) <input id="nodeX" type="number" step="0.05"></label>
+        <label>z (m) <input id="nodeZ" type="number" step="0.05"></label>
+      </div>
+      <div class="muted small">Edges: <span id="nodeEdges"></span></div>
+      <button id="deleteNode" class="danger">Delete node</button>
+    </div>
+
+    <div id="edgePanel" hidden>
+      <h2>Edge</h2>
+      <div id="edgeLabel"></div>
+      <div class="muted small" id="edgeLength"></div>
+      <button id="deleteEdge" class="danger">Delete edge</button>
+    </div>
+
+    <h2>Files</h2>
+    <div class="stack">
+      <button id="exportJSON">Export graph JSON</button>
+      <label class="button">Import graph JSON <input type="file" id="importJSON" accept="application/json" hidden></label>
+      <a id="downloadWorldMap" class="button" download>Download ARWorldMap</a>
+      <a id="downloadPoints" class="button" download>Download point cloud (.f32)</a>
+    </div>
+
+    <h2>Legend</h2>
+    <div class="legend">
+      <span><i style="background:#2f80ed"></i>destination</span>
+      <span><i style="background:#9aa0a6"></i>junction</span>
+      <span><i style="background:#27ae60"></i>exhibit</span>
+      <span><i style="background:#eb5757"></i>hazard</span>
+    </div>
+    <p class="muted small">Top-down view. x runs right, forward (−z) runs up. The origin is where the scan started. Point colours follow height (blue = floor, yellow = high).</p>
+  </aside>
+</main>
+
+<footer id="status">Ready.</footer>
+<script src="app.js"></script>
+</body>
+</html>

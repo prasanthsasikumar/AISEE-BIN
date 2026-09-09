@@ -1,0 +1,56 @@
+:root { --bg:#0f1115; --panel:#171a21; --line:#2a2f3a; --text:#e6e8ee; --muted:#8a919e; --accent:#2f80ed; --danger:#eb5757; }
+* { box-sizing: border-box; }
+html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+body { display:flex; flex-direction:column; height:100vh; }
+header { display:flex; align-items:center; gap:16px; padding:8px 14px; border-bottom:1px solid var(--line); background:var(--panel); flex-wrap:wrap; }
+.toolbar.right { margin-left:auto; flex-wrap:nowrap; }
+select { padding:6px 8px; background:#0c0e12; color:var(--text); border:1px solid var(--line); border-radius:6px; font:inherit; }
+h1 { font-size:16px; margin:0; white-space:nowrap; }
+h1 span { color:var(--muted); font-weight:400; }
+h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:14px 0 6px; }
+h2 code { color:var(--text); text-transform:none; letter-spacing:0; }
+.toolbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.sep { width:1px; height:22px; background:var(--line); margin:0 4px; }
+main { flex:1; display:grid; grid-template-columns:230px 1fr 300px; min-height:0; }
+aside { padding:0 12px 12px; overflow:auto; border-right:1px solid var(--line); background:var(--panel); }
+#right { border-right:none; border-left:1px solid var(--line); }
+#canvasWrap { position:relative; min-width:0; }
+canvas { width:100%; height:100%; display:block; touch-action:none; cursor:grab; }
+canvas.dragging { cursor:grabbing; }
+canvas.add { cursor:crosshair; }
+canvas.connect { cursor:cell; }
+canvas.path { cursor:crosshair; }
+.hint { position:absolute; left:10px; bottom:10px; background:rgba(0,0,0,.55); padding:4px 8px; border-radius:6px; font-size:12px; color:var(--muted); pointer-events:none; }
+.coords { position:absolute; right:10px; bottom:10px; background:rgba(0,0,0,.55); padding:4px 8px; border-radius:6px; font:12px ui-monospace, monospace; color:var(--muted); pointer-events:none; }
+footer { padding:6px 14px; border-top:1px solid var(--line); background:var(--panel); color:var(--muted); font-size:12px; }
+footer.error { color:var(--danger); }
+label { display:block; margin:6px 0; color:var(--muted); font-size:12px; }
+label input, label select, label textarea, .toolbar input { width:100%; margin-top:3px; padding:6px 8px; background:#0c0e12; color:var(--text); border:1px solid var(--line); border-radius:6px; font:inherit; }
+.toolbar label { display:flex; align-items:center; gap:6px; margin:0; }
+.toolbar label input { width:auto; margin:0; }
+label.chk { flex-direction:row; }
+label.chk input { width:auto; }
+.row { display:flex; gap:8px; }
+.row label { flex:1; }
+button, .button { padding:6px 10px; border:1px solid var(--line); border-radius:6px; background:#20242e; color:var(--text); cursor:pointer; font:inherit; text-decoration:none; display:inline-block; text-align:center; }
+button:hover, .button:hover { border-color:#3a4150; }
+button:disabled { opacity:.45; cursor:default; }
+button.primary { background:var(--accent); border-color:var(--accent); white-space:nowrap; }
+button.danger { background:transparent; color:var(--danger); border-color:var(--danger); margin-top:8px; }
+button.mode.active { background:var(--accent); border-color:var(--accent); }
+.stack { display:flex; flex-direction:column; gap:6px; }
+.list { list-style:none; padding:0; margin:0; }
+.list li { padding:6px 8px; border:1px solid transparent; border-radius:6px; cursor:pointer; }
+.list li:hover { background:#20242e; }
+.list li.active { border-color:var(--accent); background:#1a2438; }
+.list li .meta { display:block; color:var(--muted); font-size:11px; }
+.muted { color:var(--muted); }
+.warn { color:#f2c14e; margin:6px 0; }
+footer.warn { color:#f2c14e; }
+.small { font-size:12px; }
+.legend { display:flex; flex-wrap:wrap; gap:8px 14px; font-size:12px; }
+.legend i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; vertical-align:-1px; }
+@media (max-width: 900px) { main { grid-template-columns: 1fr; grid-template-rows: auto 60vh auto; } aside { border:none; border-bottom:1px solid var(--line); } }
+
+/* Author styles beat the UA sheet, so [hidden] needs re-asserting for styled buttons. */
+[hidden] { display:none !important; }
