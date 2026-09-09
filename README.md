@@ -1,244 +1,211 @@
-# AISEE-BIN — AISEE Botanic Indoor Navigation (iOS MVP)
+<div align="center">
 
-Hands-free indoor navigation for botanical greenhouses. The iPhone rides in a
-forward-facing chest or lanyard mount; ARKit world tracking provides position,
-GameplayKit A\* provides the route, and `AVSpeechSynthesizer` + Core Haptics
-provide turn-by-turn guidance so the user never has to look at the screen.
+<img src="design/assets/aisee-logo.png" alt="AiSee" width="180">
 
-## Layout
+# AISEE-BIN
+
+**Botanic Indoor Navigation — hands-free wayfinding for blind and low-vision visitors.**
+
+An iPhone rides in a chest mount. It knows where you are, and it tells you where to go.
+
+</div>
+
+---
+
+## The problem
+
+A botanical greenhouse is one of the harder indoor spaces to navigate without sight. GPS does not work under glass. The layout is organic rather than gridded, there are few straight walls to follow, and the interesting things — a titan arum in bloom, an orchid display — are precisely the things a white cane will not find for you.
+
+AISEE-BIN gives a visitor turn-by-turn guidance by **voice and haptics**, with no need to look at, or even touch, the phone.
+
+> *"Take me to the orchids."*
+>
+> *"Starting route to the Orchid Display. In 8 meters, continue straight toward the Central Junction."*
+
+## How it works
+
+Three surfaces, one loop. A sighted staff member scans a space once; anyone can then walk it.
+
+```mermaid
+flowchart LR
+    A["<b>Author mode</b><br/>Staff walk the space,<br/>marking places as they go"] -->|upload| B["<b>Web editor</b><br/>Nudge positions, write<br/>spoken descriptions"]
+    B -->|publish version| C["<b>Navigate mode</b><br/>Visitor is guided by<br/>voice and haptics"]
+    C -.->|space changes, rescan| A
+```
+
+Positioning comes from **ARKit world tracking** — the phone recognises the room from a saved `ARWorldMap` of visual features, so it knows where it stands with no beacons, wiring or floor markings. Routing is **A\*** over a hand-authored graph of places and the paths between them.
+
+## What it looks like
+
+**The web map editor.** A real scan: 13,104 feature points from a walked space, with the navigation graph drawn on top. Point colour follows height — blue is floor, yellow is high.
+
+<img src="design/screenshots/web-editor-scan.png" alt="Web map editor showing a scanned point cloud with the navigation graph overlaid" width="100%">
+
+Every save appends a new version rather than overwriting, so the list down the left is a complete history you can roll back through. The right-hand panel edits the selected place: name, type, spoken description, aliases.
+
+**The same editor on the bundled sample map**, before any real scan exists — six places, six edges, no point cloud.
+
+<img src="design/screenshots/web-editor-sample-graph.png" alt="Web map editor showing the six-node sample greenhouse graph" width="100%">
+
+## Try it
+
+```bash
+git clone https://github.com/prasanthsasikumar/AISEE-BIN.git
+cd AISEE-BIN
+open AISEE-BIN.xcodeproj      # or: xcodegen generate, if you edit project.yml
+```
+
+Pick your team under *Signing & Capabilities* and run on a real device — **ARKit world tracking does not work in the Simulator**. Any iPhone with an A12 or newer works; a Pro model with LiDAR relocalizes fastest. Minimum target is iOS 17.
+
+Run the tests with `⌘U`, or:
+
+```bash
+xcodebuild test -project AISEE-BIN.xcodeproj -scheme AISEEBIN \
+  -destination 'platform=iOS Simulator,name=iPhone 17'
+```
+
+99 cases cover the pure-logic layer — pathfinding, geometry, route tracking, command parsing, the gzip codec, the chunked downloader. None of it needs a camera.
+
+---
+
+## Using it
+
+### Mapping a space (sighted staff)
+
+Switch to **Author**. Each place is stored as a named `ARAnchor` inside the `ARWorldMap`, and authoritatively as coordinates in the graph JSON.
+
+1. **⋯ → Start Fresh Scan** at the entrance. Walk every corridor slowly, sweeping the camera across foliage and fixtures until `mapping` reads `extending` or `mapped`.
+2. Stand at each place and tap **Mark here**. Name it and give it a type:
+
+   | Type | Navigable | Announced when passed |
+   |---|---|---|
+   | **Destination** | yes | — |
+   | **Junction** | routing only | never spoken |
+   | **Exhibit** | yes | yes, with its description, within 2.5 m |
+   | **Hazard** | never | yes, with a warning haptic, within 2.5 m |
+
+3. Consecutive marks link automatically — the path you walked becomes the graph. Swipe a place right to **Connect** it to another (closing a loop) or **Chain from** it when you double back to a junction. Swipe left to delete, tap to edit.
+4. **Save** keeps the bundle on the device. **Upload** publishes the world map, point cloud and graph as a new version.
+5. Open the web editor to fine-tune, then save again. That creates another version and reuses the same world map.
+
+On later launches the badge reads **Relocalizing…** until ARKit recognises the space, then **Tracking Ready**.
+
+### Hands-free use (blind visitor)
+
+Everything is spoken and buzzed. The screen is never required.
+
+**To start talking** — press the **Action Button** (iPhone 15 Pro and later, assigned to the *Listen* shortcut), ask **Siri** *"Listen in AISEE-BIN"*, or tap the large *Tap to talk* button filling the bottom of the screen.
+
+**What you can say** — matched fuzzily, so "the orchids" finds the Orchid Display:
+
+| Say | You get |
+|---|---|
+| "take me to / go to / navigate to _place_" | guidance starts, waiting for tracking if needed |
+| "where am I" | nearest place, distance, and which side |
+| "what's nearby" | up to three places within 10 m, with left / right / ahead |
+| "repeat" | the current instruction again |
+| "stop" | guidance ends |
+
+One firm tap means *listening*; a double tap means *heard you*. Listening stops after 4 s of silence. Speech output is cut the moment listening starts, so the app never hears itself. After two unrecognised commands it reads out what you can say.
+
+**What it tells you along the way:**
+
+| When | Voice | Haptic |
+|---|---|---|
+| Route starts | "Starting route to the Orchid Display. In 8 meters, continue straight toward the Central Junction." | — |
+| 3 m from a turn | "In 3 meters, turn slight right toward the Palm Conservatory." | two soft taps = left, one long buzz = right |
+| Place reached | the next instruction | one firm tap |
+| Arrived | "You have arrived at the Orchid Display." | rising triple tap |
+| Every 12 s on a long leg | reassurance, with updated distance | — |
+| Drifted > 2.5 m off route | "You are off route. Recalculating." then re-plans | three low rumbles |
+| Tracking lost | "Tracking lost. Please pause and turn slowly…" | three low rumbles |
+
+Thresholds live in `GuidanceThresholds`.
+
+---
+
+## Under the hood
+
+### Layout
 
 ```
 AISEEBIN/
-  AISEEBINApp.swift                 App entry; owns the single NavigationViewModel
-  Info.plist                        Camera / microphone / speech permissions, ARKit requirement, portrait lock
-  Models/
-    NavigationMap.swift             NavigationPOI (category, details, aliases) / NavigationEdge / NavigationMap
-    SampleGreenhouseMap.swift       6-node sample layout, used until a map is authored
-    NavigationInstruction.swift     TurnDirection buckets + spoken / banner text
-  Managers/
-    ARNavigationManager.swift       ARSession, tracking state, FPS, feature density, ARWorldMap capture/load, POI anchors
-    MapStore.swift                  Local bundle: world map, graph JSON, point cloud, version record
-    MapSyncService.swift            Supabase REST/Storage client: latest version, parallel chunked download, upload
-    GzipCodec.swift                 gzip container over the system DEFLATE codec, for stored blobs
-    PointCloudCodec.swift           Float32 xyz encoding of ARWorldMap feature points
-    PathfindingEngine.swift         GKGraph + GKGraphNode2D, A* findPath, nearestNode, guidanceVector, nearby()
-    NavigationGeometry.swift        Pose → planar position / heading / relative bearing helpers
-    RouteTracker.swift              Advances along a path; node-reached, arrived, off-route
-    GuidancePolicy.swift            Pure throttling: decides *when* to speak
-    GuidanceManager.swift           AVSpeechSynthesizer + CHHapticEngine: decides *how*
-    ProximityAnnouncer.swift        Passive "Titan Arum on your left" commentary with hysteresis
-    CommandParser.swift             Transcript → VoiceCommand (fuzzy POI matching, aliases)
-    VoiceCommandRecognizer.swift    SFSpeechRecognizer push-to-talk, on-device, silence timeout
-    MapAuthoringSession.swift       Pure editing model for the mapper (nodes, chained edges)
-  Intents/
-    AISEEIntents.swift              App Intents: "Listen" (Action Button) and "Navigate to <destination>" (Siri)
-    AppCommandBus.swift             Queues intent invocations for the view model
-  ViewModels/
-    NavigationViewModel.swift       Mode toggle, server sync, per-frame orchestration, voice commands, commentary
-    MapAuthoringViewModel.swift     Mark-here, connect, save bundle, upload / import
-  Views/
-    ContentView.swift               Talk button, status badge, destination picker, live banner, debug overlay
-    AuthoringView.swift             Mapper's screen: scan preview, node list, mark / edit / connect / save
-    ARPreviewView.swift             ARSCNView wrapper for the camera feed
-AISEEBINTests/                      99 XCTest cases for the pure-logic layer
-web/                                Map editor (static HTML/JS) served at https://aiseebin.flowsxr.com
-server/schema.sql                   Supabase table, RLS policies and storage bucket
-docs/superpowers/specs/             Design notes
-project.yml                         XcodeGen spec (regenerates AISEE-BIN.xcodeproj)
+  Models/         NavigationMap (places, edges, categories, aliases), instructions, sample map
+  Managers/       ARKit session, pathfinding, route tracking, guidance, voice, sync, codecs
+  ViewModels/     NavigationViewModel (navigate) · MapAuthoringViewModel (author)
+  Views/          ContentView · AuthoringView · ARPreviewView · DesignSystem
+  Intents/        App Intents for the Action Button and Siri
+AISEEBINTests/    99 XCTest cases over the pure-logic layer
+web/              the map editor — vanilla JS, no build step
+server/           schema.sql: Supabase table, RLS policies, storage bucket
 ```
 
-Data flow per camera frame:
+Per camera frame:
 
-`ARNavigationManager` → `ARFrameSnapshot` → `NavigationViewModel.handle` →
-`RouteTracker.update` (reached / arrived / off-route) → `PathfindingEngine.guidanceVector`
-→ `NavigationInstruction` → `GuidancePolicy.evaluate` → `GuidanceCue?` → `GuidanceManager.deliver`.
+`ARNavigationManager` → `ARFrameSnapshot` → `NavigationViewModel.handle` → `RouteTracker.update` (reached / arrived / off-route) → `PathfindingEngine.guidanceVector` → `NavigationInstruction` → `GuidancePolicy.evaluate` → `GuidanceCue?` → `GuidanceManager.deliver`
 
-## Xcode setup
+`GuidancePolicy` decides **when** to speak and `GuidanceManager` decides **how**. Keeping those apart puts every throttling rule in one pure, testable place.
 
-1. **Open the project.** `AISEE-BIN.xcodeproj` is checked in. If you edit
-   `project.yml`, regenerate with `brew install xcodegen && xcodegen generate`.
-2. **Signing.** Select the `AISEEBIN` target → *Signing & Capabilities* → pick
-   your team. Bundle id is `com.flowsxr.aiseebin`; change it if it collides.
-3. **Frameworks.** Nothing to add manually: ARKit, SceneKit, GameplayKit,
-   AVFoundation, CoreHaptics and Observation are imported directly and linked
-   automatically. Minimum deployment target is iOS 17.
-4. **Info.plist** (already in `AISEEBIN/Info.plist`):
-   - `NSCameraUsageDescription` — required, ARKit will crash without it.
-   - `UIRequiredDeviceCapabilities` = `arkit` — blocks install on unsupported hardware.
-   - `UISupportedInterfaceOrientations` = portrait only — matches the chest mount.
-5. **Run on a real device.** ARKit world tracking does not run in the
-   Simulator; the app shows "ARKit not supported" there. Any iPhone with an A12
-   or newer works, iPhone Pro (LiDAR) relocalizes fastest.
-6. **Tests.** `⌘U`, or:
-   ```
-   xcodebuild test -project AISEE-BIN.xcodeproj -scheme AISEEBIN \
-     -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
-   ```
+### Backend
 
-## Two modes
+Supabase Cloud project `djfpemdkeguztyuerxqc` (ap-southeast-1): table `ab_map_versions`, public bucket `aiseebin-maps`, schema in [`server/schema.sql`](server/schema.sql). Versions are **append-only** — every upload and every web save adds a row, and nothing is overwritten.
 
-A segmented control at the top switches between **Navigate** and **Author**.
-Switching to Author stops guidance and voice; switching back reloads the local
-map, restarts tracking, and checks the server for a newer version.
+A map has a display **name** (editable) and a server **slug** (fixed at first publish), so renaming a map keeps its whole history.
 
-## Server and web editor
+The `ARWorldMap` is an opaque binary of visual features: it can be visualised but not edited. The graph JSON is the editable part, and its coordinates are what the app actually routes on.
 
-- **Data**: Supabase Cloud project `djfpemdkeguztyuerxqc` (ap-southeast-1),
-  table `ab_map_versions` and public bucket `aiseebin-maps` (`server/schema.sql`).
-  Every upload or web save appends a new version; nothing is overwritten.
-  Moved here from the self-hosted db.flowsxr.com on 2026-09-09 — see *Transfer
-  speed* below. The old backend is still running and still holds a copy;
-  builds shipped before that date keep reading from it.
-- **Editor**: https://aiseebin.flowsxr.com (static files in `web/`, deployed
-  to `/var/www/aiseebin` on the VPS, served by Caddy). It draws the scanned
-  feature-point cloud top-down with the graph on top. You can drag nodes,
-  rename them, set type / description / aliases, add and delete nodes and
-  edges, import/export JSON, and save as a new version.
-- **Map names vs. slugs**: a map has a display **name** (`graph.name`, editable
-  on the phone when publishing and in the editor's Name field) and a server
-  **slug** (`map_slug`, the key every version is filed under). The slug is
-  derived from the name at a map's first publish and never changes afterwards,
-  so renaming a map keeps its whole version history. The Map dropdown lists
-  maps by name, with the slug in brackets when the two differ. Maps published
-  before naming existed live under the slug `default`.
-- **What you can and cannot edit**: the `ARWorldMap` is an opaque binary of
-  visual features and cannot be edited; it is only visualised. The graph JSON
-  is the editable part, and its coordinates are authoritative in the app.
-- **App behaviour**: Navigate mode fetches the newest version on launch (and
-  on *⋯ → Check Server for Map Updates*). A web-sourced version reuses the
-  world map already on the device; an iOS-sourced version replaces it.
-- **Transfer speed**: installing a map used to take over ten minutes. Measured
-  from Auckland, the self-hosted VPS sat 266 ms away and gave a single
-  connection ~40 KB/s, so the 31.7 MB world map took **629 s**. Four changes,
-  in descending order of what they bought:
-  - **Moving to Supabase Cloud**, whose Storage is CDN-fronted. Same map,
-    now gzipped to 23.1 MB: **4.4 s**. REST queries went 1141 ms -> 300 ms.
-    This is the one that mattered; the rest are what make it cheap and robust.
-  - **Blobs stored gzipped** (`GzipCodec`), named `*.arworldmap.gz` and
-    `*.points.f32.gz`. The world map goes 31.7 MB -> 23.1 MB (72.7%; an
-    ARWorldMap is already dense, so do not expect more). This also doubles how
-    many installs fit in the free tier's 5 GB/month egress. Paths without `.gz`
-    are read as-is, so older versions keep working.
-  - **`Cache-Control: public, max-age=31536000, immutable`** on upload. Storage
-    paths embed the version (`<slug>/v<n>/...`), so objects never change once
-    written. Supabase defaults to `no-cache`, which defeats the CDN entirely.
-  - **Parallel Range requests**: `MapSyncService.download` issues
-    `downloadConcurrency` (6) chunks at once and reassembles them in offset
-    order. This was worth 3.7-5.4x on the old slow origin; on the CDN it is
-    largely redundant but still helps on a weak greenhouse Wi-Fi link.
+### Making the sync fast
 
-  Free-tier ceilings to keep in mind: **50 MB max upload** (caps a world map at
-  about 68 MB raw once gzipped) and **suspension after a week of inactivity**,
-  which a daily keepalive cron on the VPS prevents. Details in `../SUPABASE.md`.
+Installing a map used to take **over ten minutes**. The original backend was a self-hosted VPS 266 ms away serving a single connection at ~40 KB/s, so a 31.7 MB world map took **629 s**. Four changes, in descending order of what they bought:
 
-## Mapping a space (sighted mapper)
+| Change | Effect |
+|---|---|
+| **Moved to CDN-backed storage** | 629 s → **4.4 s**. REST queries 1141 ms → 300 ms. This is the one that mattered. |
+| **Blobs stored gzipped** (`GzipCodec`) | 31.7 MB → 23.1 MB. An `ARWorldMap` is already dense, so 72.7% is about as good as it gets. |
+| **`Cache-Control: immutable`** | Paths embed the version, so an object never changes once written. The `no-cache` default defeats a CDN entirely. |
+| **Parallel Range requests** | Six chunks at once, reassembled in offset order. Worth 3.7–5.4× on the old slow origin; now mostly insurance against weak greenhouse Wi-Fi. |
 
-Switch to **Author**. Every POI is stored as a named `ARAnchor` (`poi:<id>`)
-inside the `ARWorldMap` and, authoritatively, as coordinates in the graph JSON.
+Blobs named `*.gz` are inflated transparently on the way in, so versions published before compression still load untouched.
 
-1. *⋯ → Start Fresh Scan* at the entrance. Walk every corridor slowly, sweeping
-   the camera across foliage and fixtures until `mapping` reads `extending`
-   or `mapped`.
-2. Stand at each place of interest and tap **Mark here**. Give it a name, a
-   type and, optionally, a spoken description:
-   - **Destination**: navigable (entrance, restrooms, a house).
-   - **Junction**: routing only, never spoken.
-   - **Exhibit**: navigable *and* announced with its description when passed within 2.5 m.
-   - **Hazard**: never a destination; announced with a warning haptic within 2.5 m.
-3. Consecutive marks are linked automatically (the path you walked). Swipe a
-   node right to **Connect** it to another node (close loops) or **Chain from**
-   it (when you walk back to a junction and head down a new corridor). Swipe
-   left to delete. Tap to edit.
-4. Tap **Save** to keep the bundle locally, or **Upload** to publish it: the
-   world map, feature-point cloud and graph go up as a new version. The upload
-   dialog asks for a **Map name** (what the map is called in the web editor's
-   Map dropdown) and an optional note describing what changed in this version.
-   Then open the web editor to fine-tune positions, names and descriptions and
-   save again (that creates another version, reusing the same world map).
-5. The ⋯ menu over the camera preview has **Import Latest From Server** (pull a
-   version down to extend it here) and **Continue Existing Scan** (relocalize
-   against the local world map before marking more nodes).
+### The sample graph
 
-On later launches the badge shows **Relocalizing…** until ARKit matches the
-environment, then **Tracking Ready** with a map icon. The debug overlay's
-`anchored nodes` count confirms the POI anchors were restored.
-
-## Hands-free use (blind user)
-
-Everything is spoken and buzzed; the screen is never required.
-
-**Triggers**
-- **Action Button** (iPhone 15 Pro and later): Settings → Action Button →
-  Shortcut → AISEE-BIN → **Listen**. One press opens the app and listens.
-- **Siri**: "Take me to the Orchid Display in AISEE-BIN", "Listen in AISEE-BIN".
-- **On-screen**: the large *Tap to talk* button fills the bottom of the screen.
-
-**Commands** (matched fuzzily, so "the orchids" works)
-| Say | Result |
-|-----|--------|
-| "take me to / go to / navigate to <place>" | starts guidance; waits for tracking if needed |
-| "where am I" | nearest node, distance and side |
-| "what's nearby / around me" | up to three POIs within 10 m with left/right/ahead |
-| "repeat / say that again" | current instruction |
-| "stop / cancel" | ends guidance |
-
-A single firm tap means "listening"; a double tap means "heard you". Listening
-ends after 4 s of silence (10 s max). Speech output is cut when listening
-starts so the app never hears itself. After two unrecognised commands it reads
-out the available commands and destinations.
-
-## Sample graph (metres, ARKit world frame)
+Bundled, and used until a real space is scanned. Metres, ARKit world frame.
 
 ```
-         z = -14                 [Orchid Display]
-                                        |
-         z =  -8    [Tropical House]---[Central Junction]---[Palm Conservatory]
-                                              |                     |
-         z =  -2                              |                 [Restrooms]
-                                              |                /
-         z =   0                        [Main Entrance]-------
-                    x = -6                  x = 0            x = +6
+   z = -14                 [Orchid Display]
+                                  |
+   z =  -8  [Tropical House]---[Central Junction]---[Palm Conservatory]
+                                  |                          |
+   z =  -2                        |                     [Restrooms]
+                                  |                    /
+   z =   0                  [Main Entrance]-----------
+            x = -6              x = 0                x = +6
 ```
 
-| id        | name              | x  | z   | destination |
-|-----------|-------------------|----|-----|-------------|
-| entrance  | Main Entrance     | 0  | 0   | yes |
-| junction  | Central Junction  | 0  | -8  | no (routing only) |
-| tropical  | Tropical House    | -6 | -8  | yes |
-| orchid    | Orchid Display    | -6 | -14 | yes |
-| palm      | Palm Conservatory | 6  | -8  | yes |
-| restrooms | Restrooms         | 6  | -2  | yes |
+The loop is deliberate: from the entrance to the Palm Conservatory, A\* picks the restrooms side (≈12.3 m) over the junction side (14 m).
 
-Edges: entrance–junction, junction–tropical, tropical–orchid, junction–palm,
-palm–restrooms, restrooms–entrance. The loop lets A\* choose: from the entrance
-to the Palm Conservatory it picks the restrooms side (≈12.3 m) over the
-junction side (14 m).
+---
 
-## Guidance behaviour
+## Known limitations
 
-| Trigger | Voice | Haptic |
-|---------|-------|--------|
-| Route started | "Starting route to the Orchid Display. In 8 meters, continue straight toward the Central Junction." | — |
-| ≤ 3.0 m from next node (once per node) | "In 3 meters, turn slight right toward the Palm Conservatory." | two soft taps = left, one long buzz = right |
-| ≤ 1.5 m: node reached | next instruction | one firm tap |
-| Destination reached | "You have arrived at the Orchid Display." | rising triple tap |
-| Every 12 s on a long leg | reassurance with updated distance | — |
-| > 2.5 m from current leg (max every 8 s) | "You are off route. Recalculating." then re-plans from nearest node | three low rumbles |
-| Tracking lost (max every 8 s) | "Tracking lost. Please pause and turn slowly…" | three low rumbles |
+- **Access control.** The publishable key lets anyone append a version. Needs Supabase Auth, or an RLS policy behind a checked header, before any public release.
+- **Relocalization drift.** Greenhouses change by the hour. Printed reference images or QR signs at each place, anchored as `ARReferenceImage`, would give an absolute re-fix when the world map drifts.
+- **One map per install.** Multi-site support needs a proper map registry.
+- **No wake word.** Push-to-talk only; always-listening is deferred.
+- **Unfiltered heading.** A chest mount sways and the banner flickers near places. A short low-pass filter on the relative angle would settle it.
+- **Free-tier ceilings.** 50 MB maximum upload (about a 68 MB raw world map once gzipped), and suspension after a week idle, which a daily keepalive prevents.
+- An Apple Watch as a second push-to-talk trigger is the obvious next step.
 
-All thresholds live in `GuidanceThresholds`.
+## Accessibility
 
-## Known limitations / next steps
+Accessibility is the design constraint here, not a checklist. Targets on the Navigate screen are at least 60 pt. No state is carried by colour alone — each pairs an icon with a label. The layout survives being read top to bottom by VoiceOver, and Dynamic Type up to accessibility sizes without truncating an instruction. The visitor may never look at the screen; a sighted helper may glance at it for one second.
 
-- **DNS**: aiseebin.flowsxr.com resolves to the VPS; any new subdomain needs an A record at NS1
-  (added by hand) before Caddy can issue its certificate.
-- **Access control**: the publishable key allows anyone to append versions.
-  Add Supabase Auth (or a header-checked RLS policy) before public release.
-- **Always-listening / wake word** is deferred; push-to-talk is the only mode.
-- **Relocalization robustness**: greenhouses change hourly. Plan to add printed
-  reference images or QR signs at POIs as `ARReferenceImage` anchors for an
-  absolute re-fix when the world map drifts.
-- Heading is unfiltered; a chest mount sways, so a short low-pass filter on the
-  relative angle would stop banner flicker near nodes.
-- One map per install. Multi-greenhouse support needs a map registry.
-- Apple Watch as an extra push-to-talk trigger (WatchConnectivity).
+---
+
+<div align="center">
+
+Built by <b>FlowsXR</b> for <b>AiSee</b>.
+
+<img src="design/assets/flowsxr-mark.png" alt="FlowsXR" width="36">
+
+</div>
