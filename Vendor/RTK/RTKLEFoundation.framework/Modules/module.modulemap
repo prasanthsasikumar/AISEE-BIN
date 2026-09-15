@@ -1,0 +1,10 @@
+framework module RTKLEFoundation {
+  umbrella header "RTKLEFoundation.h"
+  export *
+
+  module * { export * }
+}
+
+module RTKLEFoundation.Swift {
+  header "RTKLEFoundation-Swift.h"
+}

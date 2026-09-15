@@ -92,4 +92,34 @@ struct NavigationMap: Codable, Equatable {
     var name: String
     var pois: [NavigationPOI]
     var edges: [NavigationEdge]
+    /// How Immersal map space maps onto these coordinates, once a phone walk has
+    /// measured it. Absent on maps that have never been aligned; glasses mode
+    /// needs it, phone mode ignores it. The web editor round-trips it untouched.
+    var immersalAlignment: ImmersalAlignment?
+
+    init(name: String, pois: [NavigationPOI], edges: [NavigationEdge],
+         immersalAlignment: ImmersalAlignment? = nil) {
+        self.name = name
+        self.pois = pois
+        self.edges = edges
+        self.immersalAlignment = immersalAlignment
+    }
+
+    private enum CodingKeys: String, CodingKey { case name, pois, edges, immersalAlignment }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        pois = try c.decode([NavigationPOI].self, forKey: .pois)
+        edges = try c.decode([NavigationEdge].self, forKey: .edges)
+        immersalAlignment = try c.decodeIfPresent(ImmersalAlignment.self, forKey: .immersalAlignment)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(name, forKey: .name)
+        try c.encode(pois, forKey: .pois)
+        try c.encode(edges, forKey: .edges)
+        try c.encodeIfPresent(immersalAlignment, forKey: .immersalAlignment)
+    }
 }

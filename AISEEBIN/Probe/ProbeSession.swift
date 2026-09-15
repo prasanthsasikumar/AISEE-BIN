@@ -5,42 +5,6 @@ import simd
 
 // THROWAWAY — see ImmersalPose.swift.
 
-/// Where the Immersal credentials and map ids live between launches.
-///
-/// `UserDefaults`, entered once in `ProbeView`. Deliberately **not** a file in
-/// the repo: a developer token in source control is a token that leaks, and a
-/// throwaway harness is exactly where that mistake gets made. Nothing here is
-/// committed, so there is no secret to scrub afterwards.
-enum ProbeConfig {
-    private static let tokenKey = "probe.immersal.token"
-    private static let mapIDsKey = "probe.immersal.mapIds"
-
-    static var token: String {
-        get { UserDefaults.standard.string(forKey: tokenKey) ?? "" }
-        set { UserDefaults.standard.set(newValue, forKey: tokenKey) }
-    }
-
-    /// Numeric map ids from the Developer Portal, in the order they should be
-    /// offered to `/localizeb64` (max 8).
-    static var mapIDs: [Int] {
-        get { (UserDefaults.standard.string(forKey: mapIDsKey) ?? "").immersalMapIDs }
-        set { UserDefaults.standard.set(newValue.map(String.init).joined(separator: ","), forKey: mapIDsKey) }
-    }
-
-    static var mapIDsText: String {
-        get { UserDefaults.standard.string(forKey: mapIDsKey) ?? "" }
-        set { UserDefaults.standard.set(newValue, forKey: mapIDsKey) }
-    }
-
-    static var isConfigured: Bool { !token.isEmpty && !mapIDs.isEmpty }
-}
-
-extension String {
-    var immersalMapIDs: [Int] {
-        split(whereSeparator: { ", ".contains($0) }).compactMap { Int($0) }
-    }
-}
-
 /// Runs one measured walk: samples ARKit, localizes against Immersal on a timer,
 /// records ground-truth stamps, and writes it all to one CSV.
 ///
@@ -79,6 +43,9 @@ final class ProbeSession {
     /// Provisional map-space position of the latest fix, for the live readout
     /// only. Never a reported number — see `ImmersalPoseConvention`.
     private(set) var lastFixPosition: SIMD3<Float>?
+    /// Fixes that arrived while ARKit was tracking normally and agreed with its
+    /// odometry: the raw material for an `ImmersalAlignment`.
+    private(set) var alignmentPairs: [ImmersalAlignment.Pair] = []
 
     private var log: ProbeLog?
     private var startedAt: Date?
@@ -119,10 +86,11 @@ final class ProbeSession {
             attempts = 0; successes = 0; rowCount = 0
             lastError = nil; lastLatencyMS = nil; lastMapID = nil
             lastDisagreement = nil; lastFixPosition = nil; lastStampLabel = nil
+            alignmentPairs = []
             previousFix = nil; previousFixAR = nil
             lastLocalizeAt = -.infinity; lastARSampleAt = -.infinity
             state = .running
-            marker("probe started · maps \(ProbeConfig.mapIDs.map(String.init).joined(separator: "+")) · downscale \(ProbeFrameEncoder.downscale)")
+            marker("probe started · maps \(ImmersalConfig.mapIDs.map(String.init).joined(separator: "+")) · downscale \(ImmersalFrameEncoder.downscale)")
         } catch {
             lastError = "could not open log: \(error.localizedDescription)"
         }
@@ -146,6 +114,8 @@ final class ProbeSession {
         guard state == .running, let log, let startedAt else { return }
         let elapsed = Date().timeIntervalSince(startedAt)
         let transform = frame.camera.transform
+        var trackingNormal = false
+        if case .normal = trackingState { trackingNormal = true }
 
         if elapsed - lastARSampleAt >= Self.arSampleInterval {
             lastARSampleAt = elapsed
@@ -161,24 +131,24 @@ final class ProbeSession {
 
         guard elapsed - lastLocalizeAt >= Self.localizeInterval,
               !requestInFlight,
-              ProbeConfig.isConfigured,
-              let plane = ProbeFrameEncoder.copyLuma(from: frame.capturedImage)
+              ImmersalConfig.isConfigured,
+              let plane = ImmersalFrameEncoder.copyLuma(from: frame.capturedImage)
         else { return }
 
         lastLocalizeAt = elapsed
         requestInFlight = true
-        let intrinsics = ProbeFrameEncoder.scaledIntrinsics(frame.camera.intrinsics)
-        let token = ProbeConfig.token
-        let mapIDs = ProbeConfig.mapIDs
+        let intrinsics = ImmersalFrameEncoder.scaledIntrinsics(frame.camera.intrinsics)
+        let token = ImmersalConfig.token
+        let mapIDs = ImmersalConfig.mapIDs
 
         Task { [weak self] in
             let png = await Task.detached(priority: .userInitiated) {
-                ProbeFrameEncoder.grayscalePNG(from: plane)
+                ImmersalFrameEncoder.grayscalePNG(from: plane)
             }.value
             guard let self else { return }
             guard let png else {
                 self.finishRequest(elapsed: elapsed, transform: transform, png: nil,
-                                   intrinsics: intrinsics,
+                                   intrinsics: intrinsics, trackingNormal: trackingNormal,
                                    result: ImmersalLocalizeResult(success: false, error: "encode",
                                                                   mapID: nil, pose: nil,
                                                                   latency: 0, requestBytes: 0))
@@ -188,7 +158,7 @@ final class ProbeSession {
             let result = await client.localize(pngData: png, fx: intrinsics.fx, fy: intrinsics.fy,
                                                ox: intrinsics.ox, oy: intrinsics.oy)
             self.finishRequest(elapsed: elapsed, transform: transform, png: png,
-                               intrinsics: intrinsics, result: result)
+                               intrinsics: intrinsics, trackingNormal: trackingNormal, result: result)
         }
     }
 
@@ -196,6 +166,7 @@ final class ProbeSession {
                                transform: simd_float4x4,
                                png: Data?,
                                intrinsics: (fx: Float, fy: Float, ox: Float, oy: Float),
+                               trackingNormal: Bool,
                                result: ImmersalLocalizeResult) {
         requestInFlight = false
         attempts += 1
@@ -215,6 +186,13 @@ final class ProbeSession {
             previousFix = pose
             previousFixAR = transform
             lastFixPosition = SIMD3(pose.px, pose.py, pose.pz)
+            // A pair is only worth fitting when both frames are trustworthy at
+            // that instant: ARKit tracking normally, and the fix not a blunder.
+            if trackingNormal, (disagreement ?? 0) < Self.maxAlignmentDisagreement,
+               let poseInMap = ImmersalPose.cameraPoseInMap(pose) {
+                alignmentPairs.append(.init(immersal: NavigationGeometry.planarPosition(of: poseInMap),
+                                            graph: NavigationGeometry.planarPosition(of: transform)))
+            }
         } else if ImmersalClient.isTransportFailure(result.error), let png {
             queue(png: png, elapsed: elapsed, transform: transform, intrinsics: intrinsics)
         }
@@ -232,6 +210,19 @@ final class ProbeSession {
                            immersalRequestBytes: result.requestBytes,
                            odometryDisagreement: disagreement),
                to: log)
+    }
+
+    // MARK: - Alignment
+
+    /// A fix whose motion disagrees with ARKit by more than this is not used to
+    /// fit the alignment, however plausible it looks on its own.
+    static let maxAlignmentDisagreement: Float = 0.5
+
+    /// The rigid transform from Immersal map space into this session's ARKit
+    /// frame — which is the graph frame whenever the session relocalized into
+    /// the saved world map.
+    func fitAlignment() throws -> ImmersalAlignment {
+        try ImmersalAlignment.fit(pairs: alignmentPairs, mapIDs: ImmersalConfig.mapIDs)
     }
 
     // MARK: - Ground truth
@@ -284,11 +275,11 @@ final class ProbeSession {
     /// replayed frames are meaningless and are marked `replayed` in the log so
     /// the analysis can exclude them.
     func replayPending() async {
-        guard !isReplaying, ProbeConfig.isConfigured else { return }
+        guard !isReplaying, ImmersalConfig.isConfigured else { return }
         isReplaying = true
         defer { isReplaying = false }
 
-        let client = ImmersalClient(token: ProbeConfig.token, mapIDs: ProbeConfig.mapIDs)
+        let client = ImmersalClient(token: ImmersalConfig.token, mapIDs: ImmersalConfig.mapIDs)
         let queued = pending
         for frame in queued {
             guard let png = try? Data(contentsOf: frame.url) else { continue }

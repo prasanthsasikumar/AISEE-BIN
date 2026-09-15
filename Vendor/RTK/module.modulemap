@@ -1,0 +1,15 @@
+module libavformat {
+    header "libavformat.framework/Headers/avformat.h"
+    export *
+}
+
+module libavutil {
+    header "libavutil.framework/Headers/avutil.h"
+    export *
+}
+
+//module ffmpegkit {
+//    header "ffmpegkit.framework/Headers/FFmpegKit.h"
+//    header "ffmpegkit.framework/Headers/FFmpegKitConfig.h"
+//    export *
+//}

@@ -122,7 +122,7 @@ final class ProbeMathTests: XCTestCase {
         k.columns.1.y = 1600   // fy
         k.columns.2.x = 960    // ox
         k.columns.2.y = 720    // oy
-        let scaled = ProbeFrameEncoder.scaledIntrinsics(k, factor: 2)
+        let scaled = ImmersalFrameEncoder.scaledIntrinsics(k, factor: 2)
         XCTAssertEqual(scaled.fx, 800)
         XCTAssertEqual(scaled.fy, 800)
         XCTAssertEqual(scaled.ox, 480)
@@ -133,7 +133,7 @@ final class ProbeMathTests: XCTestCase {
         var k = matrix_identity_float3x3
         k.columns.0.x = 1600
         k.columns.2.x = 960
-        let scaled = ProbeFrameEncoder.scaledIntrinsics(k, factor: 1)
+        let scaled = ImmersalFrameEncoder.scaledIntrinsics(k, factor: 1)
         XCTAssertEqual(scaled.fx, 1600)
         XCTAssertEqual(scaled.ox, 960)
     }

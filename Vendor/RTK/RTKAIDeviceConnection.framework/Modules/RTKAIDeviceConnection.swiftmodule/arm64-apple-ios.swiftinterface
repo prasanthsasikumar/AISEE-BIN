@@ -1,0 +1,994 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Apple Swift version 6.3.2 effective-5.10 (swiftlang-6.3.2.1.108 clang-2100.1.1.101)
+// swift-module-flags: -target arm64-apple-ios16 -enable-objc-interop -enable-library-evolution -swift-version 5 -O -enable-experimental-feature DebugDescriptionMacro -enable-bare-slash-regex -module-name RTKAIDeviceConnection
+// swift-module-flags-ignorable:  -formal-cxx-interoperability-mode=off -interface-compiler-version 6.3.2
+import AVFoundation
+import AudioToolbox
+import CoreImage
+import CoreLocation
+import CoreMedia
+import CryptoKit
+import Foundation
+import Network
+import NetworkExtension
+import OSLog
+import OpenAIRealtimeAccess
+@_exported import RTKAIDeviceConnection
+import RTKAudioConnectSDK
+@preconcurrency import RTKAudioStreaming
+import RTKLEFoundation
+import Swift
+import UIKit
+import VideoToolbox
+import _Concurrency
+import _StringProcessing
+import _SwiftConcurrencyShims
+import libavformat
+import libavutil
+import os
+public struct GeneralModelAccessConfiguration : Swift.Sendable, Swift.Equatable {
+  public let host: Swift.String
+  public let basePath: Swift.String
+  public let accessToken: Swift.String
+  public let model: Swift.String
+  public init(host: Swift.String, basePath: Swift.String, accessToken: Swift.String, model: Swift.String)
+  public static func == (a: RTKAIDeviceConnection.GeneralModelAccessConfiguration, b: RTKAIDeviceConnection.GeneralModelAccessConfiguration) -> Swift.Bool
+}
+public struct AzureAccessConfiguration : Swift.Equatable, Swift.Sendable {
+  public var host: Swift.String
+  public var apiVersion: Swift.String
+  public var deployment: Swift.String
+  public var apiKey: Swift.String
+  public init(host: Swift.String, apiVersion: Swift.String, deployment: Swift.String, apiKey: Swift.String)
+  public static func == (a: RTKAIDeviceConnection.AzureAccessConfiguration, b: RTKAIDeviceConnection.AzureAccessConfiguration) -> Swift.Bool
+}
+public enum ModelAccessConfiguration : Swift.Equatable {
+  case general(cfg: RTKAIDeviceConnection.GeneralModelAccessConfiguration)
+  case azure(cfg: RTKAIDeviceConnection.AzureAccessConfiguration)
+  public static func == (a: RTKAIDeviceConnection.ModelAccessConfiguration, b: RTKAIDeviceConnection.ModelAccessConfiguration) -> Swift.Bool
+}
+@_hasMissingDesignatedInitializers public class Activity {
+  public enum State {
+    case inprogress
+    case completed
+    case incomplete
+    case cancelled
+    public static func == (a: RTKAIDeviceConnection.Activity.State, b: RTKAIDeviceConnection.Activity.State) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public enum Role {
+    case system
+    case user
+    case assistant
+    public static func == (a: RTKAIDeviceConnection.Activity.Role, b: RTKAIDeviceConnection.Activity.Role) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public var creationTime: Foundation.Date {
+    get
+  }
+  public var finishTime: Foundation.Date? {
+    get
+  }
+  public var incompleteReason: Swift.String? {
+    get
+  }
+  public var status: RTKAIDeviceConnection.Activity.State {
+    get
+  }
+  public var onStatusUpdateHandler: ((RTKAIDeviceConnection.Activity.State) -> Swift.Void)?
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers public class Message : RTKAIDeviceConnection.Activity {
+  public var role: RTKAIDeviceConnection.Activity.Role {
+    get
+  }
+  public var content: Swift.String {
+    get
+  }
+  public var onContentUpdateHandler: (() -> Swift.Void)?
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers public class AudioMessage : RTKAIDeviceConnection.Message {
+  public var transcript: Swift.String {
+    get
+  }
+  override public var content: Swift.String {
+    get
+  }
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers public class TaskSubstep {
+  public var title: Swift.String {
+    get
+  }
+  public var description: Swift.String {
+    get
+  }
+  public var startTime: Foundation.Date {
+    get
+  }
+  public var endTime: Foundation.Date? {
+    get
+  }
+  public var isCompleted: Swift.Bool {
+    get
+  }
+  public var isSucceed: Swift.Bool {
+    get
+  }
+  public var failure: (any Swift.Error)? {
+    get
+  }
+  public var onCompletionHandler: ((_ success: Swift.Bool) -> Swift.Void)?
+  @objc deinit
+}
+@_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers public class TakePhotoSubstep : RTKAIDeviceConnection.TaskSubstep {
+  override public var title: Swift.String {
+    get
+  }
+  override public var description: Swift.String {
+    get
+  }
+  public var image: UIKit.UIImage?
+  public var imageFileURL: Foundation.URL?
+  public var alternativeImageFileURL: Foundation.URL?
+  @objc deinit
+}
+@_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers public class PhotoAnalyzeSubstep : RTKAIDeviceConnection.TaskSubstep {
+  override public var title: Swift.String {
+    get
+  }
+  override public var description: Swift.String {
+    get
+  }
+  public var image: UIKit.UIImage?
+  public var result: Swift.String?
+  @objc deinit
+}
+@_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers public class ToolAction : RTKAIDeviceConnection.Activity {
+  public var substeps: [RTKAIDeviceConnection.TaskSubstep] {
+    get
+  }
+  public var onSubstepAddedHandler: ((RTKAIDeviceConnection.TaskSubstep) -> Swift.Void)?
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers public class AIVoiceConversation : RTKAIDeviceConnection.UserSpeechProcessing, RTKAIDeviceConnection.LongTermTaskManagement {
+  public func onUserInputSpeechStarted(pcmStream: any RTKAudioStreaming.AudioStreamOutputable)
+  public func terminateCurrentSessionOnResponseDone()
+  public var imageAnalysisAccessCfg: RTKAIDeviceConnection.ModelAccessConfiguration?
+  public var dumpSpeechAudio: Swift.Bool
+  public var speechDumpDirectoryURL: Foundation.URL
+  public var photoStoreDirectoryURL: Foundation.URL
+  public var conversationIsContinuous: Swift.Bool
+  public var conversationInterruptive: Swift.Bool
+  public var idleInterval: Swift.Int
+  public var status: RTKAIDeviceConnection.GeneralTaskStatus {
+    get
+  }
+  public var speechLanguage: Foundation.Locale.Language?
+  public var history: [RTKAIDeviceConnection.Activity]
+  public var onActivityAddedHandler: ((_ activity: RTKAIDeviceConnection.Activity) -> Swift.Void)?
+  public func createGreetingResponse()
+  public func stopInprogressDialogue()
+  public typealias TaskStatus = RTKAIDeviceConnection.GeneralTaskStatus
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers public class AIClassicVoiceConversation : RTKAIDeviceConnection.AIVoiceConversation {
+  public init(deviceConnection: RTKAIDeviceConnection.IntelligenceDeviceConnection, ASR asrService: any RTKAudioStreaming.SpeechASR, TTS ttsService: any RTKAudioStreaming.SpeechTTS, chatConfiguration chatCfg: RTKAIDeviceConnection.ModelAccessConfiguration)
+  override public func onUserInputSpeechStarted(pcmStream: any RTKAudioStreaming.AudioStreamOutputable)
+  public func onUserInputSpeechCancelled()
+  override public func createGreetingResponse()
+  override public func stopInprogressDialogue()
+  override public func terminateCurrentSessionOnResponseDone()
+  public var state: RTKAIDeviceConnection.AIClassicVoiceConversation.StateMachine {
+    get
+  }
+  @objc deinit
+}
+extension RTKAIDeviceConnection.AIClassicVoiceConversation {
+  public enum State : Swift.Sendable {
+    case inactive
+    case audioInputting(speechStatus: RTKAIDeviceConnection.AIClassicVoiceConversation.SpeechStatus)
+    case chatCompleting
+    case responseSpeaking
+    case toolCalling
+    case cancelling
+    public var isChatting: Swift.Bool {
+      get
+    }
+  }
+  public enum SpeechStatus : Swift.Sendable {
+    case notSpeaking
+    case speaking
+    case unknown
+    public static func == (a: RTKAIDeviceConnection.AIClassicVoiceConversation.SpeechStatus, b: RTKAIDeviceConnection.AIClassicVoiceConversation.SpeechStatus) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  @_hasMissingDesignatedInitializers public actor StateMachine {
+    public struct InvalidTransition : Swift.Error {
+    }
+    public var current: RTKAIDeviceConnection.AIClassicVoiceConversation.State {
+      get
+    }
+    public typealias ObservationHandler = (_ previous: RTKAIDeviceConnection.AIClassicVoiceConversation.State, _ new: RTKAIDeviceConnection.AIClassicVoiceConversation.State) -> Swift.Void
+    nonisolated public func observe(with handler: @escaping RTKAIDeviceConnection.AIClassicVoiceConversation.StateMachine.ObservationHandler) -> Foundation.UUID
+    nonisolated public func unobserve(_ token: Foundation.UUID)
+    @objc deinit
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    @_semantics("defaultActor") nonisolated final public var unownedExecutor: _Concurrency.UnownedSerialExecutor {
+      get
+    }
+  }
+}
+public struct FuncTool {
+  public enum Failure : Swift.Error {
+    case alreadyExist
+    case noTool
+    public static func == (a: RTKAIDeviceConnection.FuncTool.Failure, b: RTKAIDeviceConnection.FuncTool.Failure) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public let name: Swift.String
+  public let description: Swift.String
+  public let parameters: [RTKAIDeviceConnection.FuncTool.FuncParameterProperty]?
+  public init(name: Swift.String, description: Swift.String, parameters: [RTKAIDeviceConnection.FuncTool.FuncParameterProperty]? = nil, invocation: @escaping (_ arguments: Swift.String, _ conversation: RTKAIDeviceConnection.AIVoiceConversation) async throws -> (any Swift.Encodable)?)
+  public static func register(function tool: RTKAIDeviceConnection.FuncTool)
+  public enum ParameterPropertyType : Swift.String {
+    case integer
+    case string
+    case boolean
+    case number
+    public init?(rawValue: Swift.String)
+    public typealias RawValue = Swift.String
+    public var rawValue: Swift.String {
+      get
+    }
+  }
+  public struct FuncParameterProperty {
+    public init(name: Swift.String, type: RTKAIDeviceConnection.FuncTool.ParameterPropertyType, description: Swift.String, isRequired: Swift.Bool)
+  }
+  public struct InvocationFailure : Swift.Encodable {
+    public var success: Swift.Bool
+    public var errorDescription: Swift.String
+    public init(errorDescription: Swift.String)
+    public func encode(to encoder: any Swift.Encoder) throws
+  }
+}
+extension RTKAIDeviceConnection.AIRealtimeVoiceConversation {
+  public func open() async throws
+  public func close() async throws
+}
+@_hasMissingDesignatedInitializers public class AIRealtimeVoiceConversation : RTKAIDeviceConnection.AIVoiceConversation {
+  public init(deviceConnection: RTKAIDeviceConnection.IntelligenceDeviceConnection, realtime service: OpenAIRealtimeAccess.OpenAIRealtime)
+  @objc deinit
+  override public func onUserInputSpeechStarted(pcmStream: any RTKAudioStreaming.AudioStreamOutputable)
+  override public func terminateCurrentSessionOnResponseDone()
+  override public func createGreetingResponse()
+  override public func stopInprogressDialogue()
+  public var state: RTKAIDeviceConnection.AIRealtimeVoiceConversation.StateMachine {
+    get
+  }
+}
+extension RTKAIDeviceConnection.AIRealtimeVoiceConversation {
+  public enum State : Swift.Sendable {
+    case notConnected
+    case sessionOpening
+    case idle
+    case audioInputting(speechStatus: RTKAIDeviceConnection.AIRealtimeVoiceConversation.SpeechStatus)
+    case responseAwaiting
+    case responding(responseDoneWaitting: RTKAIDeviceConnection.AIRealtimeVoiceConversation.ProcessStatus, playback: RTKAIDeviceConnection.AIRealtimeVoiceConversation.ProcessStatus, funcCall: RTKAIDeviceConnection.AIRealtimeVoiceConversation.ProcessStatus)
+    case responseCancelling(responseCancelling: RTKAIDeviceConnection.AIRealtimeVoiceConversation.ProcessStatus, playbackStopping: RTKAIDeviceConnection.AIRealtimeVoiceConversation.ProcessStatus, funcCallCancelling: RTKAIDeviceConnection.AIRealtimeVoiceConversation.ProcessStatus)
+    case responseCancellingForNewAudioInput(responseCancelling: RTKAIDeviceConnection.AIRealtimeVoiceConversation.ProcessStatus, playbackStopping: RTKAIDeviceConnection.AIRealtimeVoiceConversation.ProcessStatus, funcCallCancelling: RTKAIDeviceConnection.AIRealtimeVoiceConversation.ProcessStatus)
+    public var sessionConnected: Swift.Bool {
+      get
+    }
+    public var isChatting: Swift.Bool {
+      get
+    }
+  }
+  public enum SpeechStatus : Swift.Sendable {
+    case notSpeaking
+    case speaking
+    case unknown
+    public static func == (a: RTKAIDeviceConnection.AIRealtimeVoiceConversation.SpeechStatus, b: RTKAIDeviceConnection.AIRealtimeVoiceConversation.SpeechStatus) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public enum ProcessStatus : Swift.Sendable {
+    case notStarted
+    case inprogress
+    case done
+    public static func == (a: RTKAIDeviceConnection.AIRealtimeVoiceConversation.ProcessStatus, b: RTKAIDeviceConnection.AIRealtimeVoiceConversation.ProcessStatus) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  @_hasMissingDesignatedInitializers public actor StateMachine {
+    public struct InvalidTransition : Swift.Error {
+    }
+    public var current: RTKAIDeviceConnection.AIRealtimeVoiceConversation.State {
+      get
+    }
+    public typealias ObservationHandler = (_ previous: RTKAIDeviceConnection.AIRealtimeVoiceConversation.State, _ new: RTKAIDeviceConnection.AIRealtimeVoiceConversation.State) -> Swift.Void
+    nonisolated public func observe(with handler: @escaping RTKAIDeviceConnection.AIRealtimeVoiceConversation.StateMachine.ObservationHandler) -> Foundation.UUID
+    nonisolated public func unobserve(_ token: Foundation.UUID)
+    @objc deinit
+    @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+    @_semantics("defaultActor") nonisolated final public var unownedExecutor: _Concurrency.UnownedSerialExecutor {
+      get
+    }
+  }
+}
+@objc final public class AzureOpenAIRealtime : OpenAIRealtimeAccess.OpenAIRealtime {
+  public init(accessConfiguration cfg: RTKAIDeviceConnection.AzureAccessConfiguration)
+  override final public var request: Foundation.URLRequest {
+    get
+  }
+  @objc deinit
+}
+public enum AzureVoice : Swift.String, Swift.Codable {
+  public static let allCases: [RTKAIDeviceConnection.AzureVoice]
+  case alloy, ash, ballad, coral, echo, sage, shimmer, verse
+  public init?(rawValue: Swift.String)
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+public enum AzureTranscriptionModel : Swift.String, Swift.Codable {
+  case whisper_1
+  public init?(rawValue: Swift.String)
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+@objc final public class QwenOpenAIRealtime : OpenAIRealtimeAccess.OpenAIRealtime {
+  public struct AccessConfiguration : Swift.Sendable {
+    public var model: Swift.String
+    public var accessKey: Swift.String
+  }
+  public init(accessConfiguration cfg: RTKAIDeviceConnection.QwenOpenAIRealtime.AccessConfiguration)
+  override final public var request: Foundation.URLRequest {
+    get
+  }
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers public class ADTSFormatHelper {
+  public class func parseHeader(adtsData: Foundation.Data, dataOffset: Swift.Int) -> RTKAIDeviceConnection.ADTSHeader?
+  public class func createAudioFormatDescription(adtsHeader: RTKAIDeviceConnection.ADTSHeader) -> CoreMedia.CMAudioFormatDescription?
+  public class func createAudioStreamBaseDescription(adtsHeader: RTKAIDeviceConnection.ADTSHeader) -> CoreAudioTypes.AudioStreamBasicDescription
+  public class func createAudioStreamPacketDescription(adtsHeader: RTKAIDeviceConnection.ADTSHeader) -> CoreAudioTypes.AudioStreamPacketDescription
+  @objc deinit
+}
+public struct ADTSHeader {
+  public static let SAMPLE_RATE_TABLE: [Swift.Int]
+  public enum MPEG_ID : Swift.Int {
+    case MPEG_4
+    case MPEG_2
+    public init?(rawValue: Swift.Int)
+    public typealias RawValue = Swift.Int
+    public var rawValue: Swift.Int {
+      get
+    }
+  }
+  public enum PROFILE : Swift.Int {
+    case MAIN
+    case LOW_COMPLEXITY
+    case SCALABLE_SAMPLING_RATE
+    case ELSE
+    case EXTENSION_HE_V1
+    case EXTENSION_HE_V2
+    public init?(rawValue: Swift.Int)
+    public typealias RawValue = Swift.Int
+    public var rawValue: Swift.Int {
+      get
+    }
+  }
+  public var mpegID: RTKAIDeviceConnection.ADTSHeader.MPEG_ID
+  public var layer: Swift.Int
+  public var profile: RTKAIDeviceConnection.ADTSHeader.PROFILE
+  public var protectionAbsent: Swift.Bool
+  public var sampleRate: Swift.Int
+  public var channels: Swift.Int
+  public var frameLength: Swift.Int
+  public var variableSampleRate: Swift.Bool
+  public var dataOffset: Swift.Int
+  public var samplesPerFrame: Swift.Int
+  public var formatID: CoreAudioTypes.AudioFormatID
+}
+@available(*, deprecated, renamed: "CaptureImporter", message: "Use CaptureImporter instead.")
+public typealias CapturesImporter = RTKAIDeviceConnection.CaptureImporter
+public class CaptureImporter : RTKAIDeviceConnection.LongTermTaskManagement {
+  public init(accessoryConnection: RTKAIDeviceConnection.IntelligenceDeviceConnection)
+  public var status: RTKAIDeviceConnection.GeneralTaskStatus {
+    get
+  }
+  public var importableAssetCount: (photoCount: Swift.Int, videoCount: Swift.Int) {
+    get
+  }
+  public func observeAssetCountUpdate(_ handler: @escaping (Swift.Int, Swift.Int) -> Swift.Void) -> Foundation.UUID
+  public func unobserveAssetCountUpdate(_ token: Foundation.UUID)
+  @available(*, deprecated, message: "Use captureImport(to:timeout:usingPhoneHotspot:requiringTransportSecurity) instead.")
+  public func importCaptures(to directory: Foundation.URL, timeout interval: Foundation.TimeInterval = 60, usingPhoneHotspot configuration: RTKAIDeviceConnection.HotspotConfiguration? = nil, requiringTransportSecurity securityRequired: Swift.Bool = true) async throws -> (photoURLs: [Foundation.URL], videoURLs: [Foundation.URL])
+  public func captureImport(to directory: Foundation.URL, timeout interval: Foundation.TimeInterval = 60, usingPhoneHotspot configuration: RTKAIDeviceConnection.HotspotConfiguration? = nil, requiringTransportSecurity securityRequired: Swift.Bool = true, onHotspotConnectionEstablishment connectionHandler: ((RTKAIDeviceConnection.DeviceHotspotConnection) -> Swift.Void)? = nil) async throws -> _Concurrency.AsyncThrowingStream<Foundation.URL, any Swift.Error>
+  public typealias TaskStatus = RTKAIDeviceConnection.GeneralTaskStatus
+  @objc deinit
+}
+public enum LiveStreamingConfiguration {
+  public enum VideoFormat : Swift.UInt8 {
+    case HEVC
+    case H264
+    case JPEG
+    case NV12
+    case RGB
+    case NV16
+    case HEVC_JPEG
+    case H264_JPEG
+    public init?(rawValue: Swift.UInt8)
+    public typealias RawValue = Swift.UInt8
+    public var rawValue: Swift.UInt8 {
+      get
+    }
+  }
+  public enum VideoResolution : Swift.UInt8 {
+    case HD
+    case FHD
+    public init?(rawValue: Swift.UInt8)
+    public typealias RawValue = Swift.UInt8
+    public var rawValue: Swift.UInt8 {
+      get
+    }
+  }
+  public enum PictureSize : Swift.Int {
+    case _480p
+    case _720p
+    case _1080p
+    case _1440p
+    case _2160p
+    public init?(rawValue: Swift.Int)
+    public typealias RawValue = Swift.Int
+    public var rawValue: Swift.Int {
+      get
+    }
+  }
+  public enum PictureRotation : Swift.UInt8 {
+    case _0
+    case _90_CCW
+    case _90_CW
+    case _180
+    public init?(rawValue: Swift.UInt8)
+    public typealias RawValue = Swift.UInt8
+    public var rawValue: Swift.UInt8 {
+      get
+    }
+  }
+  public enum VideoRCMode : Swift.UInt8 {
+    case CBR
+    case VBR
+    public init?(rawValue: Swift.UInt8)
+    public typealias RawValue = Swift.UInt8
+    public var rawValue: Swift.UInt8 {
+      get
+    }
+  }
+  public enum AudioFormat : Swift.UInt8 {
+    case AAC
+    case Opus
+    public init?(rawValue: Swift.UInt8)
+    public typealias RawValue = Swift.UInt8
+    public var rawValue: Swift.UInt8 {
+      get
+    }
+  }
+}
+public struct HotspotConfiguration : Swift.Sendable {
+  public let ssid: Swift.String
+  public init(ssid: Swift.String, passphrase: Swift.String)
+}
+@_hasMissingDesignatedInitializers public class HotspotConnection {
+  public enum Failure : Swift.Error {
+    case fetchNetworkFails
+    case timeout
+    case serverError(code: Swift.Int?)
+    case invalidFormat
+    case disconnection
+  }
+  public var notDismissHotspotAssociation: Swift.Bool
+  public var client: RTKAIDeviceConnection.HotspotConnectionHTTPClient! {
+    get
+  }
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers final public class DeviceHotspotConnection : RTKAIDeviceConnection.HotspotConnection {
+  public init(routine: RTKAIDeviceConnection.HotspotRoutine, confirmingCurrentNetwork needConfirming: Swift.Bool = true) async throws
+  @objc deinit
+  final public func confirmConnectionWithHotspot(until duration: Foundation.TimeInterval = 3) async throws
+  final public var networkJoined: Swift.Bool {
+    get async throws
+  }
+}
+@_hasMissingDesignatedInitializers final public class GhostDeviceHotspotConnection : RTKAIDeviceConnection.HotspotConnection {
+  public init(routine: RTKAIDeviceConnection.HotspotRoutine) async throws
+  @objc deinit
+}
+extension Network.IPv4Address {
+  public init(value: Swift.UInt32)
+  public init(valueTuple: (Swift.UInt8, Swift.UInt8, Swift.UInt8, Swift.UInt8))
+}
+@_hasMissingDesignatedInitializers final public class PhoneHotspotConnection : RTKAIDeviceConnection.HotspotConnection {
+  @available(*, deprecated, renamed: "AccessoryRole")
+  public typealias BudRole = RTKAIDeviceConnection.AccessoryRole
+  public enum ChannelType : Swift.UInt8, Swift.Sendable {
+    case error, _2_4G, _5G
+    public init?(rawValue: Swift.UInt8)
+    public typealias RawValue = Swift.UInt8
+    public var rawValue: Swift.UInt8 {
+      get
+    }
+  }
+  final public let budRole: RTKAIDeviceConnection.AccessoryRole
+  final public let deviceAddress: any Network.IPAddress
+  final public let channel: RTKAIDeviceConnection.PhoneHotspotConnection.ChannelType
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers public class HotspotConnectionHTTPClient {
+  @objc deinit
+  public func ping(waitForConnectivity: Swift.Bool = false, timeout: Foundation.TimeInterval = 10) async throws
+  public typealias AssetInfo = (name: Swift.String, size: Swift.Int?, time: Foundation.Date?)
+  public func getAssetList(waitForConnectivity: Swift.Bool = false) async throws -> [RTKAIDeviceConnection.HotspotConnectionHTTPClient.AssetInfo]
+  public func downloadAsset(_ name: Swift.String, waitForConnectivity: Swift.Bool = false) async throws -> Foundation.URL
+  public func deleteAsset(_ name: Swift.String, waitForConnectivity: Swift.Bool = false) async throws
+  public func uploadBTComponentFirmware(_ fileURL: Foundation.URL, version verText: Swift.String, waitForConnectivity: Swift.Bool = false) async throws
+  public func uploadWiFiComponentFirmware(_ fileURL: Foundation.URL, version verText: Swift.String, waitForConnectivity: Swift.Bool = false) async throws
+}
+@objc @_inheritsConvenienceInitializers public class HotspotRoutine : RTKAudioConnectSDK.RTKACRoutine {
+  @discardableResult
+  public func setHotspotEnable(_ enabled: Swift.Bool, forUpgrade isOta: Swift.Bool = false) async throws -> RTKAIDeviceConnection.HotspotConfiguration?
+  public func joinPhoneHotspotNetwork(configuration config: RTKAIDeviceConnection.HotspotConfiguration, timeout interval: Foundation.TimeInterval = 40) async throws -> [RTKAIDeviceConnection.PhoneHotspotConnection]
+  public func cancelConnectionWithPhoneHotspotNetwork(forUpgrade isOta: Swift.Bool = false) async throws
+  @objc override dynamic public func transport(_ transport: RTKLEFoundation.RTKPacketTransport, didReceive data: Foundation.Data)
+  @objc override dynamic public init(connection: RTKLEFoundation.RTKProfileConnection)
+  @objc override dynamic public init(messageTransport transport: RTKLEFoundation.RTKPacketTransport?)
+  @objc override dynamic public init()
+  @objc deinit
+}
+public enum DeviceFailure : Swift.Error {
+  case noAvailableTransport
+  case failure(code: Swift.Int)
+  case invalidResponse
+  case notSupported
+  case pending
+  case timeout
+  case deviceCancelled
+  case joinPhoneHotspot
+}
+public enum APIInvocationFailure : Swift.Error {
+  case invalidArgument
+  public static func == (a: RTKAIDeviceConnection.APIInvocationFailure, b: RTKAIDeviceConnection.APIInvocationFailure) -> Swift.Bool
+  public func hash(into hasher: inout Swift.Hasher)
+  public var hashValue: Swift.Int {
+    get
+  }
+}
+public enum AccessoryRole : Swift.Int, Swift.Sendable {
+  case single, left, right
+  public init?(rawValue: Swift.Int)
+  public typealias RawValue = Swift.Int
+  public var rawValue: Swift.Int {
+    get
+  }
+}
+@available(*, deprecated, renamed: "IntelligenceDeviceConnection", message: "Use 'IntelligenceDeviceConnection' instead.")
+public typealias AIDeviceConnection = RTKAIDeviceConnection.IntelligenceDeviceConnection
+@objc @_inheritsConvenienceInitializers open class IntelligenceDeviceConnection : RTKAudioConnectSDK.RTKACConnectionUponGATT, RTKAudioStreaming.AudioStreamOutputable {
+  public var mediaRoutine: RTKAIDeviceConnection.MediaRoutine {
+    get
+    set
+  }
+  public var hotspotRoutine: RTKAIDeviceConnection.HotspotRoutine {
+    get
+    set
+  }
+  public var upgradeRoutine: RTKAIDeviceConnection.UpgradeRoutine {
+    get
+    set
+  }
+  @available(*, deprecated, renamed: "mediaRoutine", message: "Use 'mediaRoutine' instead.")
+  public var aiRoutine: RTKAIDeviceConnection.AIRoutine {
+    get
+  }
+  @available(*, deprecated, renamed: "mediaRoutine", message: "Use 'mediaRoutine' instead.")
+  public var miscRoutine: RTKAIDeviceConnection.AIRoutine {
+    get
+  }
+  @objc override dynamic public func setupPreActive(_ completionHandler: RTKLEFoundation.RTKLECompletionBlock? = nil)
+  public func getInfo() async throws -> (btProVer: Swift.UInt, btIC: Swift.UInt, wifiProtVer: Swift.UInt, wifiIC: Swift.UInt)
+  public var onAudioStreamStartedHandler: (() -> Swift.Void)?
+  public var onAudioStreamCancelledHandler: (() -> Swift.Void)?
+  public var onAudioStreamFinishedHandler: (() -> Swift.Void)?
+  public var blockingAudioStream: Swift.Bool
+  public var outDataFormat: CoreAudioTypes.AudioStreamBasicDescription
+  public var downstreams: [any RTKAudioStreaming.AudioStreamInputable]
+  @objc override dynamic open func transportDidChangeState(_ transport: RTKLEFoundation.RTKPacketTransport)
+  @objc override dynamic open func transport(_ transport: RTKLEFoundation.RTKPacketTransport, didReceive data: Foundation.Data)
+  @objc override dynamic public init(peripheral: CoreBluetooth.CBPeripheral)
+  @objc override dynamic public init()
+  @objc deinit
+}
+public enum DataTransport {
+  case bt
+  case wifi
+  public static func == (a: RTKAIDeviceConnection.DataTransport, b: RTKAIDeviceConnection.DataTransport) -> Swift.Bool
+  public func hash(into hasher: inout Swift.Hasher)
+  public var hashValue: Swift.Int {
+    get
+  }
+}
+public enum StreamingError : Swift.Error {
+  case EOF
+  case timeout
+  case ffmpegFailure(code: Swift.Int32, description: Swift.String)
+  case resourceAllocation
+}
+public protocol LiveStreamSampleReceiving : AnyObject {
+  func stream(_ stream: RTKAIDeviceConnection.LiveCaptureStream, didStartWithMedia format: RTKAIDeviceConnection.LiveCaptureStream.StreamFormat)
+  func stream(_ stream: RTKAIDeviceConnection.LiveCaptureStream, didGenerate sampleBuffer: CoreMedia.CMSampleBuffer)
+  func stream(_ stream: RTKAIDeviceConnection.LiveCaptureStream, didTerminateWith error: (any Swift.Error)?)
+}
+public class LiveCaptureStream {
+  public typealias VideoConfiguration = (videoFmt: RTKAIDeviceConnection.LiveStreamingConfiguration.VideoFormat, audioFmt: RTKAIDeviceConnection.LiveStreamingConfiguration.AudioFormat, pictureSize: RTKAIDeviceConnection.LiveStreamingConfiguration.PictureSize, pictureRotation: RTKAIDeviceConnection.LiveStreamingConfiguration.PictureRotation)
+  public init(accessoryConnection: RTKAIDeviceConnection.IntelligenceDeviceConnection, configuration cfg: RTKAIDeviceConnection.LiveCaptureStream.VideoConfiguration = (.H264, .AAC, ._720p, ._0))
+  @objc deinit
+  public var isStreaming: Swift.Bool {
+    get
+  }
+  public var onStreamTermination: ((_ possilbleError: (any Swift.Error)?) -> Swift.Void)?
+  public func liveStream(via transport: RTKAIDeviceConnection.DataTransport = .wifi) async throws -> (info: RTKAIDeviceConnection.LiveCaptureStream.StreamInfo, hotspotConnection: RTKAIDeviceConnection.DeviceHotspotConnection?, samples: _Concurrency.AsyncThrowingStream<CoreMedia.CMSampleBuffer, any Swift.Error>)
+  public typealias StreamFormat = (video: CoreMedia.CMVideoFormatDescription?, audio: CoreMedia.CMAudioFormatDescription?)
+  public typealias StreamInfo = RTKAIDeviceConnection.LiveCaptureStream.StreamFormat
+  public func start(via transport: RTKAIDeviceConnection.DataTransport = .wifi, sampleReceivers: [any RTKAIDeviceConnection.LiveStreamSampleReceiving], onHotspotConnectionEstablishment connectionHandler: ((RTKAIDeviceConnection.DeviceHotspotConnection) -> Swift.Void)? = nil) async throws -> RTKAIDeviceConnection.LiveCaptureStream.StreamInfo
+  public func stop() async throws
+}
+public class LiveStreamRecorder {
+  public init()
+  public enum Failure : Swift.Error {
+    case noActiveStream
+    case invalidContainerType
+    case inputUnsupported
+    case writtingError
+    public static func == (a: RTKAIDeviceConnection.LiveStreamRecorder.Failure, b: RTKAIDeviceConnection.LiveStreamRecorder.Failure) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public func record(containerType fileType: AVFoundation.AVFileType) async throws -> (outputFileURL: Foundation.URL, possibleError: (any Swift.Error)?)
+  @objc deinit
+}
+extension RTKAIDeviceConnection.LiveStreamRecorder : RTKAIDeviceConnection.LiveStreamSampleReceiving {
+  public func stream(_ stream: RTKAIDeviceConnection.LiveCaptureStream, didStartWithMedia format: RTKAIDeviceConnection.LiveCaptureStream.StreamFormat)
+  public func stream(_ stream: RTKAIDeviceConnection.LiveCaptureStream, didGenerate sampleBuffer: CoreMedia.CMSampleBuffer)
+  public func stream(_ stream: RTKAIDeviceConnection.LiveCaptureStream, didTerminateWith error: (any Swift.Error)?)
+}
+public class LiveStreamRender {
+  public init(videoRender: any AVFoundation.AVQueuedSampleBufferRendering, audioRender: any AVFoundation.AVQueuedSampleBufferRendering)
+  final public let videoRenderer: any AVFoundation.AVQueuedSampleBufferRendering
+  final public let audioRenderer: any AVFoundation.AVQueuedSampleBufferRendering
+  @objc deinit
+}
+extension RTKAIDeviceConnection.LiveStreamRender : RTKAIDeviceConnection.LiveStreamSampleReceiving {
+  public func stream(_ stream: RTKAIDeviceConnection.LiveCaptureStream, didStartWithMedia format: RTKAIDeviceConnection.LiveCaptureStream.StreamFormat)
+  public func stream(_ stream: RTKAIDeviceConnection.LiveCaptureStream, didGenerate sampleBuffer: CoreMedia.CMSampleBuffer)
+  public func stream(_ stream: RTKAIDeviceConnection.LiveCaptureStream, didTerminateWith error: (any Swift.Error)?)
+}
+public class LiveStreamRTMPPublisher {
+  public enum Failure : Swift.Error {
+    case invalidEndpoint
+    case noActiveStream
+    case streamDisconnection
+    public static func == (a: RTKAIDeviceConnection.LiveStreamRTMPPublisher.Failure, b: RTKAIDeviceConnection.LiveStreamRTMPPublisher.Failure) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public init()
+  public func publish(to endpointURL: Foundation.URL, streamName: Swift.String, requiringNetworkInterface requiredInterfaceType: Network.NWInterface.InterfaceType? = nil) async throws -> (any Swift.Error)?
+  @objc deinit
+}
+extension RTKAIDeviceConnection.LiveStreamRTMPPublisher : RTKAIDeviceConnection.LiveStreamSampleReceiving {
+  public func stream(_ stream: RTKAIDeviceConnection.LiveCaptureStream, didStartWithMedia format: RTKAIDeviceConnection.LiveCaptureStream.StreamFormat)
+  public func stream(_ stream: RTKAIDeviceConnection.LiveCaptureStream, didGenerate sampleBuffer: CoreMedia.CMSampleBuffer)
+  public func stream(_ stream: RTKAIDeviceConnection.LiveCaptureStream, didTerminateWith error: (any Swift.Error)?)
+}
+public class LiveStreamVideoDecoder {
+  public init()
+  public enum Failure : Swift.Error {
+    case noActiveStream
+    case sessionCreation
+    public static func == (a: RTKAIDeviceConnection.LiveStreamVideoDecoder.Failure, b: RTKAIDeviceConnection.LiveStreamVideoDecoder.Failure) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public func decodedImages(fps: Swift.UInt = 2) -> _Concurrency.AsyncThrowingStream<CoreGraphics.CGImage?, any Swift.Error>
+  @objc deinit
+}
+extension RTKAIDeviceConnection.LiveStreamVideoDecoder : RTKAIDeviceConnection.LiveStreamSampleReceiving {
+  public func stream(_ stream: RTKAIDeviceConnection.LiveCaptureStream, didStartWithMedia format: RTKAIDeviceConnection.LiveCaptureStream.StreamFormat)
+  public func stream(_ stream: RTKAIDeviceConnection.LiveCaptureStream, didGenerate sampleBuffer: CoreMedia.CMSampleBuffer)
+  public func stream(_ stream: RTKAIDeviceConnection.LiveCaptureStream, didTerminateWith error: (any Swift.Error)?)
+}
+public protocol LongTermTaskStatus : AnyObject {
+  var isBusy: Swift.Bool { get }
+  var description: Swift.String { get }
+  associatedtype ObservationToken
+  func observe(_ handler: @escaping (Self) -> Swift.Void) -> Self.ObservationToken
+  func unobserve(_ token: Self.ObservationToken)
+}
+public protocol LongTermTaskManagement : AnyObject {
+  associatedtype TaskStatus : RTKAIDeviceConnection.LongTermTaskStatus
+  var status: Self.TaskStatus { get }
+}
+@_hasMissingDesignatedInitializers final public class GeneralTaskStatus : RTKAIDeviceConnection.LongTermTaskStatus {
+  final public var isBusy: Swift.Bool {
+    get
+    set
+  }
+  final public func toggle()
+  final public var description: Swift.String {
+    get
+  }
+  public typealias ObservationToken = Any
+  final public func observe(_ handler: @escaping (RTKAIDeviceConnection.GeneralTaskStatus) -> Swift.Void) -> Any
+  final public func unobserve(_ token: Any)
+  @objc deinit
+}
+@objc @_inheritsConvenienceInitializers public class MediaRoutine : RTKAudioConnectSDK.RTKACRoutine {
+  public typealias PhotoInfo = (deviceRole: RTKAIDeviceConnection.AccessoryRole, fileLen: Swift.UInt)
+  public func snapshot(quality: Swift.UInt = 8, pictureSize: (width: Swift.UInt, height: Swift.UInt) = (640, 480), ROI: (topLeft: (x: Swift.Float, y: Swift.Float), bottomRight: (x: Swift.Float, y: Swift.Float)) = ((0.0, 0.0), (1.0, 1.0)), playingTone: Swift.Bool = false) async throws -> RTKAIDeviceConnection.MediaRoutine.PhotoInfo
+  @available(*, deprecated, message: "Only used with old device implementations.")
+  public typealias PicInfo = (fileLen: Swift.UInt, rsvd: Swift.Int)
+  @available(*, deprecated, message: "Only used with old device implementations.")
+  public func getCapturedPicInfo() async throws -> RTKAIDeviceConnection.MediaRoutine.PicInfo
+  @available(*, deprecated, message: "Only used with old device implementations.")
+  public func getPictureDataLegacy(with fileInfo: RTKAIDeviceConnection.MediaRoutine.PicInfo) async throws -> Foundation.Data
+  public func getPictureData(with picInfo: RTKAIDeviceConnection.MediaRoutine.PhotoInfo) async throws -> Foundation.Data
+  public func stopCaptureTransfer() async throws
+  public func getNextCaptureStatus() async throws -> (hasMore: Swift.Bool, info: RTKAIDeviceConnection.MediaRoutine.PhotoInfo)
+  public enum VoiceMode : Swift.UInt8 {
+    case `default`
+    case meeting
+    public init?(rawValue: Swift.UInt8)
+    public typealias RawValue = Swift.UInt8
+    public var rawValue: Swift.UInt8 {
+      get
+    }
+  }
+  public func startInputAudioStream(mode: RTKAIDeviceConnection.MediaRoutine.VoiceMode = .default) async throws
+  public func stopInputAudioStream() async throws
+  public var isVoiceInputting: Swift.Bool {
+    get
+  }
+  public func startLiveStreaming(video: RTKAIDeviceConnection.LiveStreamingConfiguration.VideoFormat = .H264, resolution: RTKAIDeviceConnection.LiveStreamingConfiguration.VideoResolution = .HD, pictureSize: RTKAIDeviceConnection.LiveStreamingConfiguration.PictureSize = ._720p, fps: Swift.UInt = 30, bps: Swift.UInt = 1000000, minQP: Swift.UInt = 0, maxQP: Swift.UInt = 0, rotation: RTKAIDeviceConnection.LiveStreamingConfiguration.PictureRotation = ._0, rc mode: RTKAIDeviceConnection.LiveStreamingConfiguration.VideoRCMode = .VBR, audio: RTKAIDeviceConnection.LiveStreamingConfiguration.AudioFormat = .AAC, usingWiFi: Swift.Bool = true) async throws
+  public func stopLiveStreaming(usingWiFi: Swift.Bool = true) async throws
+  public var liveVideoPacketReceptionHandler: ((Swift.Int, Foundation.Data) -> Swift.Void)?
+  public var liveAudioPacketReceptionHandler: ((Swift.Int, Foundation.Data) -> Swift.Void)?
+  public func getImportableAssetCount() async throws -> (picCount: Swift.Int, videoCount: Swift.Int)
+  public var onImportableAssetCountUpdateHandler: ((_ picCount: Swift.Int, _ videoCount: Swift.Int) -> Swift.Void)?
+  public var onKeyPressNotification: ((_ keyIdx: Swift.Int) -> Swift.Void)?
+  @objc override dynamic public func transport(_ transport: RTKLEFoundation.RTKPacketTransport, didReceive data: Foundation.Data)
+  @objc override dynamic public init(connection: RTKLEFoundation.RTKProfileConnection)
+  @objc override dynamic public init(messageTransport transport: RTKLEFoundation.RTKPacketTransport?)
+  @objc override dynamic public init()
+  @objc deinit
+}
+@available(*, deprecated, renamed: "MediaRoutine", message: "Use 'MediaRoutine' instead.")
+public typealias AIRoutine = RTKAIDeviceConnection.MediaRoutine
+public class SimultaneousTranslation : RTKAIDeviceConnection.UserSpeechProcessing, RTKAIDeviceConnection.LongTermTaskManagement {
+  final public let service: any RTKAudioStreaming.ASTService
+  @_hasMissingDesignatedInitializers public class Utterance {
+    final public let language: Foundation.Locale.Language
+    public var transcript: Swift.String
+    public var speechFile: Foundation.URL?
+    @objc deinit
+  }
+  @_hasMissingDesignatedInitializers public class TranslationEntry {
+    final public let time: Foundation.Date
+    public var source: RTKAIDeviceConnection.SimultaneousTranslation.Utterance
+    public var destination: RTKAIDeviceConnection.SimultaneousTranslation.Utterance
+    public var isCompleted: Swift.Bool
+    public var onSourceTranscriptUpdated: (() -> Swift.Void)?
+    public var onDestinationTranscriptUpdated: (() -> Swift.Void)?
+    public var onStatusUpdated: (() -> Swift.Void)?
+    @objc deinit
+  }
+  public var occurredTranslationEntries: [RTKAIDeviceConnection.SimultaneousTranslation.TranslationEntry]
+  public var onTranslationEntryAdded: ((RTKAIDeviceConnection.SimultaneousTranslation.TranslationEntry) -> Swift.Void)?
+  public var onTranslationEntryRemoval: ((RTKAIDeviceConnection.SimultaneousTranslation.TranslationEntry) -> Swift.Void)?
+  public var status: RTKAIDeviceConnection.GeneralTaskStatus {
+    get
+  }
+  public var speechInputAudioStream: (any RTKAudioStreaming.AudioStreamOutputable)!
+  public init(deviceConnection: RTKAIDeviceConnection.IntelligenceDeviceConnection, service: any RTKAudioStreaming.ASTService)
+  public var audioDirectoryURL: Foundation.URL?
+  public func onUserInputSpeechStarted(pcmStream: any RTKAudioStreaming.AudioStreamOutputable)
+  public func onUserInputSpeechCancelled()
+  public typealias TaskStatus = RTKAIDeviceConnection.GeneralTaskStatus
+  @objc deinit
+}
+extension Foundation.Date {
+  public var timestamp: Swift.String {
+    get
+  }
+}
+public class UpgradeManager : RTKAIDeviceConnection.LongTermTaskManagement {
+  public enum Failure : Swift.Error {
+    case upgradeFailure(code: Swift.Int)
+  }
+  public struct ImageVersion : Swift.Sendable {
+    public init(part1: Swift.UInt8, part2: Swift.UInt8, part3: Swift.UInt8, part4: Swift.UInt8)
+    public init(tuple: (Swift.UInt8, Swift.UInt8, Swift.UInt8, Swift.UInt8))
+    public init?(with text: Swift.String)
+    public var description: Swift.String {
+      get
+    }
+    public var rawVersion: Swift.UInt32 {
+      get
+    }
+  }
+  public struct FirmwareImage {
+    public let image: RTKAIDeviceConnection.UpgradeRoutine.ComponentImage
+    public let version: RTKAIDeviceConnection.UpgradeManager.ImageVersion
+    public let file: Foundation.URL
+    public init(image: RTKAIDeviceConnection.UpgradeRoutine.ComponentImage, version: RTKAIDeviceConnection.UpgradeManager.ImageVersion, file: Foundation.URL)
+  }
+  public init(deviceConnection: RTKAIDeviceConnection.IntelligenceDeviceConnection)
+  public var status: RTKAIDeviceConnection.GeneralTaskStatus {
+    get
+  }
+  public func upgrade(using imgs: [RTKAIDeviceConnection.UpgradeManager.FirmwareImage], usingPhoneHotspot phoneHotspotCfg: RTKAIDeviceConnection.HotspotConfiguration? = nil, timeout interval: Foundation.TimeInterval = 600) async throws
+  public func upgrade(leftBud leftImgs: [RTKAIDeviceConnection.UpgradeManager.FirmwareImage], rightBud rightImgs: [RTKAIDeviceConnection.UpgradeManager.FirmwareImage], usingPhoneHotspot configuration: RTKAIDeviceConnection.HotspotConfiguration, timeout interval: Foundation.TimeInterval = 600) async throws
+  public typealias TaskStatus = RTKAIDeviceConnection.GeneralTaskStatus
+  @objc deinit
+}
+@objc @_inheritsConvenienceInitializers public class UpgradeRoutine : RTKAudioConnectSDK.RTKACRoutine {
+  public typealias ImageID = Swift.UInt16
+  public typealias RawImageVersion = Swift.UInt32
+  public func getBTComponentVersion(isActiveBank: Swift.Bool = true) async throws -> [(imageId: RTKAIDeviceConnection.UpgradeRoutine.ImageID, rawVersion: RTKAIDeviceConnection.UpgradeRoutine.RawImageVersion)]
+  public func getWiFiComponentVersion(role: RTKAIDeviceConnection.AccessoryRole = .single) async throws -> [(imageId: RTKAIDeviceConnection.UpgradeRoutine.ImageID, rawVersion: RTKAIDeviceConnection.UpgradeRoutine.RawImageVersion)]
+  public func getStatus() async throws -> (img: RTKAIDeviceConnection.UpgradeRoutine.ComponentImage, percent: Swift.UInt)
+  public enum ComponentImage {
+    case bt, wifi_bootloader, wifi, neuralNetwork, isp_iq
+    public static func == (a: RTKAIDeviceConnection.UpgradeRoutine.ComponentImage, b: RTKAIDeviceConnection.UpgradeRoutine.ComponentImage) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public func startUpgrade(images: Swift.Set<RTKAIDeviceConnection.UpgradeRoutine.ComponentImage>, version: RTKAIDeviceConnection.UpgradeRoutine.RawImageVersion) async throws
+  public func cancelUpgrade() async throws
+  public var upgradeProgressHandler: ((_ bud: Swift.Int, _ component: Swift.Int, _ percent: Swift.Int) -> Swift.Void)?
+  public var upgradeCompletionHandler: ((Swift.Bool, Swift.Int) -> Swift.Void)?
+  @objc override dynamic public func transport(_ transport: RTKLEFoundation.RTKPacketTransport, didReceive data: Foundation.Data)
+  @objc override dynamic public init(connection: RTKLEFoundation.RTKProfileConnection)
+  @objc override dynamic public init(messageTransport transport: RTKLEFoundation.RTKPacketTransport?)
+  @objc override dynamic public init()
+  @objc deinit
+}
+public protocol UserSpeechProcessing : AnyObject {
+  func onUserInputSpeechStarted(pcmStream: any RTKAudioStreaming.AudioStreamOutputable)
+  func onUserInputSpeechCancelled()
+  func onUserInputSpeechStopped()
+}
+extension RTKAIDeviceConnection.UserSpeechProcessing {
+  public func onUserInputSpeechCancelled()
+  public func onUserInputSpeechStopped()
+}
+@_hasMissingDesignatedInitializers public class NetworkMonitor {
+  public static let shared: RTKAIDeviceConnection.NetworkMonitor
+  public var isConnected: Swift.Bool {
+    get
+  }
+  public var connectionType: RTKAIDeviceConnection.NetworkMonitor.ConnectionType {
+    get
+  }
+  public var onUpdateHandler: ((Swift.Bool, RTKAIDeviceConnection.NetworkMonitor.ConnectionType) -> Swift.Void)?
+  public enum ConnectionType : Swift.String {
+    case wifi
+    case cellular
+    case ethernet
+    case unknown
+    public init?(rawValue: Swift.String)
+    public typealias RawValue = Swift.String
+    public var rawValue: Swift.String {
+      get
+    }
+  }
+  @objc deinit
+}
+extension RTKAIDeviceConnection.Activity.State : Swift.Equatable {}
+extension RTKAIDeviceConnection.Activity.State : Swift.Hashable {}
+extension RTKAIDeviceConnection.Activity.Role : Swift.Equatable {}
+extension RTKAIDeviceConnection.Activity.Role : Swift.Hashable {}
+extension RTKAIDeviceConnection.AIClassicVoiceConversation.SpeechStatus : Swift.Equatable {}
+extension RTKAIDeviceConnection.AIClassicVoiceConversation.SpeechStatus : Swift.Hashable {}
+extension RTKAIDeviceConnection.FuncTool.Failure : Swift.Equatable {}
+extension RTKAIDeviceConnection.FuncTool.Failure : Swift.Hashable {}
+extension RTKAIDeviceConnection.FuncTool.ParameterPropertyType : Swift.Equatable {}
+extension RTKAIDeviceConnection.FuncTool.ParameterPropertyType : Swift.Hashable {}
+extension RTKAIDeviceConnection.FuncTool.ParameterPropertyType : Swift.RawRepresentable {}
+extension RTKAIDeviceConnection.AIRealtimeVoiceConversation.SpeechStatus : Swift.Equatable {}
+extension RTKAIDeviceConnection.AIRealtimeVoiceConversation.SpeechStatus : Swift.Hashable {}
+extension RTKAIDeviceConnection.AIRealtimeVoiceConversation.ProcessStatus : Swift.Equatable {}
+extension RTKAIDeviceConnection.AIRealtimeVoiceConversation.ProcessStatus : Swift.Hashable {}
+extension RTKAIDeviceConnection.AzureVoice : Swift.Equatable {}
+extension RTKAIDeviceConnection.AzureVoice : Swift.Hashable {}
+extension RTKAIDeviceConnection.AzureVoice : Swift.RawRepresentable {}
+extension RTKAIDeviceConnection.AzureTranscriptionModel : Swift.Equatable {}
+extension RTKAIDeviceConnection.AzureTranscriptionModel : Swift.Hashable {}
+extension RTKAIDeviceConnection.AzureTranscriptionModel : Swift.RawRepresentable {}
+extension RTKAIDeviceConnection.ADTSHeader.MPEG_ID : Swift.Equatable {}
+extension RTKAIDeviceConnection.ADTSHeader.MPEG_ID : Swift.Hashable {}
+extension RTKAIDeviceConnection.ADTSHeader.MPEG_ID : Swift.RawRepresentable {}
+extension RTKAIDeviceConnection.ADTSHeader.PROFILE : Swift.Equatable {}
+extension RTKAIDeviceConnection.ADTSHeader.PROFILE : Swift.Hashable {}
+extension RTKAIDeviceConnection.ADTSHeader.PROFILE : Swift.RawRepresentable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.VideoFormat : Swift.Equatable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.VideoFormat : Swift.Hashable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.VideoFormat : Swift.RawRepresentable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.VideoResolution : Swift.Equatable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.VideoResolution : Swift.Hashable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.VideoResolution : Swift.RawRepresentable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.PictureSize : Swift.Equatable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.PictureSize : Swift.Hashable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.PictureSize : Swift.RawRepresentable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.PictureRotation : Swift.Equatable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.PictureRotation : Swift.Hashable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.PictureRotation : Swift.RawRepresentable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.VideoRCMode : Swift.Equatable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.VideoRCMode : Swift.Hashable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.VideoRCMode : Swift.RawRepresentable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.AudioFormat : Swift.Equatable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.AudioFormat : Swift.Hashable {}
+extension RTKAIDeviceConnection.LiveStreamingConfiguration.AudioFormat : Swift.RawRepresentable {}
+extension RTKAIDeviceConnection.PhoneHotspotConnection.ChannelType : Swift.Equatable {}
+extension RTKAIDeviceConnection.PhoneHotspotConnection.ChannelType : Swift.Hashable {}
+extension RTKAIDeviceConnection.PhoneHotspotConnection.ChannelType : Swift.RawRepresentable {}
+extension RTKAIDeviceConnection.APIInvocationFailure : Swift.Equatable {}
+extension RTKAIDeviceConnection.APIInvocationFailure : Swift.Hashable {}
+extension RTKAIDeviceConnection.AccessoryRole : Swift.Equatable {}
+extension RTKAIDeviceConnection.AccessoryRole : Swift.Hashable {}
+extension RTKAIDeviceConnection.AccessoryRole : Swift.RawRepresentable {}
+extension RTKAIDeviceConnection.DataTransport : Swift.Equatable {}
+extension RTKAIDeviceConnection.DataTransport : Swift.Hashable {}
+extension RTKAIDeviceConnection.LiveStreamRecorder.Failure : Swift.Equatable {}
+extension RTKAIDeviceConnection.LiveStreamRecorder.Failure : Swift.Hashable {}
+extension RTKAIDeviceConnection.LiveStreamRTMPPublisher.Failure : Swift.Equatable {}
+extension RTKAIDeviceConnection.LiveStreamRTMPPublisher.Failure : Swift.Hashable {}
+extension RTKAIDeviceConnection.LiveStreamVideoDecoder.Failure : Swift.Equatable {}
+extension RTKAIDeviceConnection.LiveStreamVideoDecoder.Failure : Swift.Hashable {}
+extension RTKAIDeviceConnection.MediaRoutine.VoiceMode : Swift.Equatable {}
+extension RTKAIDeviceConnection.MediaRoutine.VoiceMode : Swift.Hashable {}
+extension RTKAIDeviceConnection.MediaRoutine.VoiceMode : Swift.RawRepresentable {}
+extension RTKAIDeviceConnection.UpgradeRoutine.ComponentImage : Swift.Equatable {}
+extension RTKAIDeviceConnection.UpgradeRoutine.ComponentImage : Swift.Hashable {}
+extension RTKAIDeviceConnection.NetworkMonitor.ConnectionType : Swift.Equatable {}
+extension RTKAIDeviceConnection.NetworkMonitor.ConnectionType : Swift.Hashable {}
+extension RTKAIDeviceConnection.NetworkMonitor.ConnectionType : Swift.RawRepresentable {}

@@ -1,0 +1,11 @@
+framework module RTKAudioConnectSDK {
+  umbrella header "RTKAudioConnectSDK.h"
+  export *
+
+  module * { export * }
+}
+
+module RTKAudioConnectSDK.Swift {
+  header "RTKAudioConnectSDK-Swift.h"
+  requires objc
+}

@@ -7,58 +7,97 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0246AAC65D540A1F0769FE4F /* RTKAIDeviceConnection.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8D57E8988C3B58C97A2D8807 /* RTKAIDeviceConnection.framework */; };
+		0350E3E61F21F3D1356A8F91 /* RTKAudioConnectSDK.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B5CD47A0E9D56274EC4F805D /* RTKAudioConnectSDK.framework */; };
+		045107E9B6075E1C2D509F9A /* RTKAudioStreaming.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F0189CC38F649B3DDBC7969A /* RTKAudioStreaming.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		07304DF33200BE3D6DBD045C /* ProbeLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70152EF34D9E97DF4C741CE6 /* ProbeLog.swift */; };
-		081A325A193105F2262B5F3E /* ProbeFrameEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85FA60DACDF8099DBB2A0471 /* ProbeFrameEncoder.swift */; };
 		0AC40621190D37E75E5272C0 /* ImmersalClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7700AECDC1CD6FBBF36B051 /* ImmersalClientTests.swift */; };
-		11976E9BCF004D4602CE51CF /* ImmersalClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EC63793BCC5F7752A647102 /* ImmersalClient.swift */; };
+		0B2D93C841CC573645839CDA /* libavcodec.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 1EAD988B72E7456254EEF8B4 /* libavcodec.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		0EE6055044BCBF9DBC3086E4 /* AiSeeMicrophone.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44488FCAC2B5F4FE7DDF9669 /* AiSeeMicrophone.swift */; };
+		0F4A4E07E7CD8BE8D771EA11 /* libavcodec.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1EAD988B72E7456254EEF8B4 /* libavcodec.framework */; };
 		14460B305CD9256BE9B93E7C /* ProximityAnnouncer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 265ECD08052BDF5803336C52 /* ProximityAnnouncer.swift */; };
+		1481315E9F439653A036706A /* AiSeeH264Decoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21C552ED5A1C79AC279B5A9B /* AiSeeH264Decoder.swift */; };
 		1AB16387C633B6569529F61C /* NavigationGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF7B9346BA410D9FDF2F6EFD /* NavigationGeometryTests.swift */; };
 		1F77CBD104CAE305B88D97B6 /* RouteTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A915C41DB6DAE48DA6B759A7 /* RouteTracker.swift */; };
+		1FFA070BD5723B4ED54F3D92 /* GlassesPositioningLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 096480BB907702BBDE476ED1 /* GlassesPositioningLogicTests.swift */; };
 		249E6E0F44A5988497DEF17C /* LocationDescriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0AAA2F434BF04EF6309461 /* LocationDescriber.swift */; };
+		2C13C6CDB6F77BB0FC7CD442 /* AiSeePhotoCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3391E515B1906330F464B3A /* AiSeePhotoCapture.swift */; };
 		2ECCD0AE96263AB05B9C6D78 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4EE4F65AADED8973A6CB5994 /* Assets.xcassets */; };
 		34BD1D2E46A272EECCBA94BC /* PathfindingEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FEA60DAC23822F2F832ED26 /* PathfindingEngineTests.swift */; };
-		3688894A440D2CDA86335AF2 /* ImmersalPose.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADCA0DC56BFEB18378AC9476 /* ImmersalPose.swift */; };
+		37F09F70666F696E32B6F55B /* GlassesPositioning.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97885123C8C5A05ACE0A19CD /* GlassesPositioning.swift */; };
+		40E2114EB22E7CF99532DC26 /* AiSeeLiveStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCCF751DB45E8D9E55EA3E7 /* AiSeeLiveStream.swift */; };
+		419D2483B3ADDFF7D0F1270B /* RTKAIDeviceConnection.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 8D57E8988C3B58C97A2D8807 /* RTKAIDeviceConnection.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		475A70A66FE1F0B4A3FF88E6 /* MapAuthoringSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B170D7D1B7AA8E6E046364DF /* MapAuthoringSession.swift */; };
+		498368D8D2B64DC2E1EBD309 /* libavutil.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E35653D3A720A5BAFB9DBF6C /* libavutil.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		4E9F75AF036A7DAACBFE921D /* VoiceCommandRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFD7F0E186803749AE191EF7 /* VoiceCommandRecognizer.swift */; };
+		4F135C3761D0B9B3A1FE9BAC /* RTKAudioStreaming.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F0189CC38F649B3DDBC7969A /* RTKAudioStreaming.framework */; };
 		532068E844128F772276EC61 /* GzipCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE1A9F99EB3F6021B96B52C /* GzipCodec.swift */; };
 		543503ED5029B68EAC774712 /* PointCloudCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30B39DE568843C3A29626009 /* PointCloudCodec.swift */; };
 		558B3AA7366B93F213835B88 /* GzipCodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B16658E9F9DB9EA34F123137 /* GzipCodecTests.swift */; };
+		574398CE194E9D70EAA2A9C0 /* OpenAIRealtimeAccess.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2252BB5498BDD59BE9B2B69B /* OpenAIRealtimeAccess.framework */; };
 		58BAFE9E68010A289EC9A83B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77E1B72F4F53B64E77838144 /* ContentView.swift */; };
 		59E758BD870F8AFA836C4338 /* ProximityAnnouncerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 922A716A95F7EFF263EC528F /* ProximityAnnouncerTests.swift */; };
+		63FA5192A7FF32147EF4368E /* GlassesCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD61D73D3FA8E3165ABFB6C5 /* GlassesCamera.swift */; };
 		7354BCDE6D022AF2B1AE9ADE /* NavigationGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8521C6E6D026D6E48CF8B15 /* NavigationGeometry.swift */; };
 		7717215AA55A6FC62AED6507 /* MapAuthoringViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9C1F47A1A2775B3E996161C /* MapAuthoringViewModel.swift */; };
 		778712C92539CC8225299BD6 /* NearbyQueryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 428A5744E4DC3A40A1F0BF37 /* NearbyQueryTests.swift */; };
 		7835F79CA856090704E1D503 /* MapStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F40B2897550EAA469F0CED87 /* MapStore.swift */; };
+		7A4E680AF61823BF493BB8F1 /* FixGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E45842AD38368B637A1DCAEC /* FixGate.swift */; };
+		7D8A97E50D159A65B23044C0 /* ImmersalConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA86CE5678D12689FADC8D83 /* ImmersalConfig.swift */; };
+		7EABADE832841FBF6AD32663 /* RTKLEFoundation.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 9E461935A18A769445C62D21 /* RTKLEFoundation.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		832D69B99F3AE4D876C8544E /* MapSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FAE97AF5CC1E0AF218453C1 /* MapSyncTests.swift */; };
 		83E9DFF6E01BE4ECBD35C021 /* GuidanceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF8AD56E8AF2A1B9AB92C5E /* GuidanceManager.swift */; };
 		85F747C811D972AEC6BACC74 /* PathSimplifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21ADD14C66E6316D0473D942 /* PathSimplifierTests.swift */; };
+		8701966961EF78E7B6EC085F /* libswresample.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 152F81624E8A26CE2AAFE106 /* libswresample.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		8A8FACA8783B9D9F847CDDB3 /* LocationDescriberTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3CD1B51F70D82DD4ADB2E6C /* LocationDescriberTests.swift */; };
 		8BD7C527F3C3F9E134FC924E /* ARPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6BB9E273FDF3C1C7D306F56 /* ARPreviewView.swift */; };
 		8C48FD5D39EED67173AB08AC /* ProbeMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8525B61C966C9BB4D71CBA2 /* ProbeMathTests.swift */; };
 		8E1258D21B4AD6A5EA3D6458 /* MapSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 422D20AF3BC61E11863E9258 /* MapSyncService.swift */; };
 		913E3FEF6D2B3E8FC8A97ABB /* CommandParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1410246899B0ADAEFD12524 /* CommandParserTests.swift */; };
+		915865D02FC2ACDBC1E2DB02 /* libavformat.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 08DB9C4286DCFDD3203120D0 /* libavformat.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		91AECF7A8A92EB88CD108195 /* ImmersalPose.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EC5350A5C237B133D347EF3 /* ImmersalPose.swift */; };
 		9594F1B7D5EEB79B56307DA5 /* RouteTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60DE300013D590E27A22BD6 /* RouteTrackerTests.swift */; };
+		95EE45353C498F6D0EE63EBF /* libswresample.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 152F81624E8A26CE2AAFE106 /* libswresample.framework */; };
 		9690AF9CF20D2C2F02F70BC6 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8903140164287315C269215C /* DesignSystem.swift */; };
 		984CE263A0B23B153F2214E4 /* SampleGreenhouseMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0D119DADF34A10A81131EF9 /* SampleGreenhouseMap.swift */; };
+		9C1BE1B10C42E598E911EF1B /* AiSeeSequencing.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD198E5A42D14743DC97F29A /* AiSeeSequencing.swift */; };
+		A16DC4E867AD75821649F645 /* AiSeePCMAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69E47423A845E1B5C869D6EC /* AiSeePCMAdapter.swift */; };
+		A42FD855D360089F2B3C23A6 /* PoseExtrapolator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0794BDCDE64D0B0863A88F /* PoseExtrapolator.swift */; };
 		A50B67F042400B71F502662A /* NavigationMapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D47C816636CE30EE16B56808 /* NavigationMapTests.swift */; };
 		A69A562480CA2B3D8A55B97D /* GuidancePolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB3484E049C64F8737394EF7 /* GuidancePolicyTests.swift */; };
+		A8705F672C8B73C713E15F01 /* GlassesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C578835CC242A3C51D0FBB4 /* GlassesService.swift */; };
 		A93AE0176E689D92FD372E07 /* ARNavigationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91F7A67B2839DB4DB390F6D7 /* ARNavigationManager.swift */; };
 		AD0116F608C281ECAA88F9B3 /* AISEEIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A3E9E698BB47484D5B90BE7 /* AISEEIntents.swift */; };
+		B0FE9A66912963DAC418682E /* FocalCalibrationRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AE3FDFB08E19B06A845F1D0 /* FocalCalibrationRunner.swift */; };
+		B21D44B250BDA53420770296 /* FocalCalibration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7D1BC5F4BC8FAF962ED5960 /* FocalCalibration.swift */; };
+		BCE83BC6B0EBCEFE957FBF7E /* libavformat.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 08DB9C4286DCFDD3203120D0 /* libavformat.framework */; };
 		C1D0ED8FCACAC01B0298C6F0 /* NavigationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CA2EE762C8F4CD5CCEC8FB0 /* NavigationViewModel.swift */; };
+		C2CFE54B7F0F373CD83ACA22 /* AiSeeTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E7E7FB52D5FD3D1DB85663 /* AiSeeTypes.swift */; };
 		C520E967DF7CBBC6FBFE032E /* AppCommandBus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395123273695F83CCD1FCC82 /* AppCommandBus.swift */; };
 		C604EB7C644F26CCD766F0B8 /* AuthoringView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F237A6DFAC3FB676EB0856AF /* AuthoringView.swift */; };
+		C85F32D60498BE4905507A9D /* ImmersalClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F0B7D19FAD5C3C4FF953A24 /* ImmersalClient.swift */; };
+		CAC76647C882CC3E396895C5 /* GlassesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6FA8490E8C6B82408C82360 /* GlassesView.swift */; };
+		CD305969C1791AC8EA3A7271 /* RTKAudioConnectSDK.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = B5CD47A0E9D56274EC4F805D /* RTKAudioConnectSDK.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		D12B52E1385E154EE6DD18DC /* ProbeSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F7839F7B8A1E5CAA24193C /* ProbeSession.swift */; };
 		D27E4537E96FB437616B1812 /* ProbeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6623A7D62AEA4A6BA847D15B /* ProbeView.swift */; };
 		D50AEBB7E738E97E25AC36EB /* MapDownloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 061A49BCDCE064003CC9EA08 /* MapDownloadTests.swift */; };
+		D5592305F87F7B1BA93F5D58 /* ImmersalFrameEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6340FE7FAD58CB04A34098E3 /* ImmersalFrameEncoder.swift */; };
 		D5937AE6312E3093E63D5D7B /* AISEEBINApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6158B2EB890DD39BA2A443E5 /* AISEEBINApp.swift */; };
+		D64A1FEE0C07185422429CB2 /* OpenAIRealtimeAccess.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2252BB5498BDD59BE9B2B69B /* OpenAIRealtimeAccess.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		DB90BEEE89E77B5C15CF479B /* GuidancePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EC5B2AE569FC940946C603A /* GuidancePolicy.swift */; };
 		DD6060895DD317F34DD93A8D /* PathSimplifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64642D7E9A3E3E5A94A74220 /* PathSimplifier.swift */; };
 		DE788C415AC0DC7B9A6FF3FC /* PathfindingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 618BF33F7C5275D8E63A4D60 /* PathfindingEngine.swift */; };
 		DFEB1D8C6B366641A002F297 /* NavigationInstructionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28EA359CE2C1A86BE853EF0E /* NavigationInstructionTests.swift */; };
 		E2B6EF3561F19C4BCCC9D75F /* NavigationInstruction.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0A38116063DBD49D93AA08E /* NavigationInstruction.swift */; };
+		E33217B29AB11F72D4DC5697 /* ImmersalAlignment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D12BD48488E1A3FAE730620 /* ImmersalAlignment.swift */; };
+		E978E2D71561C9C7A28F9239 /* AiSeeDeviceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED0A9F795D184C9FCE140CBA /* AiSeeDeviceCoordinator.swift */; };
 		EAED3D7562D130E0A729E12E /* CommandParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8FBE87F4128640609DC1089 /* CommandParser.swift */; };
 		F4FBCD068C88F0C8144F19D6 /* MapAuthoringSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B82DC7FA8B4B13387732993 /* MapAuthoringSessionTests.swift */; };
+		F6D93808BF2426FC44E138DC /* AiSeeConnectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 707E0D0D36B544790F9C1DBC /* AiSeeConnectionService.swift */; };
 		F7C260981D72F7D93000BC5C /* NavigationMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87B414D18FF00045961072BB /* NavigationMap.swift */; };
+		FC4055BC7EFE45D1BA61F367 /* RTKLEFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9E461935A18A769445C62D21 /* RTKLEFoundation.framework */; };
+		FCA6A8F455A5054B0DCFE558 /* ImmersalAlignmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDB7C172F4E9C254E328B9A2 /* ImmersalAlignmentTests.swift */; };
+		FD8EA0D2C642EF0C506B0D36 /* libavutil.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E35653D3A720A5BAFB9DBF6C /* libavutil.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -71,65 +110,153 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		B0638E6E9C08BA09B0BAF8CA /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				419D2483B3ADDFF7D0F1270B /* RTKAIDeviceConnection.framework in Embed Frameworks */,
+				CD305969C1791AC8EA3A7271 /* RTKAudioConnectSDK.framework in Embed Frameworks */,
+				045107E9B6075E1C2D509F9A /* RTKAudioStreaming.framework in Embed Frameworks */,
+				7EABADE832841FBF6AD32663 /* RTKLEFoundation.framework in Embed Frameworks */,
+				D64A1FEE0C07185422429CB2 /* OpenAIRealtimeAccess.framework in Embed Frameworks */,
+				0B2D93C841CC573645839CDA /* libavcodec.framework in Embed Frameworks */,
+				915865D02FC2ACDBC1E2DB02 /* libavformat.framework in Embed Frameworks */,
+				498368D8D2B64DC2E1EBD309 /* libavutil.framework in Embed Frameworks */,
+				8701966961EF78E7B6EC085F /* libswresample.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		05F7839F7B8A1E5CAA24193C /* ProbeSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProbeSession.swift; sourceTree = "<group>"; };
 		061A49BCDCE064003CC9EA08 /* MapDownloadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapDownloadTests.swift; sourceTree = "<group>"; };
+		08DB9C4286DCFDD3203120D0 /* libavformat.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = libavformat.framework; path = Vendor/RTK/libavformat.framework; sourceTree = "<group>"; };
+		096480BB907702BBDE476ED1 /* GlassesPositioningLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesPositioningLogicTests.swift; sourceTree = "<group>"; };
+		0EC5350A5C237B133D347EF3 /* ImmersalPose.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalPose.swift; sourceTree = "<group>"; };
+		152F81624E8A26CE2AAFE106 /* libswresample.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = libswresample.framework; path = Vendor/RTK/libswresample.framework; sourceTree = "<group>"; };
+		1A415DE7CEF30A112BEE4C34 /* AISEEBIN.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AISEEBIN.entitlements; sourceTree = "<group>"; };
+		1EAD988B72E7456254EEF8B4 /* libavcodec.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = libavcodec.framework; path = Vendor/RTK/libavcodec.framework; sourceTree = "<group>"; };
 		21ADD14C66E6316D0473D942 /* PathSimplifierTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathSimplifierTests.swift; sourceTree = "<group>"; };
+		21C552ED5A1C79AC279B5A9B /* AiSeeH264Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeH264Decoder.swift; sourceTree = "<group>"; };
+		2252BB5498BDD59BE9B2B69B /* OpenAIRealtimeAccess.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenAIRealtimeAccess.framework; path = Vendor/RTK/OpenAIRealtimeAccess.framework; sourceTree = "<group>"; };
 		265ECD08052BDF5803336C52 /* ProximityAnnouncer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximityAnnouncer.swift; sourceTree = "<group>"; };
 		28EA359CE2C1A86BE853EF0E /* NavigationInstructionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationInstructionTests.swift; sourceTree = "<group>"; };
+		2C578835CC242A3C51D0FBB4 /* GlassesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesService.swift; sourceTree = "<group>"; };
 		30B39DE568843C3A29626009 /* PointCloudCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PointCloudCodec.swift; sourceTree = "<group>"; };
+		36E7E7FB52D5FD3D1DB85663 /* AiSeeTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeTypes.swift; sourceTree = "<group>"; };
 		395123273695F83CCD1FCC82 /* AppCommandBus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommandBus.swift; sourceTree = "<group>"; };
 		422D20AF3BC61E11863E9258 /* MapSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSyncService.swift; sourceTree = "<group>"; };
 		428A5744E4DC3A40A1F0BF37 /* NearbyQueryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyQueryTests.swift; sourceTree = "<group>"; };
+		44488FCAC2B5F4FE7DDF9669 /* AiSeeMicrophone.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeMicrophone.swift; sourceTree = "<group>"; };
 		4A3E9E698BB47484D5B90BE7 /* AISEEIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISEEIntents.swift; sourceTree = "<group>"; };
 		4EC5B2AE569FC940946C603A /* GuidancePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidancePolicy.swift; sourceTree = "<group>"; };
 		4EE4F65AADED8973A6CB5994 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		4FAE97AF5CC1E0AF218453C1 /* MapSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSyncTests.swift; sourceTree = "<group>"; };
+		5AE3FDFB08E19B06A845F1D0 /* FocalCalibrationRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocalCalibrationRunner.swift; sourceTree = "<group>"; };
 		6158B2EB890DD39BA2A443E5 /* AISEEBINApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISEEBINApp.swift; sourceTree = "<group>"; };
 		618BF33F7C5275D8E63A4D60 /* PathfindingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathfindingEngine.swift; sourceTree = "<group>"; };
+		6340FE7FAD58CB04A34098E3 /* ImmersalFrameEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalFrameEncoder.swift; sourceTree = "<group>"; };
 		64642D7E9A3E3E5A94A74220 /* PathSimplifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathSimplifier.swift; sourceTree = "<group>"; };
 		6623A7D62AEA4A6BA847D15B /* ProbeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProbeView.swift; sourceTree = "<group>"; };
+		69E47423A845E1B5C869D6EC /* AiSeePCMAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeePCMAdapter.swift; sourceTree = "<group>"; };
 		6B82DC7FA8B4B13387732993 /* MapAuthoringSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapAuthoringSessionTests.swift; sourceTree = "<group>"; };
-		6EC63793BCC5F7752A647102 /* ImmersalClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalClient.swift; sourceTree = "<group>"; };
+		6F0B7D19FAD5C3C4FF953A24 /* ImmersalClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalClient.swift; sourceTree = "<group>"; };
 		6FEA60DAC23822F2F832ED26 /* PathfindingEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathfindingEngineTests.swift; sourceTree = "<group>"; };
 		70152EF34D9E97DF4C741CE6 /* ProbeLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProbeLog.swift; sourceTree = "<group>"; };
+		707E0D0D36B544790F9C1DBC /* AiSeeConnectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeConnectionService.swift; sourceTree = "<group>"; };
 		77E1B72F4F53B64E77838144 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7DE1A9F99EB3F6021B96B52C /* GzipCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GzipCodec.swift; sourceTree = "<group>"; };
-		85FA60DACDF8099DBB2A0471 /* ProbeFrameEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProbeFrameEncoder.swift; sourceTree = "<group>"; };
 		87B414D18FF00045961072BB /* NavigationMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationMap.swift; sourceTree = "<group>"; };
 		8903140164287315C269215C /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		8CA2EE762C8F4CD5CCEC8FB0 /* NavigationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationViewModel.swift; sourceTree = "<group>"; };
+		8D12BD48488E1A3FAE730620 /* ImmersalAlignment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalAlignment.swift; sourceTree = "<group>"; };
+		8D57E8988C3B58C97A2D8807 /* RTKAIDeviceConnection.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RTKAIDeviceConnection.framework; path = Vendor/RTK/RTKAIDeviceConnection.framework; sourceTree = "<group>"; };
 		90A8EA03384E64D3DD1A0687 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		91F7A67B2839DB4DB390F6D7 /* ARNavigationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARNavigationManager.swift; sourceTree = "<group>"; };
 		922A716A95F7EFF263EC528F /* ProximityAnnouncerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximityAnnouncerTests.swift; sourceTree = "<group>"; };
+		97885123C8C5A05ACE0A19CD /* GlassesPositioning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesPositioning.swift; sourceTree = "<group>"; };
+		9E461935A18A769445C62D21 /* RTKLEFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RTKLEFoundation.framework; path = Vendor/RTK/RTKLEFoundation.framework; sourceTree = "<group>"; };
+		A3391E515B1906330F464B3A /* AiSeePhotoCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeePhotoCapture.swift; sourceTree = "<group>"; };
 		A3CD1B51F70D82DD4ADB2E6C /* LocationDescriberTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationDescriberTests.swift; sourceTree = "<group>"; };
 		A8FBE87F4128640609DC1089 /* CommandParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandParser.swift; sourceTree = "<group>"; };
 		A915C41DB6DAE48DA6B759A7 /* RouteTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteTracker.swift; sourceTree = "<group>"; };
 		A9C1F47A1A2775B3E996161C /* MapAuthoringViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapAuthoringViewModel.swift; sourceTree = "<group>"; };
-		ADCA0DC56BFEB18378AC9476 /* ImmersalPose.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalPose.swift; sourceTree = "<group>"; };
+		ABCCF751DB45E8D9E55EA3E7 /* AiSeeLiveStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeLiveStream.swift; sourceTree = "<group>"; };
 		B0A38116063DBD49D93AA08E /* NavigationInstruction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationInstruction.swift; sourceTree = "<group>"; };
 		B16658E9F9DB9EA34F123137 /* GzipCodecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GzipCodecTests.swift; sourceTree = "<group>"; };
 		B170D7D1B7AA8E6E046364DF /* MapAuthoringSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapAuthoringSession.swift; sourceTree = "<group>"; };
+		B5CD47A0E9D56274EC4F805D /* RTKAudioConnectSDK.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RTKAudioConnectSDK.framework; path = Vendor/RTK/RTKAudioConnectSDK.framework; sourceTree = "<group>"; };
 		B8525B61C966C9BB4D71CBA2 /* ProbeMathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProbeMathTests.swift; sourceTree = "<group>"; };
+		BA86CE5678D12689FADC8D83 /* ImmersalConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalConfig.swift; sourceTree = "<group>"; };
 		BB3484E049C64F8737394EF7 /* GuidancePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidancePolicyTests.swift; sourceTree = "<group>"; };
 		BF7B9346BA410D9FDF2F6EFD /* NavigationGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationGeometryTests.swift; sourceTree = "<group>"; };
 		BFD7F0E186803749AE191EF7 /* VoiceCommandRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandRecognizer.swift; sourceTree = "<group>"; };
 		C35D224A964A8244E7EB6E27 /* AISEEBINTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AISEEBINTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C6BB9E273FDF3C1C7D306F56 /* ARPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARPreviewView.swift; sourceTree = "<group>"; };
 		C8521C6E6D026D6E48CF8B15 /* NavigationGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationGeometry.swift; sourceTree = "<group>"; };
+		CDB7C172F4E9C254E328B9A2 /* ImmersalAlignmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalAlignmentTests.swift; sourceTree = "<group>"; };
 		D00974D280A3AF3C7A0E95D8 /* AISEEBIN.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AISEEBIN.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D0D119DADF34A10A81131EF9 /* SampleGreenhouseMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleGreenhouseMap.swift; sourceTree = "<group>"; };
 		D1410246899B0ADAEFD12524 /* CommandParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandParserTests.swift; sourceTree = "<group>"; };
 		D47C816636CE30EE16B56808 /* NavigationMapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationMapTests.swift; sourceTree = "<group>"; };
 		D7700AECDC1CD6FBBF36B051 /* ImmersalClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalClientTests.swift; sourceTree = "<group>"; };
+		D7D1BC5F4BC8FAF962ED5960 /* FocalCalibration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocalCalibration.swift; sourceTree = "<group>"; };
+		DA0794BDCDE64D0B0863A88F /* PoseExtrapolator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoseExtrapolator.swift; sourceTree = "<group>"; };
 		DD0AAA2F434BF04EF6309461 /* LocationDescriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationDescriber.swift; sourceTree = "<group>"; };
+		DD61D73D3FA8E3165ABFB6C5 /* GlassesCamera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesCamera.swift; sourceTree = "<group>"; };
+		E35653D3A720A5BAFB9DBF6C /* libavutil.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = libavutil.framework; path = Vendor/RTK/libavutil.framework; sourceTree = "<group>"; };
+		E45842AD38368B637A1DCAEC /* FixGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixGate.swift; sourceTree = "<group>"; };
+		ED0A9F795D184C9FCE140CBA /* AiSeeDeviceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeDeviceCoordinator.swift; sourceTree = "<group>"; };
+		F0189CC38F649B3DDBC7969A /* RTKAudioStreaming.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RTKAudioStreaming.framework; path = Vendor/RTK/RTKAudioStreaming.framework; sourceTree = "<group>"; };
 		F237A6DFAC3FB676EB0856AF /* AuthoringView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthoringView.swift; sourceTree = "<group>"; };
 		F40B2897550EAA469F0CED87 /* MapStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapStore.swift; sourceTree = "<group>"; };
 		F60DE300013D590E27A22BD6 /* RouteTrackerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteTrackerTests.swift; sourceTree = "<group>"; };
+		F6FA8490E8C6B82408C82360 /* GlassesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesView.swift; sourceTree = "<group>"; };
+		FD198E5A42D14743DC97F29A /* AiSeeSequencing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeSequencing.swift; sourceTree = "<group>"; };
 		FDF8AD56E8AF2A1B9AB92C5E /* GuidanceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidanceManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		15ACEFC1B349B9EC7DC01D0B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0246AAC65D540A1F0769FE4F /* RTKAIDeviceConnection.framework in Frameworks */,
+				0350E3E61F21F3D1356A8F91 /* RTKAudioConnectSDK.framework in Frameworks */,
+				4F135C3761D0B9B3A1FE9BAC /* RTKAudioStreaming.framework in Frameworks */,
+				FC4055BC7EFE45D1BA61F367 /* RTKLEFoundation.framework in Frameworks */,
+				574398CE194E9D70EAA2A9C0 /* OpenAIRealtimeAccess.framework in Frameworks */,
+				0F4A4E07E7CD8BE8D771EA11 /* libavcodec.framework in Frameworks */,
+				BCE83BC6B0EBCEFE957FBF7E /* libavformat.framework in Frameworks */,
+				FD8EA0D2C642EF0C506B0D36 /* libavutil.framework in Frameworks */,
+				95EE45353C498F6D0EE63EBF /* libswresample.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
+		029D144887A80211BC8633DB /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				1EAD988B72E7456254EEF8B4 /* libavcodec.framework */,
+				08DB9C4286DCFDD3203120D0 /* libavformat.framework */,
+				E35653D3A720A5BAFB9DBF6C /* libavutil.framework */,
+				152F81624E8A26CE2AAFE106 /* libswresample.framework */,
+				2252BB5498BDD59BE9B2B69B /* OpenAIRealtimeAccess.framework */,
+				8D57E8988C3B58C97A2D8807 /* RTKAIDeviceConnection.framework */,
+				B5CD47A0E9D56274EC4F805D /* RTKAudioConnectSDK.framework */,
+				F0189CC38F649B3DDBC7969A /* RTKAudioStreaming.framework */,
+				9E461935A18A769445C62D21 /* RTKLEFoundation.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		1023C3AF725989EEA7EB6707 /* ViewModels */ = {
 			isa = PBXGroup;
 			children = (
@@ -159,12 +286,25 @@
 			path = Intents;
 			sourceTree = "<group>";
 		};
+		67800DA34D781B7C1AE7B8E9 /* AiSeeGlassKit */ = {
+			isa = PBXGroup;
+			children = (
+				707E0D0D36B544790F9C1DBC /* AiSeeConnectionService.swift */,
+				ED0A9F795D184C9FCE140CBA /* AiSeeDeviceCoordinator.swift */,
+				21C552ED5A1C79AC279B5A9B /* AiSeeH264Decoder.swift */,
+				ABCCF751DB45E8D9E55EA3E7 /* AiSeeLiveStream.swift */,
+				44488FCAC2B5F4FE7DDF9669 /* AiSeeMicrophone.swift */,
+				69E47423A845E1B5C869D6EC /* AiSeePCMAdapter.swift */,
+				A3391E515B1906330F464B3A /* AiSeePhotoCapture.swift */,
+				FD198E5A42D14743DC97F29A /* AiSeeSequencing.swift */,
+				36E7E7FB52D5FD3D1DB85663 /* AiSeeTypes.swift */,
+			);
+			path = AiSeeGlassKit;
+			sourceTree = "<group>";
+		};
 		691333D80236F6F6B5886D25 /* Probe */ = {
 			isa = PBXGroup;
 			children = (
-				6EC63793BCC5F7752A647102 /* ImmersalClient.swift */,
-				ADCA0DC56BFEB18378AC9476 /* ImmersalPose.swift */,
-				85FA60DACDF8099DBB2A0471 /* ProbeFrameEncoder.swift */,
 				70152EF34D9E97DF4C741CE6 /* ProbeLog.swift */,
 				05F7839F7B8A1E5CAA24193C /* ProbeSession.swift */,
 				6623A7D62AEA4A6BA847D15B /* ProbeView.swift */,
@@ -181,12 +321,41 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		85D5DA6C193B91DDEF8AC50D /* Glasses */ = {
+			isa = PBXGroup;
+			children = (
+				E45842AD38368B637A1DCAEC /* FixGate.swift */,
+				D7D1BC5F4BC8FAF962ED5960 /* FocalCalibration.swift */,
+				5AE3FDFB08E19B06A845F1D0 /* FocalCalibrationRunner.swift */,
+				DD61D73D3FA8E3165ABFB6C5 /* GlassesCamera.swift */,
+				97885123C8C5A05ACE0A19CD /* GlassesPositioning.swift */,
+				2C578835CC242A3C51D0FBB4 /* GlassesService.swift */,
+				F6FA8490E8C6B82408C82360 /* GlassesView.swift */,
+				DA0794BDCDE64D0B0863A88F /* PoseExtrapolator.swift */,
+				67800DA34D781B7C1AE7B8E9 /* AiSeeGlassKit */,
+			);
+			path = Glasses;
+			sourceTree = "<group>";
+		};
+		8A6B4D9921074725A38405B6 /* Immersal */ = {
+			isa = PBXGroup;
+			children = (
+				6F0B7D19FAD5C3C4FF953A24 /* ImmersalClient.swift */,
+				BA86CE5678D12689FADC8D83 /* ImmersalConfig.swift */,
+				6340FE7FAD58CB04A34098E3 /* ImmersalFrameEncoder.swift */,
+				0EC5350A5C237B133D347EF3 /* ImmersalPose.swift */,
+			);
+			path = Immersal;
+			sourceTree = "<group>";
+		};
 		8C3416612F22C6E3ACBACA65 /* AISEEBIN */ = {
 			isa = PBXGroup;
 			children = (
+				1A415DE7CEF30A112BEE4C34 /* AISEEBIN.entitlements */,
 				6158B2EB890DD39BA2A443E5 /* AISEEBINApp.swift */,
 				4EE4F65AADED8973A6CB5994 /* Assets.xcassets */,
 				90A8EA03384E64D3DD1A0687 /* Info.plist */,
+				85D5DA6C193B91DDEF8AC50D /* Glasses */,
 				6647E4CB8B21BEEEA3F30E76 /* Intents */,
 				EC5B6E7CB81BD925BA05D579 /* Managers */,
 				9AFD83C06ED485C41C7F0018 /* Models */,
@@ -200,6 +369,7 @@
 		9AFD83C06ED485C41C7F0018 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				8D12BD48488E1A3FAE730620 /* ImmersalAlignment.swift */,
 				B0A38116063DBD49D93AA08E /* NavigationInstruction.swift */,
 				87B414D18FF00045961072BB /* NavigationMap.swift */,
 				D0D119DADF34A10A81131EF9 /* SampleGreenhouseMap.swift */,
@@ -211,8 +381,10 @@
 			isa = PBXGroup;
 			children = (
 				D1410246899B0ADAEFD12524 /* CommandParserTests.swift */,
+				096480BB907702BBDE476ED1 /* GlassesPositioningLogicTests.swift */,
 				BB3484E049C64F8737394EF7 /* GuidancePolicyTests.swift */,
 				B16658E9F9DB9EA34F123137 /* GzipCodecTests.swift */,
+				CDB7C172F4E9C254E328B9A2 /* ImmersalAlignmentTests.swift */,
 				D7700AECDC1CD6FBBF36B051 /* ImmersalClientTests.swift */,
 				A3CD1B51F70D82DD4ADB2E6C /* LocationDescriberTests.swift */,
 				6B82DC7FA8B4B13387732993 /* MapAuthoringSessionTests.swift */,
@@ -236,6 +408,7 @@
 			children = (
 				8C3416612F22C6E3ACBACA65 /* AISEEBIN */,
 				C1D49FBDB1DDE281D9B774A3 /* AISEEBINTests */,
+				029D144887A80211BC8633DB /* Frameworks */,
 				6D6A3BD991C32E9B0B178122 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -259,6 +432,7 @@
 				265ECD08052BDF5803336C52 /* ProximityAnnouncer.swift */,
 				A915C41DB6DAE48DA6B759A7 /* RouteTracker.swift */,
 				BFD7F0E186803749AE191EF7 /* VoiceCommandRecognizer.swift */,
+				8A6B4D9921074725A38405B6 /* Immersal */,
 			);
 			path = Managers;
 			sourceTree = "<group>";
@@ -272,6 +446,8 @@
 			buildPhases = (
 				752BB20BDA8487F693F10CA7 /* Sources */,
 				5373E8951A06FCBC5A282DFC /* Resources */,
+				15ACEFC1B349B9EC7DC01D0B /* Frameworks */,
+				B0638E6E9C08BA09B0BAF8CA /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -361,16 +537,35 @@
 				AD0116F608C281ECAA88F9B3 /* AISEEIntents.swift in Sources */,
 				A93AE0176E689D92FD372E07 /* ARNavigationManager.swift in Sources */,
 				8BD7C527F3C3F9E134FC924E /* ARPreviewView.swift in Sources */,
+				F6D93808BF2426FC44E138DC /* AiSeeConnectionService.swift in Sources */,
+				E978E2D71561C9C7A28F9239 /* AiSeeDeviceCoordinator.swift in Sources */,
+				1481315E9F439653A036706A /* AiSeeH264Decoder.swift in Sources */,
+				40E2114EB22E7CF99532DC26 /* AiSeeLiveStream.swift in Sources */,
+				0EE6055044BCBF9DBC3086E4 /* AiSeeMicrophone.swift in Sources */,
+				A16DC4E867AD75821649F645 /* AiSeePCMAdapter.swift in Sources */,
+				2C13C6CDB6F77BB0FC7CD442 /* AiSeePhotoCapture.swift in Sources */,
+				9C1BE1B10C42E598E911EF1B /* AiSeeSequencing.swift in Sources */,
+				C2CFE54B7F0F373CD83ACA22 /* AiSeeTypes.swift in Sources */,
 				C520E967DF7CBBC6FBFE032E /* AppCommandBus.swift in Sources */,
 				C604EB7C644F26CCD766F0B8 /* AuthoringView.swift in Sources */,
 				EAED3D7562D130E0A729E12E /* CommandParser.swift in Sources */,
 				58BAFE9E68010A289EC9A83B /* ContentView.swift in Sources */,
 				9690AF9CF20D2C2F02F70BC6 /* DesignSystem.swift in Sources */,
+				7A4E680AF61823BF493BB8F1 /* FixGate.swift in Sources */,
+				B21D44B250BDA53420770296 /* FocalCalibration.swift in Sources */,
+				B0FE9A66912963DAC418682E /* FocalCalibrationRunner.swift in Sources */,
+				63FA5192A7FF32147EF4368E /* GlassesCamera.swift in Sources */,
+				37F09F70666F696E32B6F55B /* GlassesPositioning.swift in Sources */,
+				A8705F672C8B73C713E15F01 /* GlassesService.swift in Sources */,
+				CAC76647C882CC3E396895C5 /* GlassesView.swift in Sources */,
 				83E9DFF6E01BE4ECBD35C021 /* GuidanceManager.swift in Sources */,
 				DB90BEEE89E77B5C15CF479B /* GuidancePolicy.swift in Sources */,
 				532068E844128F772276EC61 /* GzipCodec.swift in Sources */,
-				11976E9BCF004D4602CE51CF /* ImmersalClient.swift in Sources */,
-				3688894A440D2CDA86335AF2 /* ImmersalPose.swift in Sources */,
+				E33217B29AB11F72D4DC5697 /* ImmersalAlignment.swift in Sources */,
+				C85F32D60498BE4905507A9D /* ImmersalClient.swift in Sources */,
+				7D8A97E50D159A65B23044C0 /* ImmersalConfig.swift in Sources */,
+				D5592305F87F7B1BA93F5D58 /* ImmersalFrameEncoder.swift in Sources */,
+				91AECF7A8A92EB88CD108195 /* ImmersalPose.swift in Sources */,
 				249E6E0F44A5988497DEF17C /* LocationDescriber.swift in Sources */,
 				475A70A66FE1F0B4A3FF88E6 /* MapAuthoringSession.swift in Sources */,
 				7717215AA55A6FC62AED6507 /* MapAuthoringViewModel.swift in Sources */,
@@ -383,7 +578,7 @@
 				DD6060895DD317F34DD93A8D /* PathSimplifier.swift in Sources */,
 				DE788C415AC0DC7B9A6FF3FC /* PathfindingEngine.swift in Sources */,
 				543503ED5029B68EAC774712 /* PointCloudCodec.swift in Sources */,
-				081A325A193105F2262B5F3E /* ProbeFrameEncoder.swift in Sources */,
+				A42FD855D360089F2B3C23A6 /* PoseExtrapolator.swift in Sources */,
 				07304DF33200BE3D6DBD045C /* ProbeLog.swift in Sources */,
 				D12B52E1385E154EE6DD18DC /* ProbeSession.swift in Sources */,
 				D27E4537E96FB437616B1812 /* ProbeView.swift in Sources */,
@@ -399,8 +594,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				913E3FEF6D2B3E8FC8A97ABB /* CommandParserTests.swift in Sources */,
+				1FFA070BD5723B4ED54F3D92 /* GlassesPositioningLogicTests.swift in Sources */,
 				A69A562480CA2B3D8A55B97D /* GuidancePolicyTests.swift in Sources */,
 				558B3AA7366B93F213835B88 /* GzipCodecTests.swift in Sources */,
+				FCA6A8F455A5054B0DCFE558 /* ImmersalAlignmentTests.swift in Sources */,
 				0AC40621190D37E75E5272C0 /* ImmersalClientTests.swift in Sources */,
 				8A8FACA8783B9D9F847CDDB3 /* LocationDescriberTests.swift in Sources */,
 				F4FBCD068C88F0C8144F19D6 /* MapAuthoringSessionTests.swift in Sources */,
@@ -450,7 +647,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = AISEEBIN/AISEEBIN.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"Vendor/RTK\"",
+				);
 				INFOPLIST_FILE = AISEEBIN/Info.plist;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -520,6 +722,18 @@
 				DEVELOPMENT_TEAM = 3U4384584Z;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = (
+					RTKAIDeviceConnection.framework,
+					RTKAudioConnectSDK.framework,
+					RTKAudioStreaming.framework,
+					RTKLEFoundation.framework,
+					OpenAIRealtimeAccess.framework,
+					libavcodec.framework,
+					libavformat.framework,
+					libavutil.framework,
+					libswresample.framework,
+				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = "$(inherited) $(SRCROOT)/Vendor/RTK";
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -535,12 +749,14 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				"SWIFT_INCLUDE_PATHS[sdk=iphoneos*]" = "$(inherited) $(SRCROOT)/Vendor/RTK";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_STRICT_CONCURRENCY = targeted;
 				SWIFT_VERSION = 5.0;
@@ -587,6 +803,18 @@
 				DEVELOPMENT_TEAM = 3U4384584Z;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = (
+					RTKAIDeviceConnection.framework,
+					RTKAudioConnectSDK.framework,
+					RTKAudioStreaming.framework,
+					RTKLEFoundation.framework,
+					OpenAIRealtimeAccess.framework,
+					libavcodec.framework,
+					libavformat.framework,
+					libavutil.framework,
+					libswresample.framework,
+				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = "$(inherited) $(SRCROOT)/Vendor/RTK";
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -596,11 +824,13 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				"SWIFT_INCLUDE_PATHS[sdk=iphoneos*]" = "$(inherited) $(SRCROOT)/Vendor/RTK";
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_STRICT_CONCURRENCY = targeted;
 				SWIFT_VERSION = 5.0;
@@ -612,7 +842,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = AISEEBIN/AISEEBIN.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"Vendor/RTK\"",
+				);
 				INFOPLIST_FILE = AISEEBIN/Info.plist;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (

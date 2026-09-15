@@ -19,6 +19,17 @@ final class VoiceCommandRecognizer {
     private(set) var errorMessage: String?
 
     @ObservationIgnored var onFinalTranscript: ((String) -> Void)?
+    /// Fired whenever a listening session ends, delivered or not, so an
+    /// external microphone can be closed.
+    @ObservationIgnored var onDidStopListening: (() -> Void)?
+
+    /// Where the audio comes from.
+    enum Input {
+        /// The phone's own microphone, through `AVAudioEngine`.
+        case phoneMicrophone
+        /// Buffers pushed in by the caller with `append(_:)` — the glasses.
+        case external
+    }
 
     @ObservationIgnored private let recognizer: SFSpeechRecognizer?
     @ObservationIgnored private let audioEngine = AVAudioEngine()
@@ -26,6 +37,22 @@ final class VoiceCommandRecognizer {
     @ObservationIgnored private var task: SFSpeechRecognitionTask?
     @ObservationIgnored private var silenceTimer: Task<Void, Never>?
     @ObservationIgnored private var capTimer: Task<Void, Never>?
+    @ObservationIgnored private var usingAudioEngine = false
+    /// The live request, reachable from the SDK thread that pushes glasses audio.
+    @ObservationIgnored private let externalRequest = ExternalRequestBox()
+
+    private final class ExternalRequestBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var request: SFSpeechAudioBufferRecognitionRequest?
+        func set(_ r: SFSpeechAudioBufferRecognitionRequest?) { lock.withLock { request = r } }
+        func append(_ buffer: AVAudioPCMBuffer) { lock.withLock { request }?.append(buffer) }
+    }
+
+    /// Pushes externally captured audio into the current session. Safe to call
+    /// from any thread; ignored when not listening.
+    nonisolated func append(_ buffer: AVAudioPCMBuffer) {
+        externalRequest.append(buffer)
+    }
 
     let silenceTimeout: TimeInterval = 4
     let maximumDuration: TimeInterval = 10
@@ -53,7 +80,7 @@ final class VoiceCommandRecognizer {
 
     // MARK: - Listening
 
-    func startListening() {
+    func startListening(input: Input = .phoneMicrophone) {
         guard !isListening else { return }
         guard isAuthorized, let recognizer, recognizer.isAvailable else {
             errorMessage = "Speech recognition unavailable."
@@ -68,20 +95,25 @@ final class VoiceCommandRecognizer {
         }
         self.request = request
 
-        let inputNode = audioEngine.inputNode
-        let format = inputNode.outputFormat(forBus: 0)
-        inputNode.removeTap(onBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
-            request.append(buffer)
-        }
-
-        do {
-            audioEngine.prepare()
-            try audioEngine.start()
-        } catch {
-            errorMessage = "Microphone failed to start: \(error.localizedDescription)"
+        usingAudioEngine = input == .phoneMicrophone
+        if usingAudioEngine {
+            let inputNode = audioEngine.inputNode
+            let format = inputNode.outputFormat(forBus: 0)
             inputNode.removeTap(onBus: 0)
-            return
+            inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+                request.append(buffer)
+            }
+
+            do {
+                audioEngine.prepare()
+                try audioEngine.start()
+            } catch {
+                errorMessage = "Microphone failed to start: \(error.localizedDescription)"
+                inputNode.removeTap(onBus: 0)
+                return
+            }
+        } else {
+            externalRequest.set(request)
         }
 
         transcript = ""
@@ -142,14 +174,18 @@ final class VoiceCommandRecognizer {
         silenceTimer?.cancel()
         capTimer?.cancel()
 
-        audioEngine.stop()
-        audioEngine.inputNode.removeTap(onBus: 0)
+        if usingAudioEngine {
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+        }
+        externalRequest.set(nil)
         request?.endAudio()
         task?.cancel()
         request = nil
         task = nil
 
         let final = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        onDidStopListening?()
         if deliver {
             onFinalTranscript?(final)
         }

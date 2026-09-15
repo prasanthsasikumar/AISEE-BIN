@@ -12,6 +12,7 @@ struct ContentView: View {
 
     /// THROWAWAY, for the Immersal comparison harness in `Probe/`. Delete with it.
     @State private var showingProbe = false
+    @State private var showingGlasses = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -55,7 +56,12 @@ struct ContentView: View {
         }
         .fullScreenCover(isPresented: $showingProbe) {
             ProbeView(arManager: viewModel.arManager,
-                      places: viewModel.mapStore.loadMap()?.pois ?? SampleGreenhouseMap.map.pois)
+                      mapStore: viewModel.mapStore,
+                      places: viewModel.mapStore.loadMap()?.pois ?? SampleGreenhouseMap.map.pois,
+                      onAlignmentSaved: { viewModel.reloadMapKeepingSession() })
+        }
+        .sheet(isPresented: $showingGlasses) {
+            GlassesView(viewModel: viewModel)
         }
     }
 
@@ -74,7 +80,9 @@ struct ContentView: View {
     private var cameraStage: some View {
         ZStack(alignment: .top) {
             Group {
-                if ARNavigationManager.isSupported {
+                if viewModel.positioningSource == .glasses {
+                    GlassesStage(image: viewModel.glasses.previewImage)
+                } else if ARNavigationManager.isSupported {
                     ARPreviewView(session: viewModel.arManager.session,
                                   showFeaturePoints: viewModel.showDebug)
                 } else {
@@ -91,7 +99,8 @@ struct ContentView: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 LocalizationStatusBadge(status: viewModel.localizationStatus,
-                                        usingSavedMap: viewModel.arManager.isUsingSavedWorldMap)
+                                        usingSavedMap: viewModel.positioningSource == .phone
+                                            && viewModel.arManager.isUsingSavedWorldMap)
                 syncSection
                 primaryPanel
 
@@ -159,7 +168,9 @@ struct ContentView: View {
             HintPanel(icon: "mappin.and.ellipse", text: "Last known: \(known).", style: .neutral)
         } else if isRelocalizing {
             HintPanel(icon: "arrow.trianglehead.2.clockwise.rotate.90",
-                      text: "Pan the phone slowly across the room so it can recognise the greenhouse.",
+                      text: viewModel.positioningSource == .glasses
+                          ? "Look around slowly so the glasses can recognise the greenhouse."
+                          : "Pan the phone slowly across the room so it can recognise the greenhouse.",
                       style: .warning)
         } else if let message = viewModel.statusMessage {
             HintPanel(icon: "info.circle", text: message, style: .neutral)
@@ -202,6 +213,13 @@ struct ContentView: View {
                 }
 
                 Menu {
+                    Button {
+                        showingGlasses = true
+                    } label: {
+                        Label(viewModel.positioningSource == .glasses ? "Glasses (positioning)" : "Glasses…",
+                              systemImage: "eyeglasses")
+                    }
+                    Divider()
                     Button("Check Server for Map Updates") { Task { await viewModel.checkForMapUpdate() } }
                     Button("Restart Tracking") { viewModel.resetSession(discardSavedMap: false) }
                     Button("Discard Local Map", role: .destructive) {
@@ -244,11 +262,11 @@ struct ContentView: View {
     /// button wears this instead of its own name, so a glance explains the block.
     private var startBlockedReason: String? {
         switch viewModel.localizationStatus {
-        case .unsupported:   return "AR unavailable"
-        case .notStarted:    return "Tracking off"
+        case .unsupported:   return viewModel.positioningSource == .glasses ? "Map not aligned" : "AR unavailable"
+        case .notStarted:    return viewModel.positioningSource == .glasses ? "Glasses not streaming" : "Tracking off"
         case .initializing:  return "Starting camera"
         case .relocalizing:  return "Waiting for map"
-        case .limited:       return "Hold steady"
+        case .limited:       return viewModel.positioningSource == .glasses ? "Waiting for a fix" : "Hold steady"
         case .trackingReady: return viewModel.selectedDestination == nil ? "Choose a destination" : nil
         }
     }
@@ -835,4 +853,34 @@ struct DebugOverlay: View {
 
 #Preview {
     ContentView(viewModel: NavigationViewModel())
+}
+
+// MARK: - Glasses stage
+
+/// The glasses' live view in place of the phone camera, so a helper glancing at
+/// the phone sees what the visitor's glasses see. Blank until the stream is up.
+struct GlassesStage: View {
+    let image: UIImage?
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                DS.N.canvas
+                if let image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .clipped()
+                } else {
+                    VStack(spacing: 8) {
+                        Image(systemName: "eyeglasses").font(.largeTitle)
+                        Text("Waiting for the glasses camera").font(.dsHeadline)
+                    }
+                    .foregroundStyle(DS.N.inkTertiary)
+                }
+            }
+        }
+        .accessibilityHidden(true)
+    }
 }

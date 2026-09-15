@@ -3,9 +3,11 @@ import Foundation
 import Observation
 import simd
 
-/// Immutable per-frame data handed to the view model. Extracted on the main
-/// queue inside the delegate callback so that no `ARFrame` is retained.
-struct ARFrameSnapshot {
+/// One estimate of where the visitor is, in the graph frame, handed to the
+/// view model. ARKit produces one per camera frame (extracted on the main queue
+/// inside the delegate callback so that no `ARFrame` is retained); glasses
+/// positioning produces one per tick of its extrapolator.
+struct PoseSnapshot {
     let cameraTransform: simd_float4x4
     let timestamp: TimeInterval
     let trackingReliable: Bool
@@ -70,13 +72,13 @@ final class ARNavigationManager: NSObject, ARSessionDelegate {
     let session = ARSession()
 
     /// Called on the main actor for every camera frame.
-    @ObservationIgnored var onFrame: ((ARFrameSnapshot) -> Void)?
+    @ObservationIgnored var onFrame: ((PoseSnapshot) -> Void)?
     /// Called on the main actor whenever the set of POI anchors changes.
     @ObservationIgnored var onPOIAnchorsChanged: (([String: SIMD2<Float>]) -> Void)?
 
     /// THROWAWAY, for the Immersal comparison harness in `Probe/` only.
     ///
-    /// `ARFrameSnapshot` deliberately drops the pixel buffer and the intrinsics
+    /// `PoseSnapshot` deliberately drops the pixel buffer and the intrinsics
     /// so that no `ARFrame` is retained; the harness needs both to ask a VPS
     /// where it is, so it gets the frame itself and must copy what it wants
     /// synchronously. Nil unless a measurement walk is running. Delete
@@ -280,7 +282,7 @@ final class ARNavigationManager: NSObject, ARSessionDelegate {
         featurePointCount = frame.rawFeaturePoints?.points.count ?? 0
         updateFPS(timestamp: frame.timestamp)
 
-        onFrame?(ARFrameSnapshot(cameraTransform: frame.camera.transform,
+        onFrame?(PoseSnapshot(cameraTransform: frame.camera.transform,
                                  timestamp: frame.timestamp,
                                  trackingReliable: trackingReliable,
                                  featurePointCount: featurePointCount))

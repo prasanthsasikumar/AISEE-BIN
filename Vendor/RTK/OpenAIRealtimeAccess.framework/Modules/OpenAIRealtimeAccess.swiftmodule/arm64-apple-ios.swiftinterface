@@ -1,0 +1,398 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Apple Swift version 6.1.2 effective-5.10 (swiftlang-6.1.2.1.2 clang-1700.0.13.5)
+// swift-module-flags: -target arm64-apple-ios15.6 -enable-objc-interop -enable-library-evolution -swift-version 5 -enforce-exclusivity=checked -O -enable-experimental-feature DebugDescriptionMacro -enable-bare-slash-regex -module-name OpenAIRealtimeAccess
+// swift-module-flags-ignorable:  -interface-compiler-version 6.1.2
+import AudioToolbox
+import Foundation
+import OSLog
+import RTKAudioStreaming
+import Swift
+import _Concurrency
+import _StringProcessing
+import _SwiftConcurrencyShims
+@objc @_inheritsConvenienceInitializers open class OpenAIRealtime : ObjectiveC.NSObject {
+  open var request: Foundation.URLRequest {
+    get
+  }
+  public func openNewSession() async throws -> OpenAIRealtimeAccess.RealtimeSession
+  @objc override dynamic public init()
+  @objc deinit
+}
+extension OpenAIRealtimeAccess.OpenAIRealtime : Foundation.URLSessionWebSocketDelegate {
+  @objc dynamic public func urlSession(_ session: Foundation.URLSession, didBecomeInvalidWithError error: (any Swift.Error)?)
+  @objc dynamic public func urlSessionDidFinishEvents(forBackgroundURLSession session: Foundation.URLSession)
+  @objc dynamic public func urlSession(_ session: Foundation.URLSession, didReceive challenge: Foundation.URLAuthenticationChallenge, completionHandler: @escaping @Sendable (Foundation.URLSession.AuthChallengeDisposition, Foundation.URLCredential?) -> Swift.Void)
+  @objc dynamic public func urlSession(_ session: Foundation.URLSession, didCreateTask task: Foundation.URLSessionTask)
+  @objc dynamic public func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, willBeginDelayedRequest request: Foundation.URLRequest, completionHandler: @escaping @Sendable (Foundation.URLSession.DelayedRequestDisposition, Foundation.URLRequest?) -> Swift.Void)
+  @objc dynamic public func urlSession(_ session: Foundation.URLSession, taskIsWaitingForConnectivity task: Foundation.URLSessionTask)
+  @objc dynamic public func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didCompleteWithError error: (any Swift.Error)?)
+  @objc dynamic public func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, willPerformHTTPRedirection response: Foundation.HTTPURLResponse, newRequest request: Foundation.URLRequest, completionHandler: @escaping @Sendable (Foundation.URLRequest?) -> Swift.Void)
+  @objc dynamic public func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didReceive challenge: Foundation.URLAuthenticationChallenge, completionHandler: @escaping @Sendable (Foundation.URLSession.AuthChallengeDisposition, Foundation.URLCredential?) -> Swift.Void)
+  @objc dynamic public func urlSession(_ session: Foundation.URLSession, webSocketTask: Foundation.URLSessionWebSocketTask, didOpenWithProtocol protocol: Swift.String?)
+  @objc dynamic public func urlSession(_ session: Foundation.URLSession, webSocketTask: Foundation.URLSessionWebSocketTask, didCloseWith closeCode: Foundation.URLSessionWebSocketTask.CloseCode, reason: Foundation.Data?)
+}
+public typealias RealtimeVoice = Swift.String
+public enum RealtimeAudioFormat : Swift.String, Swift.Codable {
+  case pcm16, g711_ulaw, g711_alaw
+  public init?(rawValue: Swift.String)
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+public typealias RealtimeAudioInputTranscriptionModel = Swift.String
+public struct RealtimeAudioInputTranscriptionSettings : Swift.Codable {
+  public var model: OpenAIRealtimeAccess.RealtimeAudioInputTranscriptionModel
+  public var language: Swift.String?
+  public var prompt: Swift.String?
+  public init(model: OpenAIRealtimeAccess.RealtimeAudioInputTranscriptionModel, language: Swift.String? = nil, prompt: Swift.String? = nil)
+  public func encode(to encoder: any Swift.Encoder) throws
+  public init(from decoder: any Swift.Decoder) throws
+}
+public enum RealtimeTurnDetectionType : Swift.String, Swift.Codable {
+  case none
+  case server_vad
+  public init?(rawValue: Swift.String)
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+public struct RealtimeTurnDetection : Swift.Codable {
+  public init(type: OpenAIRealtimeAccess.RealtimeTurnDetectionType, threshold: Foundation.Decimal? = nil, prefix_padding_ms: Swift.Int? = nil, silence_duration_ms: Swift.Int? = nil, create_response: Swift.Bool? = nil)
+  public func encode(to encoder: any Swift.Encoder) throws
+  public init(from decoder: any Swift.Decoder) throws
+}
+public enum RealtimeToolType : Swift.String, Swift.Codable {
+  case function
+  public init?(rawValue: Swift.String)
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+public struct RealtimeFunctionTool : Swift.Codable {
+  public var type: OpenAIRealtimeAccess.RealtimeToolType
+  public var name: Swift.String
+  public var description: Swift.String
+  public var parameters: OpenAIRealtimeAccess.ToolParameter?
+  public init(type: OpenAIRealtimeAccess.RealtimeToolType, name: Swift.String, description: Swift.String, parameters: OpenAIRealtimeAccess.ToolParameter? = nil)
+  public func encode(to encoder: any Swift.Encoder) throws
+  public init(from decoder: any Swift.Decoder) throws
+}
+public struct ToolParameter : Swift.Codable {
+  public var type: Swift.String
+  public var properties: [Swift.String : OpenAIRealtimeAccess.ToolParameterField]
+  public var required: [Swift.String]
+  public init(properties: [Swift.String : OpenAIRealtimeAccess.ToolParameterField], required: [Swift.String])
+  public func encode(to encoder: any Swift.Encoder) throws
+  public init(from decoder: any Swift.Decoder) throws
+}
+public struct ToolParameterField : Swift.Codable {
+  public var type: Swift.String
+  public var description: Swift.String
+  public init(type: Swift.String, description: Swift.String)
+  public func encode(to encoder: any Swift.Encoder) throws
+  public init(from decoder: any Swift.Decoder) throws
+}
+public enum RealtimeToolChoiceLiteral : Swift.String {
+  case auto, none, required
+  public init?(rawValue: Swift.String)
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+public struct RealtimeRequestSession : Swift.Codable {
+  public var modalities: [OpenAIRealtimeAccess.RealtimeModality]?
+  public var instructions: Swift.String?
+  public var voice: OpenAIRealtimeAccess.RealtimeVoice?
+  public var input_audio_format: OpenAIRealtimeAccess.RealtimeAudioFormat?
+  public var output_audio_format: OpenAIRealtimeAccess.RealtimeAudioFormat?
+  public var input_audio_transcription: OpenAIRealtimeAccess.RealtimeAudioInputTranscriptionSettings?
+  public var turn_detection: OpenAIRealtimeAccess.RealtimeTurnDetection?
+  public var tools: [OpenAIRealtimeAccess.RealtimeFunctionTool]?
+  public var tool_choice: OpenAIRealtimeAccess.RealtimeToolChoiceLiteral?
+  public var temperature: Foundation.Decimal?
+  public var max_response_output_tokens: Swift.Int?
+  public init()
+  public func encode(to encoder: any Swift.Encoder) throws
+  public init(from decoder: any Swift.Decoder) throws
+}
+public enum RealtimeResponseStatus : Swift.String, Swift.Codable {
+  case in_progress, completed, cancelled, incomplete, failed
+  public init?(rawValue: Swift.String)
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+public enum RealtimeItemType : Swift.String, Swift.Codable {
+  case message, function_call, function_call_output
+  public init?(rawValue: Swift.String)
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+public enum RealtimeItemStatus : Swift.String, Swift.Codable {
+  case in_progress, completed, incomplete
+  public init?(rawValue: Swift.String)
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+public enum RealtimeMessageRole : Swift.String, Swift.Codable {
+  case system, user, assistant
+  public init?(rawValue: Swift.String)
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+public enum RealtimeModality : Swift.String, Swift.Codable {
+  case text, audio, image
+  public init?(rawValue: Swift.String)
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+public struct RealtimeResponseOptions : Swift.Codable {
+  public init(modalities: [OpenAIRealtimeAccess.RealtimeModality], instructions: Swift.String, voice: OpenAIRealtimeAccess.RealtimeVoice, output_audio_format: OpenAIRealtimeAccess.RealtimeAudioFormat)
+  public func encode(to encoder: any Swift.Encoder) throws
+  public init(from decoder: any Swift.Decoder) throws
+}
+public enum RealtimeContentPartType : Swift.String, Swift.Codable {
+  case input_text, input_audio, text, audio
+  public init?(rawValue: Swift.String)
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+@_hasMissingDesignatedInitializers public class RealtimeSession {
+  public var isActive: Swift.Bool {
+    get
+  }
+  public var onCloseHandler: (((any Swift.Error)?) -> Swift.Void)?
+  @objc deinit
+  public func close() async throws
+  public enum SessionError : Swift.Error {
+    case timeout
+    case noPendingResponse
+    case pendingTask
+    case itemNotComplete
+    case audioFileMissing
+    case notSupported
+    public static func == (a: OpenAIRealtimeAccess.RealtimeSession.SessionError, b: OpenAIRealtimeAccess.RealtimeSession.SessionError) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public struct ResponseError : Swift.Error {
+  }
+  public var onLowPerformanceHandler: (() -> Swift.Void)?
+  final public let id: Swift.String
+  final public let expirationTime: Foundation.Date
+  public func updateConfiguration(_ cfg: OpenAIRealtimeAccess.RealtimeRequestSession) async throws
+  public var conversation: OpenAIRealtimeAccess.RealtimeConversation {
+    get
+  }
+}
+@_hasMissingDesignatedInitializers public class RealtimeConversation {
+  final public let id: Swift.String
+  public var inputAudioBuffer: OpenAIRealtimeAccess.RealtimeConversation.InputAudioBuffer {
+    get
+  }
+  public var history: [OpenAIRealtimeAccess.RealtimeConversation.ItemBase]
+  public enum ItemChangeType {
+    case added
+    case deleted
+    case updated
+    case contentUpdated
+    public static func == (a: OpenAIRealtimeAccess.RealtimeConversation.ItemChangeType, b: OpenAIRealtimeAccess.RealtimeConversation.ItemChangeType) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public var itemChangeObservers: [Foundation.UUID : (OpenAIRealtimeAccess.RealtimeConversation.ItemChangeType, OpenAIRealtimeAccess.RealtimeConversation.ItemBase) -> Swift.Void] {
+    get
+  }
+  public func observeItemChange(with handler: @escaping (_ change: OpenAIRealtimeAccess.RealtimeConversation.ItemChangeType, _ item: OpenAIRealtimeAccess.RealtimeConversation.ItemBase) -> Swift.Void) -> Foundation.UUID
+  public func unobserveItemChange(_ token: Foundation.UUID)
+  public func createNewItem(withStale staleItem: OpenAIRealtimeAccess.RealtimeConversation.ItemBase, after previous: OpenAIRealtimeAccess.RealtimeConversation.ItemBase? = nil) async throws -> OpenAIRealtimeAccess.RealtimeConversation.ItemBase
+  public func createFunctionCallOutputItem(callId: Swift.String, output: Swift.String, after previousItem: OpenAIRealtimeAccess.RealtimeConversation.ItemBase? = nil) async throws -> OpenAIRealtimeAccess.RealtimeConversation.FunctionCallOutputItem
+  public var isCreatingResponse: Swift.Bool {
+    get
+  }
+  public func createResponse(options: OpenAIRealtimeAccess.RealtimeResponseOptions, untilCreationDone needDone: Swift.Bool = false) async throws -> OpenAIRealtimeAccess.RealtimeConversation.Response
+  public func cancelInProgressResponse() async throws
+  public var onResponseCreatedHandler: ((_ response: OpenAIRealtimeAccess.RealtimeConversation.Response) -> Swift.Void)?
+  public var onResponseDoneHandler: ((_ response: OpenAIRealtimeAccess.RealtimeConversation.Response, _ reason: Swift.String?) -> Swift.Void)?
+  @objc deinit
+}
+extension OpenAIRealtimeAccess.RealtimeConversation {
+  @_hasMissingDesignatedInitializers public class InputAudioBuffer {
+    public func append(audio chunk: Foundation.Data) async throws
+    public func clear() async throws
+    public func commit(untilItemCreation delay: Swift.Bool = false) async throws -> OpenAIRealtimeAccess.RealtimeConversation.MessageItem?
+    public var onSpeechStartedHandler: (() -> Swift.Void)?
+    public var onSpeechStoppedHandler: (() -> Swift.Void)?
+    public var onAudioTranscriptionCompletedHandler: ((_ item: OpenAIRealtimeAccess.RealtimeConversation.MessageItem, _ contentPart: OpenAIRealtimeAccess.RealtimeConversation.MessageItem.InputAudioContentPart) -> Swift.Void)?
+    public var onAudioTranscriptionFailedHandler: ((_ item: OpenAIRealtimeAccess.RealtimeConversation.MessageItem, _ contentPart: OpenAIRealtimeAccess.RealtimeConversation.MessageItem.InputAudioContentPart, _ error: any Swift.Error) -> Swift.Void)?
+    @objc deinit
+  }
+}
+extension OpenAIRealtimeAccess.RealtimeConversation.InputAudioBuffer : RTKAudioStreaming.AudioStreamInputable {
+  public var inDataFormat: CoreAudioTypes.AudioStreamBasicDescription {
+    get
+  }
+  public func onAudioStreamFlowStart()
+  public func receiveAudio(bytes bufferPtr: Swift.UnsafeRawPointer, size: Swift.UInt, packetNum: Swift.UInt, packetDescriptions descs: Swift.UnsafePointer<CoreAudioTypes.AudioStreamPacketDescription>?)
+  public func onAudioStreamFlowEnd()
+}
+extension OpenAIRealtimeAccess.RealtimeConversation {
+  @_hasMissingDesignatedInitializers public class ItemBase {
+    final public let id: Swift.String
+    public var type: OpenAIRealtimeAccess.RealtimeItemType {
+      get
+    }
+    final public let createdTime: Foundation.Date
+    public var status: OpenAIRealtimeAccess.RealtimeItemStatus
+    public var contentChangedHandler: (() -> Swift.Void)?
+    @objc deinit
+  }
+  @_hasMissingDesignatedInitializers public class MessageItem : OpenAIRealtimeAccess.RealtimeConversation.ItemBase {
+    override public var type: OpenAIRealtimeAccess.RealtimeItemType {
+      get
+    }
+    public var role: OpenAIRealtimeAccess.RealtimeMessageRole
+    public var text: Swift.String? {
+      get
+    }
+    public var audioTranscript: Swift.String? {
+      get
+    }
+    @_hasMissingDesignatedInitializers public class ContentPart {
+      public var type: OpenAIRealtimeAccess.RealtimeContentPartType {
+        get
+      }
+      @objc deinit
+    }
+    @_hasMissingDesignatedInitializers public class InputTextContentPart : OpenAIRealtimeAccess.RealtimeConversation.MessageItem.ContentPart {
+      override public var type: OpenAIRealtimeAccess.RealtimeContentPartType {
+        get
+      }
+      public var text: Swift.String
+      @objc deinit
+    }
+    @_hasMissingDesignatedInitializers public class TextContentPart : OpenAIRealtimeAccess.RealtimeConversation.MessageItem.ContentPart {
+      override public var type: OpenAIRealtimeAccess.RealtimeContentPartType {
+        get
+      }
+      public var text: Swift.String
+      @objc deinit
+    }
+    @_hasMissingDesignatedInitializers public class InputAudioContentPart : OpenAIRealtimeAccess.RealtimeConversation.MessageItem.ContentPart {
+      override public var type: OpenAIRealtimeAccess.RealtimeContentPartType {
+        get
+      }
+      public var transcript: Swift.String
+      @objc deinit
+    }
+    @_hasMissingDesignatedInitializers public class AudioContentPart : OpenAIRealtimeAccess.RealtimeConversation.MessageItem.ContentPart {
+      override public var type: OpenAIRealtimeAccess.RealtimeContentPartType {
+        get
+      }
+      public var transcript: Swift.String
+      @objc deinit
+    }
+    public var content: [OpenAIRealtimeAccess.RealtimeConversation.MessageItem.ContentPart]
+    @objc deinit
+  }
+  @_hasMissingDesignatedInitializers public class FunctionCallItem : OpenAIRealtimeAccess.RealtimeConversation.ItemBase {
+    override public var type: OpenAIRealtimeAccess.RealtimeItemType {
+      get
+    }
+    final public let name: Swift.String
+    final public let callId: Swift.String
+    public var arguments: Swift.String
+    @objc deinit
+  }
+  @_hasMissingDesignatedInitializers public class FunctionCallOutputItem : OpenAIRealtimeAccess.RealtimeConversation.ItemBase {
+    override public var type: OpenAIRealtimeAccess.RealtimeItemType {
+      get
+    }
+    final public let call_id: Swift.String
+    final public let output: Swift.String
+    @objc deinit
+  }
+}
+extension OpenAIRealtimeAccess.RealtimeConversation {
+  @_hasMissingDesignatedInitializers public class Response : RTKAudioStreaming.AudioStreamOutputable {
+    final public let id: Swift.String
+    final public let createdTime: Foundation.Date
+    public var status: OpenAIRealtimeAccess.RealtimeResponseStatus {
+      get
+    }
+    public var output: [OpenAIRealtimeAccess.RealtimeConversation.ItemBase]
+    public var onFunctionCallHandler: ((_ outputItem: OpenAIRealtimeAccess.RealtimeConversation.FunctionCallItem) -> Swift.Void)?
+    public var onOutputItemAddedHandler: ((_ outputItem: OpenAIRealtimeAccess.RealtimeConversation.ItemBase) -> Swift.Void)?
+    public var onOutputItemDoneHandler: ((_ outputItem: OpenAIRealtimeAccess.RealtimeConversation.ItemBase) -> Swift.Void)?
+    public var onContentPartAddedHandler: ((_ contentPart: OpenAIRealtimeAccess.RealtimeConversation.MessageItem.ContentPart, _ outputItem: OpenAIRealtimeAccess.RealtimeConversation.MessageItem) -> Swift.Void)?
+    public var onContentPartDoneHandler: ((_ contentPart: OpenAIRealtimeAccess.RealtimeConversation.MessageItem.ContentPart, _ outputItem: OpenAIRealtimeAccess.RealtimeConversation.MessageItem) -> Swift.Void)?
+    public var onAudioDeltaHandler: ((_ audioDelta: Foundation.Data, _ contentPart: OpenAIRealtimeAccess.RealtimeConversation.MessageItem.ContentPart, _ outputItem: OpenAIRealtimeAccess.RealtimeConversation.MessageItem) -> Swift.Void)?
+    public var onAudioDoneHandler: ((_ contentPart: OpenAIRealtimeAccess.RealtimeConversation.MessageItem.ContentPart, _ outputItem: OpenAIRealtimeAccess.RealtimeConversation.MessageItem) -> Swift.Void)?
+    public var onAudioTranscriptDeltaHandler: ((_ transcriptDelta: Swift.String, _ contentPart: OpenAIRealtimeAccess.RealtimeConversation.MessageItem.ContentPart, _ outputItem: OpenAIRealtimeAccess.RealtimeConversation.MessageItem) -> Swift.Void)?
+    public var onAudioTranscriptDoneHandler: ((_ contentPart: OpenAIRealtimeAccess.RealtimeConversation.MessageItem.ContentPart, _ outputItem: OpenAIRealtimeAccess.RealtimeConversation.MessageItem) -> Swift.Void)?
+    public var onTextDeltaHandler: ((_ txtDelta: Swift.String, _ contentPart: OpenAIRealtimeAccess.RealtimeConversation.MessageItem.ContentPart, _ outputItem: OpenAIRealtimeAccess.RealtimeConversation.MessageItem) -> Swift.Void)?
+    public var onTextDoneHandler: ((_ contentPart: OpenAIRealtimeAccess.RealtimeConversation.MessageItem.ContentPart, _ outputItem: OpenAIRealtimeAccess.RealtimeConversation.MessageItem) -> Swift.Void)?
+    public var onFunctionCallArgumentsDeltaHandler: ((_ delta: Swift.String, _ outputItem: OpenAIRealtimeAccess.RealtimeConversation.FunctionCallItem) -> Swift.Void)?
+    public var onFunctionCallArgumentsDoneHandler: ((_ outputItem: OpenAIRealtimeAccess.RealtimeConversation.FunctionCallItem) -> Swift.Void)?
+    public var outDataFormat: CoreAudioTypes.AudioStreamBasicDescription {
+      get
+    }
+    public var downstreams: [any RTKAudioStreaming.AudioStreamInputable]
+    @objc deinit
+  }
+}
+extension OpenAIRealtimeAccess.RealtimeAudioFormat : Swift.Equatable {}
+extension OpenAIRealtimeAccess.RealtimeAudioFormat : Swift.Hashable {}
+extension OpenAIRealtimeAccess.RealtimeAudioFormat : Swift.RawRepresentable {}
+extension OpenAIRealtimeAccess.RealtimeTurnDetectionType : Swift.Equatable {}
+extension OpenAIRealtimeAccess.RealtimeTurnDetectionType : Swift.Hashable {}
+extension OpenAIRealtimeAccess.RealtimeTurnDetectionType : Swift.RawRepresentable {}
+extension OpenAIRealtimeAccess.RealtimeToolType : Swift.Equatable {}
+extension OpenAIRealtimeAccess.RealtimeToolType : Swift.Hashable {}
+extension OpenAIRealtimeAccess.RealtimeToolType : Swift.RawRepresentable {}
+extension OpenAIRealtimeAccess.RealtimeToolChoiceLiteral : Swift.Encodable {}
+extension OpenAIRealtimeAccess.RealtimeToolChoiceLiteral : Swift.Decodable {}
+extension OpenAIRealtimeAccess.RealtimeToolChoiceLiteral : Swift.Equatable {}
+extension OpenAIRealtimeAccess.RealtimeToolChoiceLiteral : Swift.Hashable {}
+extension OpenAIRealtimeAccess.RealtimeToolChoiceLiteral : Swift.RawRepresentable {}
+extension OpenAIRealtimeAccess.RealtimeResponseStatus : Swift.Equatable {}
+extension OpenAIRealtimeAccess.RealtimeResponseStatus : Swift.Hashable {}
+extension OpenAIRealtimeAccess.RealtimeResponseStatus : Swift.RawRepresentable {}
+extension OpenAIRealtimeAccess.RealtimeItemType : Swift.Equatable {}
+extension OpenAIRealtimeAccess.RealtimeItemType : Swift.Hashable {}
+extension OpenAIRealtimeAccess.RealtimeItemType : Swift.RawRepresentable {}
+extension OpenAIRealtimeAccess.RealtimeItemStatus : Swift.Equatable {}
+extension OpenAIRealtimeAccess.RealtimeItemStatus : Swift.Hashable {}
+extension OpenAIRealtimeAccess.RealtimeItemStatus : Swift.RawRepresentable {}
+extension OpenAIRealtimeAccess.RealtimeMessageRole : Swift.Equatable {}
+extension OpenAIRealtimeAccess.RealtimeMessageRole : Swift.Hashable {}
+extension OpenAIRealtimeAccess.RealtimeMessageRole : Swift.RawRepresentable {}
+extension OpenAIRealtimeAccess.RealtimeModality : Swift.Equatable {}
+extension OpenAIRealtimeAccess.RealtimeModality : Swift.Hashable {}
+extension OpenAIRealtimeAccess.RealtimeModality : Swift.RawRepresentable {}
+extension OpenAIRealtimeAccess.RealtimeContentPartType : Swift.Equatable {}
+extension OpenAIRealtimeAccess.RealtimeContentPartType : Swift.Hashable {}
+extension OpenAIRealtimeAccess.RealtimeContentPartType : Swift.RawRepresentable {}
+extension OpenAIRealtimeAccess.RealtimeSession.SessionError : Swift.Equatable {}
+extension OpenAIRealtimeAccess.RealtimeSession.SessionError : Swift.Hashable {}
+extension OpenAIRealtimeAccess.RealtimeConversation.ItemChangeType : Swift.Equatable {}
+extension OpenAIRealtimeAccess.RealtimeConversation.ItemChangeType : Swift.Hashable {}

@@ -1,0 +1,436 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Apple Swift version 6.1.2 effective-5.10 (swiftlang-6.1.2.1.2 clang-1700.0.13.5)
+// swift-module-flags: -target arm64-apple-ios16.0 -enable-objc-interop -enable-library-evolution -swift-version 5 -enforce-exclusivity=checked -O -enable-experimental-feature DebugDescriptionMacro -enable-bare-slash-regex -module-name RTKAudioStreaming
+// swift-module-flags-ignorable: -no-verify-emitted-module-interface -interface-compiler-version 6.1.2
+import AudioToolbox
+import Foundation
+import OSLog
+@_exported import RTKAudioStreaming
+import RTKLEFoundation
+import Speech
+import Swift
+import _Concurrency
+import _StringProcessing
+import _SwiftConcurrencyShims
+public let kAudioFormatSbc: CoreAudioTypes.AudioFormatID
+public let kSbcFormatFlagIsBigEndian: CoreAudioTypes.AudioFormatFlags
+public let kSbcFormatFlagBlocksBits: CoreAudioTypes.AudioFormatFlags
+public let kSbcFormatFlagIs4Blocks: CoreAudioTypes.AudioFormatFlags
+public let kSbcFormatFlagIs8Blocks: CoreAudioTypes.AudioFormatFlags
+public let kSbcFormatFlagIs12Blocks: CoreAudioTypes.AudioFormatFlags
+public let kSbcFormatFlagIs16Blocks: CoreAudioTypes.AudioFormatFlags
+public let kSbcFormatFlagAllocationBits: CoreAudioTypes.AudioFormatFlags
+public let kSbcFormatFlagIsLoundnessAllocation: CoreAudioTypes.AudioFormatFlags
+public let kSbcFormatFlagIsSNRAllocation: CoreAudioTypes.AudioFormatFlags
+public let kSbcFormatFlagSubbandBits: CoreAudioTypes.AudioFormatFlags
+public let kSbcFormatFlagIs4Subband: CoreAudioTypes.AudioFormatFlags
+public let kSbcFormatFlagIs8Subband: CoreAudioTypes.AudioFormatFlags
+public let kSbcFormatFlagBitPoolBits: CoreAudioTypes.AudioFormatFlags
+public class SBCCoding : RTKAudioStreaming.AudioStreamInputable, RTKAudioStreaming.AudioStreamOutputable {
+  public enum Frequency : Swift.Int {
+    case _16000
+    case _32000
+    case _44100
+    case _48000
+    public init?(rawValue: Swift.Int)
+    public typealias RawValue = Swift.Int
+    public var rawValue: Swift.Int {
+      get
+    }
+  }
+  public enum ChannelMode {
+    case mono
+    case dual
+    case stereo
+    case jointStereo
+    public static func == (a: RTKAudioStreaming.SBCCoding.ChannelMode, b: RTKAudioStreaming.SBCCoding.ChannelMode) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public enum Subband {
+    case _4
+    case _8
+    public static func == (a: RTKAudioStreaming.SBCCoding.Subband, b: RTKAudioStreaming.SBCCoding.Subband) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public enum Endianess {
+    case little
+    case big
+    public static func == (a: RTKAudioStreaming.SBCCoding.Endianess, b: RTKAudioStreaming.SBCCoding.Endianess) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public enum Block : Swift.Int {
+    case _4
+    case _8
+    case _12
+    case _16
+    public init?(rawValue: Swift.Int)
+    public typealias RawValue = Swift.Int
+    public var rawValue: Swift.Int {
+      get
+    }
+  }
+  public enum AllocationMethod {
+    case loudness
+    case SNR
+    public static func == (a: RTKAudioStreaming.SBCCoding.AllocationMethod, b: RTKAudioStreaming.SBCCoding.AllocationMethod) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public class SBCConfiguration {
+    public var freq: RTKAudioStreaming.SBCCoding.Frequency
+    public var mode: RTKAudioStreaming.SBCCoding.ChannelMode
+    public var subband: RTKAudioStreaming.SBCCoding.Subband
+    public var blocks: RTKAudioStreaming.SBCCoding.Block
+    public var endian: RTKAudioStreaming.SBCCoding.Endianess
+    public var allocation: RTKAudioStreaming.SBCCoding.AllocationMethod
+    public var bitpool: Swift.UInt8
+    @objc deinit
+    public var frameLen: Swift.Int {
+      get
+    }
+    public var codeSize: Swift.Int {
+      get
+    }
+    public init()
+  }
+  final public let config: RTKAudioStreaming.SBCCoding.SBCConfiguration
+  public init(audioFrom upstream: any RTKAudioStreaming.AudioStreamOutputable, configuration config: RTKAudioStreaming.SBCCoding.SBCConfiguration) throws
+  public var downstreams: [any RTKAudioStreaming.AudioStreamInputable]
+  public var inDataFormat: CoreAudioTypes.AudioStreamBasicDescription {
+    get
+  }
+  public var outDataFormat: CoreAudioTypes.AudioStreamBasicDescription
+  public func onAudioStreamFlowStart()
+  public func receiveAudio(bytes bufferPtr: Swift.UnsafeRawPointer, size: Swift.UInt, packetNum: Swift.UInt, packetDescriptions descs: Swift.UnsafePointer<CoreAudioTypes.AudioStreamPacketDescription>?)
+  public func onAudioStreamFlowEnd()
+  @objc deinit
+}
+@_inheritsConvenienceInitializers public class SBCEncoder : RTKAudioStreaming.SBCCoding {
+  override public init(audioFrom upstream: any RTKAudioStreaming.AudioStreamOutputable, configuration config: RTKAudioStreaming.SBCCoding.SBCConfiguration) throws
+  override public func receiveAudio(bytes bufferPtr: Swift.UnsafeRawPointer, size: Swift.UInt, packetNum: Swift.UInt, packetDescriptions descs: Swift.UnsafePointer<CoreAudioTypes.AudioStreamPacketDescription>?)
+  override public func onAudioStreamFlowEnd()
+  @objc deinit
+}
+public class SBCDecoder : RTKAudioStreaming.SBCCoding {
+  public init(audioFrom upstream: any RTKAudioStreaming.AudioStreamOutputable) throws
+  override public func receiveAudio(bytes bufferPtr: Swift.UnsafeRawPointer, size: Swift.UInt, packetNum: Swift.UInt, packetDescriptions descs: Swift.UnsafePointer<CoreAudioTypes.AudioStreamPacketDescription>?)
+  @objc deinit
+}
+public class APLSpeechRecognition : RTKAudioStreaming.SpeechASR {
+  public enum Failure : Swift.Error {
+    case authorization
+    case serviceNotAvailable
+    case notSupported
+    public static func == (a: RTKAudioStreaming.APLSpeechRecognition.Failure, b: RTKAudioStreaming.APLSpeechRecognition.Failure) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public func setAudioStream(source upstream: any RTKAudioStreaming.AudioStreamOutputable) throws
+  public init(audioFrom upstream: (any RTKAudioStreaming.AudioStreamOutputable)? = nil) throws
+  public var speechEndDetection: (silenceDuration: Foundation.TimeInterval, initialSilenceDuration: Foundation.TimeInterval)?
+  public func recognize(language: Foundation.Locale.Language? = nil) throws -> _Concurrency.AsyncThrowingStream<Swift.String, any Swift.Error>
+  @objc deinit
+}
+extension RTKAudioStreaming.APLSpeechRecognition : RTKAudioStreaming.AudioStreamInputable {
+  public var inDataFormat: CoreAudioTypes.AudioStreamBasicDescription {
+    get
+  }
+  public func onAudioStreamFlowStart()
+  public func receiveAudio(bytes bufferPtr: Swift.UnsafeRawPointer, size: Swift.UInt, packetNum: Swift.UInt, packetDescriptions descs: Swift.UnsafePointer<CoreAudioTypes.AudioStreamPacketDescription>?)
+  public func onAudioStreamFlowEnd()
+}
+extension CoreAudioTypes.AudioStreamBasicDescription : Swift.Equatable {
+  public static func == (lhs: CoreAudioTypes.AudioStreamBasicDescription, rhs: CoreAudioTypes.AudioStreamBasicDescription) -> Swift.Bool
+}
+@objc @_inheritsConvenienceInitializers public class APLSpeechSynthesis : ObjectiveC.NSObject, RTKAudioStreaming.SpeechTTS {
+  @objc override dynamic public init()
+  public func synthesize(_ text: Swift.String, language: Foundation.Locale.Language? = nil) async throws
+  public func speak(_ text: Swift.String, language: Foundation.Locale.Language? = nil) async throws
+  public var outDataFormat: CoreAudioTypes.AudioStreamBasicDescription
+  public var downstreams: [any RTKAudioStreaming.AudioStreamInputable]
+  @objc deinit
+}
+extension RTKAudioStreaming.APLSpeechSynthesis : AVFAudio.AVSpeechSynthesizerDelegate {
+  @objc dynamic public func speechSynthesizer(_ synthesizer: AVFAudio.AVSpeechSynthesizer, didStart utterance: AVFAudio.AVSpeechUtterance)
+  @objc dynamic public func speechSynthesizer(_ synthesizer: AVFAudio.AVSpeechSynthesizer, didFinish utterance: AVFAudio.AVSpeechUtterance)
+  @objc dynamic public func speechSynthesizer(_ synthesizer: AVFAudio.AVSpeechSynthesizer, didCancel utterance: AVFAudio.AVSpeechUtterance)
+}
+@_hasMissingDesignatedInitializers public class OpusCoding : RTKAudioStreaming.AudioStreamInputable, RTKAudioStreaming.AudioStreamOutputable {
+  public enum OpusError : Swift.Error {
+    case opus
+    public static func == (a: RTKAudioStreaming.OpusCoding.OpusError, b: RTKAudioStreaming.OpusCoding.OpusError) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public var inDataFormat: CoreAudioTypes.AudioStreamBasicDescription {
+    get
+  }
+  public var outDataFormat: CoreAudioTypes.AudioStreamBasicDescription
+  public var downstreams: [any RTKAudioStreaming.AudioStreamInputable]
+  public func onAudioStreamFlowStart()
+  public func receiveAudio(bytes bufferPtr: Swift.UnsafeRawPointer, size: Swift.UInt, packetNum: Swift.UInt, packetDescriptions descs: Swift.UnsafePointer<CoreAudioTypes.AudioStreamPacketDescription>?)
+  public func onAudioStreamFlowEnd()
+  @objc deinit
+}
+@_inheritsConvenienceInitializers public class OpusEncoder : RTKAudioStreaming.OpusCoding {
+  public init(audioFrom upstream: any RTKAudioStreaming.AudioStreamOutputable) throws
+  @objc deinit
+  override public func receiveAudio(bytes bufferPtr: Swift.UnsafeRawPointer, size: Swift.UInt, packetNum: Swift.UInt, packetDescriptions descs: Swift.UnsafePointer<CoreAudioTypes.AudioStreamPacketDescription>?)
+  override public func onAudioStreamFlowEnd()
+}
+@_inheritsConvenienceInitializers public class OpusDecoder : RTKAudioStreaming.OpusCoding {
+  public init(audioFrom upstream: any RTKAudioStreaming.AudioStreamOutputable) throws
+  @objc deinit
+  override public func receiveAudio(bytes bufferPtr: Swift.UnsafeRawPointer, size: Swift.UInt, packetNum: Swift.UInt, packetDescriptions descs: Swift.UnsafePointer<CoreAudioTypes.AudioStreamPacketDescription>?)
+}
+public class PCMResampler : RTKAudioStreaming.AudioStreamInputable, RTKAudioStreaming.AudioStreamOutputable {
+  public init(audioFrom upstream: any RTKAudioStreaming.AudioStreamOutputable, resampleTo frequency: Swift.Float64) throws
+  @objc deinit
+  public var inDataFormat: CoreAudioTypes.AudioStreamBasicDescription {
+    get
+  }
+  public func onAudioStreamFlowStart()
+  public func receiveAudio(bytes bufferPtr: Swift.UnsafeRawPointer, size: Swift.UInt, packetNum: Swift.UInt, packetDescriptions descs: Swift.UnsafePointer<CoreAudioTypes.AudioStreamPacketDescription>?)
+  public func onAudioStreamFlowEnd()
+  final public let outDataFormat: CoreAudioTypes.AudioStreamBasicDescription
+  public var downstreams: [any RTKAudioStreaming.AudioStreamInputable]
+}
+public enum AudioQueueError : Swift.Error {
+  case failure(Darwin.OSStatus)
+  case alreadyStarted
+}
+public class RecordSource : RTKAudioStreaming.AudioStreamOutputable {
+  public var outDataFormat: CoreAudioTypes.AudioStreamBasicDescription {
+    get
+  }
+  public init(dataFormat: CoreAudioTypes.AudioStreamBasicDescription) throws
+  @objc deinit
+  public var queueBufferSize: Swift.UInt32 {
+    get
+  }
+  public func record() throws
+  public func stop(completion: (() -> Swift.Void)? = nil) throws
+  public var isRecording: Swift.Bool {
+    get
+  }
+  public var timeStamp: Foundation.TimeInterval {
+    get
+  }
+  public var magicCookie: Foundation.Data {
+    get
+  }
+  public var downstreams: [any RTKAudioStreaming.AudioStreamInputable]
+}
+public enum AudioFileError : Swift.Error {
+  case create
+  case open(result: Darwin.OSStatus)
+  case read(result: Darwin.OSStatus)
+  case invalidFormat
+  case noMoreData
+}
+public class FileSource : RTKAudioStreaming.AudioStreamOutputable {
+  public init(fileURL url: Foundation.URL) throws
+  @objc deinit
+  public var outDataFormat: CoreAudioTypes.AudioStreamBasicDescription {
+    get
+  }
+  @discardableResult
+  public func readPackets(count: Swift.Int = 10) throws -> Swift.Int
+  @discardableResult
+  public func readPackets(for interval: Foundation.TimeInterval) throws -> Swift.Int
+  public var progress: Swift.Float {
+    get
+  }
+  public var downstreams: [any RTKAudioStreaming.AudioStreamInputable]
+}
+@available(iOS 13.4, *)
+public class RTKSbcFileSource : RTKAudioStreaming.AudioStreamOutputable {
+  public init(fileURL url: Foundation.URL) throws
+  @objc deinit
+  final public let outDataFormat: CoreAudioTypes.AudioStreamBasicDescription
+  public func readPackets(count: Swift.Int = 10) throws -> Swift.Int
+  public var downstreams: [any RTKAudioStreaming.AudioStreamInputable]
+}
+@available(iOS 13.4, *)
+public class RTKOpusFileSource : RTKAudioStreaming.AudioStreamOutputable {
+  public init(fileURL url: Foundation.URL) throws
+  @objc deinit
+  final public let outDataFormat: CoreAudioTypes.AudioStreamBasicDescription
+  public func readPackets(count: Swift.Int = 10) throws
+  public var downstreams: [any RTKAudioStreaming.AudioStreamInputable]
+}
+open class PeripheralSource : RTKAudioStreaming.AudioStreamOutputable {
+  open var outDataFormat: CoreAudioTypes.AudioStreamBasicDescription
+  public init()
+  public var downstreams: [any RTKAudioStreaming.AudioStreamInputable]
+  @objc deinit
+}
+open class PeripheralSink : RTKAudioStreaming.AudioStreamInputable {
+  unowned final public let upstream: any RTKAudioStreaming.AudioStreamOutputable
+  public var inDataFormat: CoreAudioTypes.AudioStreamBasicDescription {
+    get
+  }
+  public init(audioFrom upstream: any RTKAudioStreaming.AudioStreamOutputable) throws
+  open func onAudioStreamFlowStart()
+  open func receiveAudio(bytes bufferPtr: Swift.UnsafeRawPointer, size: Swift.UInt, packetNum: Swift.UInt, packetDescriptions descs: Swift.UnsafePointer<CoreAudioTypes.AudioStreamPacketDescription>?)
+  open func onAudioStreamFlowEnd()
+  @objc deinit
+}
+public class FileSink : RTKAudioStreaming.AudioStreamInputable {
+  final public let fileURL: Foundation.URL
+  final public let fileFormat: AudioToolbox.AudioFileTypeID
+  public var inDataFormat: CoreAudioTypes.AudioStreamBasicDescription {
+    get
+  }
+  @discardableResult
+  public init(fileUrl url: Foundation.URL, fileFormat type: AudioToolbox.AudioFileTypeID, audioFrom upstream: any RTKAudioStreaming.AudioStreamOutputable) throws
+  @objc deinit
+  public var estimatedDuration: Foundation.TimeInterval {
+    get
+  }
+  public func set(magicCookie cookie: Foundation.Data)
+  public func onAudioStreamFlowStart()
+  public func receiveAudio(bytes bufferPtr: Swift.UnsafeRawPointer, size: Swift.UInt, packetNum: Swift.UInt, packetDescriptions descs: Swift.UnsafePointer<CoreAudioTypes.AudioStreamPacketDescription>?)
+  public func onAudioStreamFlowEnd()
+}
+@available(iOS 13.4, *)
+public class RTKSbcFileSink : RTKAudioStreaming.AudioStreamInputable {
+  public var inDataFormat: CoreAudioTypes.AudioStreamBasicDescription {
+    get
+  }
+  public init(fileUrl url: Foundation.URL, audioFrom upstream: any RTKAudioStreaming.AudioStreamOutputable) throws
+  @objc deinit
+  public func onAudioStreamFlowStart()
+  public func receiveAudio(bytes bufferPtr: Swift.UnsafeRawPointer, size: Swift.UInt, packetNum: Swift.UInt, packetDescriptions descs: Swift.UnsafePointer<CoreAudioTypes.AudioStreamPacketDescription>?)
+  public func onAudioStreamFlowEnd()
+}
+@available(iOS 13.4, *)
+public class RTKOpusFileSink : RTKAudioStreaming.AudioStreamInputable {
+  public var inDataFormat: CoreAudioTypes.AudioStreamBasicDescription {
+    get
+  }
+  public init(fileUrl url: Foundation.URL, audioFrom upstream: any RTKAudioStreaming.AudioStreamOutputable) throws
+  @objc deinit
+  public func onAudioStreamFlowStart()
+  public func receiveAudio(bytes bufferPtr: Swift.UnsafeRawPointer, size: Swift.UInt, packetNum: Swift.UInt, packetDescriptions descs: Swift.UnsafePointer<CoreAudioTypes.AudioStreamPacketDescription>?)
+  public func onAudioStreamFlowEnd()
+}
+public actor AudioStreamPacketQueue {
+  public init()
+  public func enqueuePacket(_ pktData: Foundation.Data, isLast: Swift.Bool = false)
+  public func dequeuePacket() -> (pktData: Foundation.Data, isLast: Swift.Bool)?
+  public func onLastPacketReception()
+  public func reset()
+  @objc deinit
+  @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, *)
+  @_semantics("defaultActor") nonisolated final public var unownedExecutor: _Concurrency.UnownedSerialExecutor {
+    get
+  }
+}
+public enum AudioStreamError : Swift.Error {
+  case unacceptableData
+  case invalidInstruction
+  public static func == (a: RTKAudioStreaming.AudioStreamError, b: RTKAudioStreaming.AudioStreamError) -> Swift.Bool
+  public func hash(into hasher: inout Swift.Hasher)
+  public var hashValue: Swift.Int {
+    get
+  }
+}
+public protocol AudioStreamInputable : AnyObject {
+  var inDataFormat: CoreAudioTypes.AudioStreamBasicDescription { get }
+  func onAudioStreamFlowStart()
+  func receiveAudio(bytes bufferPtr: Swift.UnsafeRawPointer, size: Swift.UInt, packetNum: Swift.UInt, packetDescriptions descs: Swift.UnsafePointer<CoreAudioTypes.AudioStreamPacketDescription>?)
+  func onAudioStreamFlowEnd()
+}
+extension RTKAudioStreaming.AudioStreamInputable {
+  public func onAudioStreamFlowStart()
+  public func onAudioStreamFlowEnd()
+}
+public protocol AudioStreamOutputable : AnyObject {
+  var outDataFormat: CoreAudioTypes.AudioStreamBasicDescription { get }
+  var downstreams: [any RTKAudioStreaming.AudioStreamInputable] { get set }
+  func addStreamTarget(_ target: any RTKAudioStreaming.AudioStreamInputable)
+  func removeStreamTarget(_ target: (any RTKAudioStreaming.AudioStreamInputable)?)
+}
+extension RTKAudioStreaming.AudioStreamOutputable {
+  public func addStreamTarget(_ target: any RTKAudioStreaming.AudioStreamInputable)
+  public func removeStreamTarget(_ target: (any RTKAudioStreaming.AudioStreamInputable)?)
+}
+public class PlaybackSink : RTKAudioStreaming.AudioStreamInputable {
+  public var inDataFormat: CoreAudioTypes.AudioStreamBasicDescription {
+    get
+  }
+  public init(audioFrom upstream: any RTKAudioStreaming.AudioStreamOutputable) throws
+  @objc deinit
+  public var onStopHandler: (() -> Swift.Void)?
+  public var maxPacketNumForBuffer: Swift.UInt32 {
+    get
+  }
+  public var onAudioBufferExhaustedHandler: (() -> Swift.Void)?
+  public var secondsForMinBufferedAudio: Swift.Double
+  public func play() throws
+  public func stop() throws
+  public var isPlaying: Swift.Bool {
+    get
+  }
+  public var timeStamp: Foundation.TimeInterval {
+    get
+  }
+  public var volume: Swift.Float {
+    get
+    set
+  }
+  public func onAudioStreamFlowStart()
+  public func receiveAudio(bytes bufferPtr: Swift.UnsafeRawPointer, size: Swift.UInt, packetNum: Swift.UInt, packetDescriptions descs: Swift.UnsafePointer<CoreAudioTypes.AudioStreamPacketDescription>?)
+  public func onAudioStreamFlowEnd()
+}
+public protocol SpeechASR : RTKAudioStreaming.AudioStreamInputable {
+  func setAudioStream(source: any RTKAudioStreaming.AudioStreamOutputable) throws
+  func recognize(language: Foundation.Locale.Language?) throws -> _Concurrency.AsyncThrowingStream<Swift.String, any Swift.Error>
+  var speechEndDetection: (silenceDuration: Foundation.TimeInterval, initialSilenceDuration: Foundation.TimeInterval)? { get set }
+}
+public protocol SpeechTTS : RTKAudioStreaming.AudioStreamOutputable {
+  func synthesize(_ text: Swift.String, language: Foundation.Locale.Language?) async throws
+}
+public protocol ASTService : RTKAudioStreaming.AudioStreamInputable, RTKAudioStreaming.AudioStreamOutputable {
+  var supportedLanguages: Swift.Set<Foundation.Locale.Language> { get }
+  typealias TranslationDirection = (from: Foundation.Locale.Language, to: Foundation.Locale.Language)
+  var languageDirection: Self.TranslationDirection { get set }
+  func setAudioStream(source: any RTKAudioStreaming.AudioStreamOutputable) throws
+  var translation: _Concurrency.AsyncThrowingStream<(Swift.String?, Swift.String?), any Swift.Error> { get }
+}
+extension RTKAudioStreaming.SBCCoding.Frequency : Swift.Equatable {}
+extension RTKAudioStreaming.SBCCoding.Frequency : Swift.Hashable {}
+extension RTKAudioStreaming.SBCCoding.Frequency : Swift.RawRepresentable {}
+extension RTKAudioStreaming.SBCCoding.ChannelMode : Swift.Equatable {}
+extension RTKAudioStreaming.SBCCoding.ChannelMode : Swift.Hashable {}
+extension RTKAudioStreaming.SBCCoding.Subband : Swift.Equatable {}
+extension RTKAudioStreaming.SBCCoding.Subband : Swift.Hashable {}
+extension RTKAudioStreaming.SBCCoding.Endianess : Swift.Equatable {}
+extension RTKAudioStreaming.SBCCoding.Endianess : Swift.Hashable {}
+extension RTKAudioStreaming.SBCCoding.Block : Swift.Equatable {}
+extension RTKAudioStreaming.SBCCoding.Block : Swift.Hashable {}
+extension RTKAudioStreaming.SBCCoding.Block : Swift.RawRepresentable {}
+extension RTKAudioStreaming.SBCCoding.AllocationMethod : Swift.Equatable {}
+extension RTKAudioStreaming.SBCCoding.AllocationMethod : Swift.Hashable {}
+extension RTKAudioStreaming.APLSpeechRecognition.Failure : Swift.Equatable {}
+extension RTKAudioStreaming.APLSpeechRecognition.Failure : Swift.Hashable {}
+extension RTKAudioStreaming.OpusCoding.OpusError : Swift.Equatable {}
+extension RTKAudioStreaming.OpusCoding.OpusError : Swift.Hashable {}
+extension RTKAudioStreaming.AudioStreamError : Swift.Equatable {}
+extension RTKAudioStreaming.AudioStreamError : Swift.Hashable {}

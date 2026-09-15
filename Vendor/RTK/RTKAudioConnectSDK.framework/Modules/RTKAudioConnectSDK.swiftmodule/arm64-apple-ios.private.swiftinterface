@@ -1,0 +1,165 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Apple Swift version 6.1.2 effective-5.10 (swiftlang-6.1.2.1.2 clang-1700.0.13.5)
+// swift-module-flags: -target arm64-apple-ios11.0 -enable-objc-interop -enable-library-evolution -swift-version 5 -enforce-exclusivity=checked -O -enable-experimental-feature DebugDescriptionMacro -enable-bare-slash-regex -module-name RTKAudioConnectSDK
+// swift-module-flags-ignorable: -no-verify-emitted-module-interface -interface-compiler-version 6.1.2
+import AVFoundation
+import Accelerate
+import AudioToolbox
+import CoreAudio
+import Foundation
+@_exported import RTKAudioConnectSDK
+import RTKLEFoundation
+import Swift
+import _Concurrency
+import _StringProcessing
+import _SwiftConcurrencyShims
+public protocol HearingTestDelegate : AnyObject {
+  func hearingTest(_ test: RTKAudioConnectSDK.HearingTest, willTest ear: RTKAudioConnectSDK.HearingTest.EarSide, at frequency: RTKAudioConnectSDK.Hertz)
+  func hearingTest(_ test: RTKAudioConnectSDK.HearingTest, didCompleteTest ear: RTKAudioConnectSDK.HearingTest.EarSide, at frequency: RTKAudioConnectSDK.Hertz)
+  func hearingTest(_ test: RTKAudioConnectSDK.HearingTest, willUpdateIntensityFrom currentIntensity: RTKAudioConnectSDK.Decibel, by intensityDelta: RTKAudioConnectSDK.Decibel)
+  func hearingTest(_ test: RTKAudioConnectSDK.HearingTest, didUpdateIntensityTo newIntensity: RTKAudioConnectSDK.Decibel, success: Swift.Bool)
+}
+public class HearingTest {
+  @frozen public enum EarSide : Swift.String {
+    case left
+    case right
+    public init?(rawValue: Swift.String)
+    public typealias RawValue = Swift.String
+    public var rawValue: Swift.String {
+      get
+    }
+  }
+  public typealias PitchThreshold = (ear: RTKAudioConnectSDK.HearingTest.EarSide, frequency: RTKAudioConnectSDK.Hertz, intensity: RTKAudioConnectSDK.Decibel)
+  public var frequencies: Swift.Array<RTKAudioConnectSDK.Hertz>!
+  public var intensityRange: Swift.ClosedRange<RTKAudioConnectSDK.Decibel>
+  public var playDurationPerFreqPerLevel: Swift.Double
+  public var ascendingIntensityStep: Swift.Double
+  public var descendingIntensityStep: Swift.Double
+  public var pureToneRingDuration: Swift.Double
+  public var pureToneGapDuration: Swift.Double
+  public enum TestError : Swift.Error {
+    case invalidParameter
+    case cancelled
+    case busy
+    case invalidCall
+    case pureTonePlay
+    case referenceLack
+    case dspMeasurement
+    case interrupted
+    public static func == (a: RTKAudioConnectSDK.HearingTest.TestError, b: RTKAudioConnectSDK.HearingTest.TestError) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public var inProgress: Swift.Bool
+  public var inCmdProcess: Swift.Bool
+  public init(player: any RTKAudioConnectSDK.PureTonePlayer, dBFSOffset: [RTKAudioConnectSDK.HearingTest.EarSide : RTKAudioConnectSDK.Decibel], outputDBSPL0dBFS: [RTKAudioConnectSDK.HearingTest.EarSide : [RTKAudioConnectSDK.Hertz : RTKAudioConnectSDK.Decibel]], dBSPL0HearingLevel: [RTKAudioConnectSDK.Hertz : RTKAudioConnectSDK.Decibel] = [125: 32.3, 250: 19.5, 500: 8.3, 750: 4.1, 1000: 3.6, 1500: 8.2, 2000: 9.1, 3000: 13, 4000: 19.1, 6000: 8.4, 8000: 4.6])
+  weak public var delegate: (any RTKAudioConnectSDK.HearingTestDelegate)?
+  public func test(ears: [RTKAudioConnectSDK.HearingTest.EarSide] = [.left, .right], frequencies: [RTKAudioConnectSDK.Hertz] = [1000, 2000, 4000, 500], completion handler: @escaping (Swift.Bool, (any Swift.Error)?, [RTKAudioConnectSDK.HearingTest.PitchThreshold]?) -> Swift.Void) throws
+  public var isPaused: Swift.Bool {
+    get
+  }
+  public func pause(stopPlayingPureTone: Swift.Bool = false) throws
+  public func resume(volumeLevelAscending ascending: Swift.Bool = true) throws
+  public func cancel() throws
+  public func updateTesteeHearingState(heared: Swift.Bool)
+  @objc deinit
+}
+extension Swift.Array where Element == Swift.Double {
+  public func weightedAvg(with tolerance: RTKAudioConnectSDK.Decibel = 0) -> RTKAudioConnectSDK.Decibel?
+}
+extension Swift.Double {
+  public enum HearingLoss {
+    case normal
+    case mild
+    case moderate
+    case severe
+    case extremelySevere
+    public static func == (a: Swift.Double.HearingLoss, b: Swift.Double.HearingLoss) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public var lossLevel: Swift.Double.HearingLoss {
+    get
+  }
+}
+public struct HAUtility {
+  public static func calculateHearingCompensation(result: [RTKAudioConnectSDK.HearingTest.PitchThreshold]) -> [(ear: RTKAudioConnectSDK.HearingTest.EarSide, frequency: RTKAudioConnectSDK.Hertz, compensation: RTKAudioConnectSDK.HAGainLevel)]
+  public static func parsedEarbudAudioOutputDBSPLReferences(from bytes: Foundation.Data) -> [RTKAudioConnectSDK.Hertz : RTKAudioConnectSDK.Decibel]
+}
+@objc public class DevicePureTonePlayer : ObjectiveC.NSObject, RTKAudioConnectSDK.PureTonePlayer {
+  final public let haRountine: RTKAudioConnectSDK.RTKACRHARoutine
+  public init(haRountine: RTKAudioConnectSDK.RTKACRHARoutine)
+  @objc deinit
+  public var isPlaying: Swift.Bool
+  public func playPureTone(of frequency: RTKAudioConnectSDK.Hertz = 1000, intensity: RTKAudioConnectSDK.Decibel = -20, ringDuration: Foundation.TimeInterval = 0.1, gapDuration: Foundation.TimeInterval = 0.1, muteLeftChannel: Swift.Bool = false, muteRightChannel: Swift.Bool = false, completion: ((Swift.Bool, (any Swift.Error)?) -> Swift.Void)?)
+  public func stop(completion: ((Swift.Bool, (any Swift.Error)?) -> Swift.Void)?)
+  public func updateIntensity(to gain: RTKAudioConnectSDK.Decibel, completion: ((Swift.Bool, (any Swift.Error)?) -> Swift.Void)?)
+  public func updateIntensity(by deltaDB: RTKAudioConnectSDK.Decibel = 5, completion: ((Swift.Bool, (any Swift.Error)?) -> Swift.Void)?)
+  public var currentPlayBud: RTKAudioConnectSDK.RTKHAApplyBud! {
+    get
+  }
+  public var currentPlayFrequency: RTKAudioConnectSDK.Hertz! {
+    get
+  }
+  public var currentPlayIntensity: RTKAudioConnectSDK.Decibel! {
+    get
+  }
+  public var interruptedHandler: (() -> Swift.Void)?
+}
+extension RTKAudioConnectSDK.DevicePureTonePlayer : RTKAudioConnectSDK.RTKACRHARoutineStateReporting {
+  @objc dynamic public func bBproHARoutine(_ routine: RTKAudioConnectSDK.RTKACRHARoutine, didReceivePureTonePlayingStatus isInterrupted: Swift.Bool)
+}
+public typealias Hertz = Swift.UInt
+public typealias Decibel = Swift.Double
+public protocol PureTonePlayer : AnyObject {
+  var isPlaying: Swift.Bool { get }
+  func playPureTone(of frequency: RTKAudioConnectSDK.Hertz, intensity: RTKAudioConnectSDK.Decibel, ringDuration: Foundation.TimeInterval, gapDuration: Foundation.TimeInterval, muteLeftChannel: Swift.Bool, muteRightChannel: Swift.Bool, completion: ((Swift.Bool, (any Swift.Error)?) -> Swift.Void)?)
+  func stop(completion: ((Swift.Bool, (any Swift.Error)?) -> Swift.Void)?)
+  func updateIntensity(to gain: RTKAudioConnectSDK.Decibel, completion: ((Swift.Bool, (any Swift.Error)?) -> Swift.Void)?)
+  func updateIntensity(by deltaDB: RTKAudioConnectSDK.Decibel, completion: ((Swift.Bool, (any Swift.Error)?) -> Swift.Void)?)
+  var currentPlayFrequency: RTKAudioConnectSDK.Hertz! { get }
+  var currentPlayIntensity: RTKAudioConnectSDK.Decibel! { get }
+  var interruptedHandler: (() -> Swift.Void)? { get set }
+}
+public class LocalPureTonePlayer : RTKAudioConnectSDK.PureTonePlayer {
+  final public let sampleRate: RTKAudioConnectSDK.Hertz
+  public init(sampleRate: RTKAudioConnectSDK.Hertz = 44100)
+  public enum PlayError : Swift.Error {
+    case startFail
+    public static func == (a: RTKAudioConnectSDK.LocalPureTonePlayer.PlayError, b: RTKAudioConnectSDK.LocalPureTonePlayer.PlayError) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  @objc deinit
+  public var isPlaying: Swift.Bool {
+    get
+  }
+  public func playPureTone(of frequency: RTKAudioConnectSDK.Hertz, intensity: RTKAudioConnectSDK.Decibel, ringDuration: Foundation.TimeInterval, gapDuration: Foundation.TimeInterval, muteLeftChannel: Swift.Bool, muteRightChannel: Swift.Bool, completion: ((Swift.Bool, (any Swift.Error)?) -> Swift.Void)?)
+  public func stop(completion: ((Swift.Bool, (any Swift.Error)?) -> Swift.Void)?)
+  public func updateIntensity(to gain: RTKAudioConnectSDK.Decibel, completion: ((Swift.Bool, (any Swift.Error)?) -> Swift.Void)?)
+  public func updateIntensity(by deltaDB: RTKAudioConnectSDK.Decibel = 5, completion: ((Swift.Bool, (any Swift.Error)?) -> Swift.Void)?)
+  public var interruptedHandler: (() -> Swift.Void)?
+  public var currentPlayFrequency: RTKAudioConnectSDK.Hertz! {
+    get
+  }
+  public var currentPlayIntensity: RTKAudioConnectSDK.Decibel! {
+    get
+  }
+}
+extension RTKAudioConnectSDK.HearingTest.EarSide : Swift.Equatable {}
+extension RTKAudioConnectSDK.HearingTest.EarSide : Swift.Hashable {}
+extension RTKAudioConnectSDK.HearingTest.EarSide : Swift.RawRepresentable {}
+extension RTKAudioConnectSDK.HearingTest.EarSide : Swift.Sendable {}
+extension RTKAudioConnectSDK.HearingTest.EarSide : Swift.BitwiseCopyable {}
+extension RTKAudioConnectSDK.HearingTest.TestError : Swift.Equatable {}
+extension RTKAudioConnectSDK.HearingTest.TestError : Swift.Hashable {}
+extension Swift.Double.HearingLoss : Swift.Equatable {}
+extension Swift.Double.HearingLoss : Swift.Hashable {}
+extension RTKAudioConnectSDK.LocalPureTonePlayer.PlayError : Swift.Equatable {}
+extension RTKAudioConnectSDK.LocalPureTonePlayer.PlayError : Swift.Hashable {}

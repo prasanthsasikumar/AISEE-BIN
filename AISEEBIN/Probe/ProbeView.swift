@@ -12,12 +12,17 @@ import SwiftUI
 /// than at the phone.
 struct ProbeView: View {
     let arManager: ARNavigationManager
+    let mapStore: MapStore
     let places: [NavigationPOI]
+    /// Called after an alignment is written into the saved map.
+    var onAlignmentSaved: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
+    @State private var alignmentMessage: String?
+    @State private var alignmentSaved = false
 
     @State private var session = ProbeSession()
-    @State private var token = ProbeConfig.token
-    @State private var mapIDsText = ProbeConfig.mapIDsText
+    @State private var token = ImmersalConfig.token
+    @State private var mapIDsText = ImmersalConfig.mapIDsText
     @State private var showingProtocol = false
 
     var body: some View {
@@ -74,7 +79,7 @@ struct ProbeView: View {
             Section {
                 LabeledContent("Localize every", value: "\(Int(ProbeSession.localizeInterval)) s")
                 LabeledContent("ARKit samples", value: "\(Int(1 / ProbeSession.arSampleInterval)) Hz")
-                LabeledContent("Image", value: "grayscale PNG, ÷\(ProbeFrameEncoder.downscale)")
+                LabeledContent("Image", value: "grayscale PNG, ÷\(ImmersalFrameEncoder.downscale)")
                 LabeledContent("ARKit world map", value: arManager.isUsingSavedWorldMap ? "loaded" : "none")
                 LabeledContent("ARKit state", value: arManager.localizationStatus.label)
             } header: {
@@ -88,8 +93,8 @@ struct ProbeView: View {
 
             Section {
                 Button {
-                    ProbeConfig.token = token
-                    ProbeConfig.mapIDsText = mapIDsText
+                    ImmersalConfig.token = token
+                    ImmersalConfig.mapIDsText = mapIDsText
                     session.start()
                 } label: {
                     Text("Start walk").font(.headline)
@@ -138,6 +143,7 @@ struct ProbeView: View {
                         .foregroundStyle((session.lastDisagreement ?? 0) > 1 ? .red : .primary)
                 }
                 LabeledContent("ARKit", value: arManager.localizationStatus.label)
+                LabeledContent("Alignment pairs", value: "\(session.alignmentPairs.count)")
                 LabeledContent("Rows", value: "\(session.rowCount)")
                 if session.pendingCount > 0 {
                     LabeledContent("Queued offline", value: "\(session.pendingCount)")
@@ -154,6 +160,33 @@ struct ProbeView: View {
                      + "reported motion minus ARKit’s, between consecutive fixes. Large while you "
                      + "are barely moving means a confidently wrong fix.")
             }
+        }
+    }
+
+    private var alignmentFooter: String {
+        guard arManager.isUsingSavedWorldMap else {
+            return "No saved ARWorldMap was loaded, so this session's frame is not the map's frame "
+                + "and an alignment fitted here would be meaningless."
+        }
+        let pairs = ImmersalAlignment.minimumPairs
+        let spread = Int(ImmersalAlignment.minimumSpread)
+        return "Fits Immersal map space onto this map's ARKit frame from the fixes above, so the "
+            + "glasses can position a visitor on it. Needs at least \(pairs) fixes spread over "
+            + "\(spread) m while ARKit was tracking normally."
+    }
+
+    private func saveAlignment() {
+        do {
+            let alignment = try session.fitAlignment()
+            var map = mapStore.loadMap() ?? SampleGreenhouseMap.map
+            map.immersalAlignment = alignment
+            try mapStore.saveMap(map)
+            alignmentSaved = true
+            alignmentMessage = String(format: "%d pairs, %.2f m RMS, yaw %.0f°. Upload the map from Author to publish it.",
+                                      alignment.pairCount, alignment.rmsError, alignment.yaw * 180 / .pi)
+            onAlignmentSaved()
+        } catch {
+            alignmentMessage = error.localizedDescription
         }
     }
 
@@ -186,8 +219,20 @@ struct ProbeView: View {
                 }
             }
             Section {
+                LabeledContent("Usable pairs", value: "\(session.alignmentPairs.count)")
+                Button(alignmentSaved ? "Alignment saved" : "Save alignment to map") { saveAlignment() }
+                    .disabled(alignmentSaved || !arManager.isUsingSavedWorldMap)
+                if let message = alignmentMessage {
+                    Text(message).font(.footnote).foregroundStyle(alignmentSaved ? Color.secondary : Color.red)
+                }
+            } header: {
+                Text("Glasses alignment")
+            } footer: {
+                Text(alignmentFooter)
+            }
+            Section {
                 ShareLink(item: url) { Label("Export CSV", systemImage: "square.and.arrow.up") }
-                Button("New walk") { session = ProbeSession() }
+                Button("New walk") { session = ProbeSession(); alignmentSaved = false; alignmentMessage = nil }
             }
         }
     }

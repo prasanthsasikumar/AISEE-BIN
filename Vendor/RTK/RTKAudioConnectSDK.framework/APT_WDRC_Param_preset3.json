@@ -1,0 +1,185 @@
+{
+  "Version": 1,
+  "ChannelNumberString": "8",
+  "ChannelNumber": 8,
+  "SoftKneeWidth": 0,
+  "TheLastThdIsMPO": false,
+  "ChannelInfos": [
+    {
+      "CentralFrequency": 250,
+      "SegmentNumber": 2,
+      "MakeupGain": 10.0,
+      "CompressAttackTime": 150,
+      "CompressReleaseTime": 200,
+      "ExpandAttackTime": 150,
+      "ExpandReleaseTime": 200,
+      "Infinity": false,
+      "Ratios": [
+        0.6,
+        4.0
+      ],
+      "Slopes": [
+        1.6666666666666667,
+        0.25
+      ],
+      "Thresholds": [
+        60
+      ],
+      "MPO": 117
+    },
+    {
+      "CentralFrequency": 500,
+      "SegmentNumber": 2,
+      "MakeupGain": 12.0,
+      "CompressAttackTime": 100,
+      "CompressReleaseTime": 200,
+      "ExpandAttackTime": 100,
+      "ExpandReleaseTime": 200,
+      "Infinity": false,
+      "Ratios": [
+        0.7,
+        4.0
+      ],
+      "Slopes": [
+        1.4285714285714286,
+        0.25
+      ],
+      "Thresholds": [
+        50
+      ],
+      "MPO": 117
+    },
+    {
+      "CentralFrequency": 1000,
+      "SegmentNumber": 2,
+      "MakeupGain": 16.0,
+      "CompressAttackTime": 10,
+      "CompressReleaseTime": 200,
+      "ExpandAttackTime": 10,
+      "ExpandReleaseTime": 200,
+      "Infinity": false,
+      "Ratios": [
+        0.8,
+        3.0
+      ],
+      "Slopes": [
+        1.25,
+        0.33333333333333331
+      ],
+      "Thresholds": [
+        50
+      ],
+      "MPO": 117
+    },
+    {
+      "CentralFrequency": 1500,
+      "SegmentNumber": 2,
+      "MakeupGain": 18.0,
+      "CompressAttackTime": 10,
+      "CompressReleaseTime": 200,
+      "ExpandAttackTime": 10,
+      "ExpandReleaseTime": 200,
+      "Infinity": false,
+      "Ratios": [
+        0.8,
+        2.0
+      ],
+      "Slopes": [
+        1.25,
+        0.5
+      ],
+      "Thresholds": [
+        50
+      ],
+      "MPO": 117
+    },
+    {
+      "CentralFrequency": 2000,
+      "SegmentNumber": 2,
+      "MakeupGain": 20.0,
+      "CompressAttackTime": 10,
+      "CompressReleaseTime": 200,
+      "ExpandAttackTime": 10,
+      "ExpandReleaseTime": 200,
+      "Infinity": false,
+      "Ratios": [
+        0.9,
+        1.0
+      ],
+      "Slopes": [
+        1.1111111111111112,
+        1.0
+      ],
+      "Thresholds": [
+        60
+      ],
+      "MPO": 117
+    },
+    {
+      "CentralFrequency": 3000,
+      "SegmentNumber": 2,
+      "MakeupGain": 20.0,
+      "CompressAttackTime": 10,
+      "CompressReleaseTime": 200,
+      "ExpandAttackTime": 10,
+      "ExpandReleaseTime": 200,
+      "Infinity": false,
+      "Ratios": [
+        0.9,
+        1.0
+      ],
+      "Slopes": [
+        1.1111111111111112,
+        1.0
+      ],
+      "Thresholds": [
+        60
+      ],
+      "MPO": 117
+    },
+    {
+      "CentralFrequency": 4000,
+      "SegmentNumber": 2,
+      "MakeupGain": 20.0,
+      "CompressAttackTime": 10,
+      "CompressReleaseTime": 200,
+      "ExpandAttackTime": 10,
+      "ExpandReleaseTime": 200,
+      "Infinity": false,
+      "Ratios": [
+        0.9,
+        2.0
+      ],
+      "Slopes": [
+        1.1111111111111112,
+        0.5
+      ],
+      "Thresholds": [
+        60
+      ],
+      "MPO": 117
+    },
+    {
+      "CentralFrequency": 8000,
+      "SegmentNumber": 2,
+      "MakeupGain": 15.0,
+      "CompressAttackTime": 10,
+      "CompressReleaseTime": 200,
+      "ExpandAttackTime": 10,
+      "ExpandReleaseTime": 200,
+      "Infinity": false,
+      "Ratios": [
+        0.9,
+        3.0
+      ],
+      "Slopes": [
+        1.1111111111111112,
+        0.33333333333333331
+      ],
+      "Thresholds": [
+        60
+      ],
+      "MPO": 117
+    }
+  ]
+}

@@ -1,0 +1,1135 @@
+{
+  "ABIRoot": {
+    "kind": "Root",
+    "name": "RTKLEFoundation",
+    "printedName": "RTKLEFoundation",
+    "children": [
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "RTKLEFoundation",
+        "declAttributes": [
+          "RawDocComment"
+        ]
+      },
+      {
+        "kind": "Import",
+        "name": "SystemConfiguration",
+        "printedName": "SystemConfiguration",
+        "declKind": "Import",
+        "moduleName": "RTKLEFoundation"
+      },
+      {
+        "kind": "TypeDecl",
+        "name": "NetworkReachabilityMonitor",
+        "printedName": "NetworkReachabilityMonitor",
+        "children": [
+          {
+            "kind": "Constructor",
+            "name": "init",
+            "printedName": "init(ipv4:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "RTKLEFoundation.NetworkReachabilityMonitor?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "NetworkReachabilityMonitor",
+                    "printedName": "RTKLEFoundation.NetworkReachabilityMonitor",
+                    "usr": "s:15RTKLEFoundation26NetworkReachabilityMonitorC"
+                  }
+                ],
+                "usr": "s:Sq"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
+              }
+            ],
+            "declKind": "Constructor",
+            "usr": "s:15RTKLEFoundation26NetworkReachabilityMonitorC4ipv4ACSgSS_tcfc",
+            "mangledName": "$s15RTKLEFoundation26NetworkReachabilityMonitorC4ipv4ACSgSS_tcfc",
+            "moduleName": "RTKLEFoundation",
+            "declAttributes": [
+              "AccessControl",
+              "RawDocComment"
+            ],
+            "init_kind": "Designated"
+          },
+          {
+            "kind": "Function",
+            "name": "startMonitoring",
+            "printedName": "startMonitoring(_:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Bool",
+                "printedName": "Swift.Bool",
+                "usr": "s:Sb"
+              },
+              {
+                "kind": "TypeFunc",
+                "name": "Function",
+                "printedName": "(Swift.Bool) -> ()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Void",
+                    "printedName": "()"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Bool",
+                    "printedName": "Swift.Bool",
+                    "usr": "s:Sb"
+                  }
+                ]
+              }
+            ],
+            "declKind": "Func",
+            "usr": "s:15RTKLEFoundation26NetworkReachabilityMonitorC15startMonitoringySbySbcF",
+            "mangledName": "$s15RTKLEFoundation26NetworkReachabilityMonitorC15startMonitoringySbySbcF",
+            "moduleName": "RTKLEFoundation",
+            "declAttributes": [
+              "AccessControl",
+              "RawDocComment"
+            ],
+            "funcSelfKind": "NonMutating"
+          },
+          {
+            "kind": "Function",
+            "name": "stopMonitoring",
+            "printedName": "stopMonitoring()",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Void",
+                "printedName": "()"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "s:15RTKLEFoundation26NetworkReachabilityMonitorC14stopMonitoringyyF",
+            "mangledName": "$s15RTKLEFoundation26NetworkReachabilityMonitorC14stopMonitoringyyF",
+            "moduleName": "RTKLEFoundation",
+            "declAttributes": [
+              "AccessControl",
+              "RawDocComment"
+            ],
+            "funcSelfKind": "NonMutating"
+          }
+        ],
+        "declKind": "Class",
+        "usr": "s:15RTKLEFoundation26NetworkReachabilityMonitorC",
+        "mangledName": "$s15RTKLEFoundation26NetworkReachabilityMonitorC",
+        "moduleName": "RTKLEFoundation",
+        "declAttributes": [
+          "AccessControl"
+        ],
+        "conformances": [
+          {
+            "kind": "Conformance",
+            "name": "Copyable",
+            "printedName": "Copyable",
+            "usr": "s:s8CopyableP",
+            "mangledName": "$ss8CopyableP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Escapable",
+            "printedName": "Escapable",
+            "usr": "s:s9EscapableP",
+            "mangledName": "$ss9EscapableP"
+          }
+        ]
+      },
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "RTKLEFoundation",
+        "declAttributes": [
+          "RawDocComment"
+        ]
+      },
+      {
+        "kind": "Import",
+        "name": "Security",
+        "printedName": "Security",
+        "declKind": "Import",
+        "moduleName": "RTKLEFoundation"
+      },
+      {
+        "kind": "TypeDecl",
+        "name": "DistributionType",
+        "printedName": "DistributionType",
+        "children": [
+          {
+            "kind": "Var",
+            "name": "appStore",
+            "printedName": "appStore",
+            "children": [
+              {
+                "kind": "TypeFunc",
+                "name": "Function",
+                "printedName": "(RTKLEFoundation.DistributionType.Type) -> RTKLEFoundation.DistributionType",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "DistributionType",
+                    "printedName": "RTKLEFoundation.DistributionType",
+                    "usr": "s:15RTKLEFoundation16DistributionTypeO"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Metatype",
+                    "printedName": "RTKLEFoundation.DistributionType.Type",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "DistributionType",
+                        "printedName": "RTKLEFoundation.DistributionType",
+                        "usr": "s:15RTKLEFoundation16DistributionTypeO"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "declKind": "EnumElement",
+            "usr": "s:15RTKLEFoundation16DistributionTypeO8appStoreyA2CmF",
+            "mangledName": "$s15RTKLEFoundation16DistributionTypeO8appStoreyA2CmF",
+            "moduleName": "RTKLEFoundation",
+            "declAttributes": [
+              "RawDocComment"
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "enterprise",
+            "printedName": "enterprise",
+            "children": [
+              {
+                "kind": "TypeFunc",
+                "name": "Function",
+                "printedName": "(RTKLEFoundation.DistributionType.Type) -> RTKLEFoundation.DistributionType",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "DistributionType",
+                    "printedName": "RTKLEFoundation.DistributionType",
+                    "usr": "s:15RTKLEFoundation16DistributionTypeO"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Metatype",
+                    "printedName": "RTKLEFoundation.DistributionType.Type",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "DistributionType",
+                        "printedName": "RTKLEFoundation.DistributionType",
+                        "usr": "s:15RTKLEFoundation16DistributionTypeO"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "declKind": "EnumElement",
+            "usr": "s:15RTKLEFoundation16DistributionTypeO10enterpriseyA2CmF",
+            "mangledName": "$s15RTKLEFoundation16DistributionTypeO10enterpriseyA2CmF",
+            "moduleName": "RTKLEFoundation",
+            "declAttributes": [
+              "RawDocComment"
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "adHoc",
+            "printedName": "adHoc",
+            "children": [
+              {
+                "kind": "TypeFunc",
+                "name": "Function",
+                "printedName": "(RTKLEFoundation.DistributionType.Type) -> RTKLEFoundation.DistributionType",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "DistributionType",
+                    "printedName": "RTKLEFoundation.DistributionType",
+                    "usr": "s:15RTKLEFoundation16DistributionTypeO"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Metatype",
+                    "printedName": "RTKLEFoundation.DistributionType.Type",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "DistributionType",
+                        "printedName": "RTKLEFoundation.DistributionType",
+                        "usr": "s:15RTKLEFoundation16DistributionTypeO"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "declKind": "EnumElement",
+            "usr": "s:15RTKLEFoundation16DistributionTypeO5adHocyA2CmF",
+            "mangledName": "$s15RTKLEFoundation16DistributionTypeO5adHocyA2CmF",
+            "moduleName": "RTKLEFoundation",
+            "declAttributes": [
+              "RawDocComment"
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "development",
+            "printedName": "development",
+            "children": [
+              {
+                "kind": "TypeFunc",
+                "name": "Function",
+                "printedName": "(RTKLEFoundation.DistributionType.Type) -> RTKLEFoundation.DistributionType",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "DistributionType",
+                    "printedName": "RTKLEFoundation.DistributionType",
+                    "usr": "s:15RTKLEFoundation16DistributionTypeO"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Metatype",
+                    "printedName": "RTKLEFoundation.DistributionType.Type",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "DistributionType",
+                        "printedName": "RTKLEFoundation.DistributionType",
+                        "usr": "s:15RTKLEFoundation16DistributionTypeO"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "declKind": "EnumElement",
+            "usr": "s:15RTKLEFoundation16DistributionTypeO11developmentyA2CmF",
+            "mangledName": "$s15RTKLEFoundation16DistributionTypeO11developmentyA2CmF",
+            "moduleName": "RTKLEFoundation",
+            "declAttributes": [
+              "RawDocComment"
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "unknown",
+            "printedName": "unknown",
+            "children": [
+              {
+                "kind": "TypeFunc",
+                "name": "Function",
+                "printedName": "(RTKLEFoundation.DistributionType.Type) -> RTKLEFoundation.DistributionType",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "DistributionType",
+                    "printedName": "RTKLEFoundation.DistributionType",
+                    "usr": "s:15RTKLEFoundation16DistributionTypeO"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Metatype",
+                    "printedName": "RTKLEFoundation.DistributionType.Type",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "DistributionType",
+                        "printedName": "RTKLEFoundation.DistributionType",
+                        "usr": "s:15RTKLEFoundation16DistributionTypeO"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "declKind": "EnumElement",
+            "usr": "s:15RTKLEFoundation16DistributionTypeO7unknownyA2CmF",
+            "mangledName": "$s15RTKLEFoundation16DistributionTypeO7unknownyA2CmF",
+            "moduleName": "RTKLEFoundation",
+            "declAttributes": [
+              "RawDocComment"
+            ]
+          },
+          {
+            "kind": "Constructor",
+            "name": "init",
+            "printedName": "init(rawValue:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "RTKLEFoundation.DistributionType?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "DistributionType",
+                    "printedName": "RTKLEFoundation.DistributionType",
+                    "usr": "s:15RTKLEFoundation16DistributionTypeO"
+                  }
+                ],
+                "usr": "s:Sq"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
+              }
+            ],
+            "declKind": "Constructor",
+            "usr": "s:15RTKLEFoundation16DistributionTypeO8rawValueACSgSS_tcfc",
+            "mangledName": "$s15RTKLEFoundation16DistributionTypeO8rawValueACSgSS_tcfc",
+            "moduleName": "RTKLEFoundation",
+            "implicit": true,
+            "init_kind": "Designated"
+          },
+          {
+            "kind": "Var",
+            "name": "rawValue",
+            "printedName": "rawValue",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:15RTKLEFoundation16DistributionTypeO8rawValueSSvp",
+            "mangledName": "$s15RTKLEFoundation16DistributionTypeO8rawValueSSvp",
+            "moduleName": "RTKLEFoundation",
+            "implicit": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "String",
+                    "printedName": "Swift.String",
+                    "usr": "s:SS"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15RTKLEFoundation16DistributionTypeO8rawValueSSvg",
+                "mangledName": "$s15RTKLEFoundation16DistributionTypeO8rawValueSSvg",
+                "moduleName": "RTKLEFoundation",
+                "implicit": true,
+                "accessorKind": "get"
+              }
+            ]
+          }
+        ],
+        "declKind": "Enum",
+        "usr": "s:15RTKLEFoundation16DistributionTypeO",
+        "mangledName": "$s15RTKLEFoundation16DistributionTypeO",
+        "moduleName": "RTKLEFoundation",
+        "declAttributes": [
+          "AccessControl",
+          "RawDocComment"
+        ],
+        "enumRawTypeName": "String",
+        "conformances": [
+          {
+            "kind": "Conformance",
+            "name": "Copyable",
+            "printedName": "Copyable",
+            "usr": "s:s8CopyableP",
+            "mangledName": "$ss8CopyableP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Equatable",
+            "printedName": "Equatable",
+            "usr": "s:SQ",
+            "mangledName": "$sSQ"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Escapable",
+            "printedName": "Escapable",
+            "usr": "s:s9EscapableP",
+            "mangledName": "$ss9EscapableP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Hashable",
+            "printedName": "Hashable",
+            "usr": "s:SH",
+            "mangledName": "$sSH"
+          },
+          {
+            "kind": "Conformance",
+            "name": "RawRepresentable",
+            "printedName": "RawRepresentable",
+            "children": [
+              {
+                "kind": "TypeWitness",
+                "name": "RawValue",
+                "printedName": "RawValue",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "String",
+                    "printedName": "Swift.String",
+                    "usr": "s:SS"
+                  }
+                ]
+              }
+            ],
+            "usr": "s:SY",
+            "mangledName": "$sSY"
+          }
+        ]
+      },
+      {
+        "kind": "TypeDecl",
+        "name": "SigningInfo",
+        "printedName": "SigningInfo",
+        "children": [
+          {
+            "kind": "Var",
+            "name": "distributionType",
+            "printedName": "distributionType",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "DistributionType",
+                "printedName": "RTKLEFoundation.DistributionType",
+                "usr": "s:15RTKLEFoundation16DistributionTypeO"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:15RTKLEFoundation11SigningInfoV16distributionTypeAA012DistributionE0Ovp",
+            "mangledName": "$s15RTKLEFoundation11SigningInfoV16distributionTypeAA012DistributionE0Ovp",
+            "moduleName": "RTKLEFoundation",
+            "declAttributes": [
+              "HasStorage",
+              "AccessControl"
+            ],
+            "isLet": true,
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "DistributionType",
+                    "printedName": "RTKLEFoundation.DistributionType",
+                    "usr": "s:15RTKLEFoundation16DistributionTypeO"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15RTKLEFoundation11SigningInfoV16distributionTypeAA012DistributionE0Ovg",
+                "mangledName": "$s15RTKLEFoundation11SigningInfoV16distributionTypeAA012DistributionE0Ovg",
+                "moduleName": "RTKLEFoundation",
+                "implicit": true,
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "profileName",
+            "printedName": "profileName",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "Swift.String?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "String",
+                    "printedName": "Swift.String",
+                    "usr": "s:SS"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:15RTKLEFoundation11SigningInfoV11profileNameSSSgvp",
+            "mangledName": "$s15RTKLEFoundation11SigningInfoV11profileNameSSSgvp",
+            "moduleName": "RTKLEFoundation",
+            "declAttributes": [
+              "HasStorage",
+              "AccessControl",
+              "RawDocComment"
+            ],
+            "isLet": true,
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "Swift.String?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "String",
+                        "printedName": "Swift.String",
+                        "usr": "s:SS"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15RTKLEFoundation11SigningInfoV11profileNameSSSgvg",
+                "mangledName": "$s15RTKLEFoundation11SigningInfoV11profileNameSSSgvg",
+                "moduleName": "RTKLEFoundation",
+                "implicit": true,
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "teamName",
+            "printedName": "teamName",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "Swift.String?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "String",
+                    "printedName": "Swift.String",
+                    "usr": "s:SS"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:15RTKLEFoundation11SigningInfoV8teamNameSSSgvp",
+            "mangledName": "$s15RTKLEFoundation11SigningInfoV8teamNameSSSgvp",
+            "moduleName": "RTKLEFoundation",
+            "declAttributes": [
+              "HasStorage",
+              "AccessControl",
+              "RawDocComment"
+            ],
+            "isLet": true,
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "Swift.String?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "String",
+                        "printedName": "Swift.String",
+                        "usr": "s:SS"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15RTKLEFoundation11SigningInfoV8teamNameSSSgvg",
+                "mangledName": "$s15RTKLEFoundation11SigningInfoV8teamNameSSSgvg",
+                "moduleName": "RTKLEFoundation",
+                "implicit": true,
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "profileCreationDate",
+            "printedName": "profileCreationDate",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "Foundation.Date?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Date",
+                    "printedName": "Foundation.Date",
+                    "usr": "s:10Foundation4DateV"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:15RTKLEFoundation11SigningInfoV19profileCreationDate10Foundation0F0VSgvp",
+            "mangledName": "$s15RTKLEFoundation11SigningInfoV19profileCreationDate10Foundation0F0VSgvp",
+            "moduleName": "RTKLEFoundation",
+            "declAttributes": [
+              "HasStorage",
+              "AccessControl",
+              "RawDocComment"
+            ],
+            "isLet": true,
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "Foundation.Date?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Date",
+                        "printedName": "Foundation.Date",
+                        "usr": "s:10Foundation4DateV"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15RTKLEFoundation11SigningInfoV19profileCreationDate10Foundation0F0VSgvg",
+                "mangledName": "$s15RTKLEFoundation11SigningInfoV19profileCreationDate10Foundation0F0VSgvg",
+                "moduleName": "RTKLEFoundation",
+                "implicit": true,
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "profileExpirationDate",
+            "printedName": "profileExpirationDate",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "Foundation.Date?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Date",
+                    "printedName": "Foundation.Date",
+                    "usr": "s:10Foundation4DateV"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:15RTKLEFoundation11SigningInfoV21profileExpirationDate10Foundation0F0VSgvp",
+            "mangledName": "$s15RTKLEFoundation11SigningInfoV21profileExpirationDate10Foundation0F0VSgvp",
+            "moduleName": "RTKLEFoundation",
+            "declAttributes": [
+              "HasStorage",
+              "AccessControl",
+              "RawDocComment"
+            ],
+            "isLet": true,
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "Foundation.Date?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Date",
+                        "printedName": "Foundation.Date",
+                        "usr": "s:10Foundation4DateV"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15RTKLEFoundation11SigningInfoV21profileExpirationDate10Foundation0F0VSgvg",
+                "mangledName": "$s15RTKLEFoundation11SigningInfoV21profileExpirationDate10Foundation0F0VSgvg",
+                "moduleName": "RTKLEFoundation",
+                "implicit": true,
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "certificateExpirationDate",
+            "printedName": "certificateExpirationDate",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "Foundation.Date?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Date",
+                    "printedName": "Foundation.Date",
+                    "usr": "s:10Foundation4DateV"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:15RTKLEFoundation11SigningInfoV25certificateExpirationDate10Foundation0F0VSgvp",
+            "mangledName": "$s15RTKLEFoundation11SigningInfoV25certificateExpirationDate10Foundation0F0VSgvp",
+            "moduleName": "RTKLEFoundation",
+            "declAttributes": [
+              "HasStorage",
+              "AccessControl",
+              "RawDocComment"
+            ],
+            "isLet": true,
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "Foundation.Date?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Date",
+                        "printedName": "Foundation.Date",
+                        "usr": "s:10Foundation4DateV"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15RTKLEFoundation11SigningInfoV25certificateExpirationDate10Foundation0F0VSgvg",
+                "mangledName": "$s15RTKLEFoundation11SigningInfoV25certificateExpirationDate10Foundation0F0VSgvg",
+                "moduleName": "RTKLEFoundation",
+                "implicit": true,
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "effectiveExpirationDate",
+            "printedName": "effectiveExpirationDate",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "Foundation.Date?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Date",
+                    "printedName": "Foundation.Date",
+                    "usr": "s:10Foundation4DateV"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:15RTKLEFoundation11SigningInfoV23effectiveExpirationDate10Foundation0F0VSgvp",
+            "mangledName": "$s15RTKLEFoundation11SigningInfoV23effectiveExpirationDate10Foundation0F0VSgvp",
+            "moduleName": "RTKLEFoundation",
+            "declAttributes": [
+              "AccessControl",
+              "RawDocComment"
+            ],
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "Foundation.Date?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Date",
+                        "printedName": "Foundation.Date",
+                        "usr": "s:10Foundation4DateV"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15RTKLEFoundation11SigningInfoV23effectiveExpirationDate10Foundation0F0VSgvg",
+                "mangledName": "$s15RTKLEFoundation11SigningInfoV23effectiveExpirationDate10Foundation0F0VSgvg",
+                "moduleName": "RTKLEFoundation",
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "daysUntilExpiration",
+            "printedName": "daysUntilExpiration",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "Swift.Int?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Int",
+                    "printedName": "Swift.Int",
+                    "usr": "s:Si"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:15RTKLEFoundation11SigningInfoV19daysUntilExpirationSiSgvp",
+            "mangledName": "$s15RTKLEFoundation11SigningInfoV19daysUntilExpirationSiSgvp",
+            "moduleName": "RTKLEFoundation",
+            "declAttributes": [
+              "AccessControl",
+              "RawDocComment"
+            ],
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "Swift.Int?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Int",
+                        "printedName": "Swift.Int",
+                        "usr": "s:Si"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15RTKLEFoundation11SigningInfoV19daysUntilExpirationSiSgvg",
+                "mangledName": "$s15RTKLEFoundation11SigningInfoV19daysUntilExpirationSiSgvg",
+                "moduleName": "RTKLEFoundation",
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "isExpired",
+            "printedName": "isExpired",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Bool",
+                "printedName": "Swift.Bool",
+                "usr": "s:Sb"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:15RTKLEFoundation11SigningInfoV9isExpiredSbvp",
+            "mangledName": "$s15RTKLEFoundation11SigningInfoV9isExpiredSbvp",
+            "moduleName": "RTKLEFoundation",
+            "declAttributes": [
+              "AccessControl",
+              "RawDocComment"
+            ],
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Bool",
+                    "printedName": "Swift.Bool",
+                    "usr": "s:Sb"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15RTKLEFoundation11SigningInfoV9isExpiredSbvg",
+                "mangledName": "$s15RTKLEFoundation11SigningInfoV9isExpiredSbvg",
+                "moduleName": "RTKLEFoundation",
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "current",
+            "printedName": "current",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "RTKLEFoundation.SigningInfo?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "SigningInfo",
+                    "printedName": "RTKLEFoundation.SigningInfo",
+                    "usr": "s:15RTKLEFoundation11SigningInfoV"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:15RTKLEFoundation11SigningInfoV7currentACSgvpZ",
+            "mangledName": "$s15RTKLEFoundation11SigningInfoV7currentACSgvpZ",
+            "moduleName": "RTKLEFoundation",
+            "static": true,
+            "declAttributes": [
+              "HasInitialValue",
+              "HasStorage",
+              "AccessControl",
+              "RawDocComment"
+            ],
+            "isFromExtension": true,
+            "isLet": true,
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "RTKLEFoundation.SigningInfo?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "SigningInfo",
+                        "printedName": "RTKLEFoundation.SigningInfo",
+                        "usr": "s:15RTKLEFoundation11SigningInfoV"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15RTKLEFoundation11SigningInfoV7currentACSgvgZ",
+                "mangledName": "$s15RTKLEFoundation11SigningInfoV7currentACSgvgZ",
+                "moduleName": "RTKLEFoundation",
+                "static": true,
+                "implicit": true,
+                "isFromExtension": true,
+                "accessorKind": "get"
+              }
+            ]
+          }
+        ],
+        "declKind": "Struct",
+        "usr": "s:15RTKLEFoundation11SigningInfoV",
+        "mangledName": "$s15RTKLEFoundation11SigningInfoV",
+        "moduleName": "RTKLEFoundation",
+        "declAttributes": [
+          "AccessControl",
+          "RawDocComment"
+        ],
+        "conformances": [
+          {
+            "kind": "Conformance",
+            "name": "Copyable",
+            "printedName": "Copyable",
+            "usr": "s:s8CopyableP",
+            "mangledName": "$ss8CopyableP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Escapable",
+            "printedName": "Escapable",
+            "usr": "s:s9EscapableP",
+            "mangledName": "$ss9EscapableP"
+          }
+        ]
+      }
+    ],
+    "json_format_version": 8
+  },
+  "ConstValues": [
+    {
+      "filePath": "\/Users\/jeromegu\/Documents\/Real Projects\/RTKLEFoundation\/Utilities\/SigningInfo.swift",
+      "kind": "StringLiteral",
+      "offset": 2865,
+      "length": 10,
+      "value": "\"embedded\""
+    },
+    {
+      "filePath": "\/Users\/jeromegu\/Documents\/Real Projects\/RTKLEFoundation\/Utilities\/SigningInfo.swift",
+      "kind": "StringLiteral",
+      "offset": 2932,
+      "length": 17,
+      "value": "\"mobileprovision\""
+    },
+    {
+      "filePath": "\/Users\/jeromegu\/Documents\/Real Projects\/RTKLEFoundation\/Utilities\/SigningInfo.swift",
+      "kind": "StringLiteral",
+      "offset": 2976,
+      "length": 72,
+      "value": "\"No embedded.mobileprovision found. Treating as App Store \/ TestFlight.\""
+    }
+  ]
+}

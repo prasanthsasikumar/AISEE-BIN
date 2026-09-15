@@ -13,12 +13,53 @@ settings:
     TARGETED_DEVICE_FAMILY: "1"
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: 3U4384584Z
+    LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
+    # The Realtek glasses SDK (Vendor/RTK) ships device slices only. Search paths
+    # are gated to iphoneos and the frameworks are excluded from simulator builds,
+    # so the simulator and the test target compile against the kit's #else stubs.
+    "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(inherited) $(SRCROOT)/Vendor/RTK"
+    "SWIFT_INCLUDE_PATHS[sdk=iphoneos*]": "$(inherited) $(SRCROOT)/Vendor/RTK"
+    "EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]":
+      - RTKAIDeviceConnection.framework
+      - RTKAudioConnectSDK.framework
+      - RTKAudioStreaming.framework
+      - RTKLEFoundation.framework
+      - OpenAIRealtimeAccess.framework
+      - libavcodec.framework
+      - libavformat.framework
+      - libavutil.framework
+      - libswresample.framework
 targets:
   AISEEBIN:
     type: application
     platform: iOS
     sources:
       - path: AISEEBIN
+        excludes: ["Glasses/AiSeeGlassKit/README.md"]
+    entitlements:
+      path: AISEEBIN/AISEEBIN.entitlements
+      properties:
+        # The glasses stream video over their own Wi-Fi hotspot, which the kit joins.
+        com.apple.developer.networking.HotspotConfiguration: true
+    dependencies:
+      - framework: Vendor/RTK/RTKAIDeviceConnection.framework
+        embed: true
+      - framework: Vendor/RTK/RTKAudioConnectSDK.framework
+        embed: true
+      - framework: Vendor/RTK/RTKAudioStreaming.framework
+        embed: true
+      - framework: Vendor/RTK/RTKLEFoundation.framework
+        embed: true
+      - framework: Vendor/RTK/OpenAIRealtimeAccess.framework
+        embed: true
+      - framework: Vendor/RTK/libavcodec.framework
+        embed: true
+      - framework: Vendor/RTK/libavformat.framework
+        embed: true
+      - framework: Vendor/RTK/libavutil.framework
+        embed: true
+      - framework: Vendor/RTK/libswresample.framework
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.flowsxr.aiseebin

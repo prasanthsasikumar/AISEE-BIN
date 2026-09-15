@@ -17,6 +17,14 @@ struct DebugInfo {
 }
 
 /// Which half of the app is active. Authoring is for the sighted mapper.
+/// Which camera is telling the app where the visitor is.
+enum PositioningSource: Equatable {
+    /// ARKit on the chest-mounted phone, relocalized into the saved world map.
+    case phone
+    /// Immersal fixes on the AiSee glasses' video, the phone in a pocket.
+    case glasses
+}
+
 enum AppMode: String, CaseIterable, Identifiable {
     case navigation = "Navigate"
     case authoring = "Author"
@@ -60,6 +68,8 @@ final class NavigationViewModel {
     let guidance: GuidanceManager
     let recognizer: VoiceCommandRecognizer
     let mapStore: MapStore
+    let glasses: GlassesService
+    let glassesPositioning: GlassesPositioning
     @ObservationIgnored private let sync = MapSyncService()
     @ObservationIgnored private let thresholds: GuidanceThresholds
 
@@ -91,6 +101,9 @@ final class NavigationViewModel {
     var mode: AppMode = .navigation {
         didSet { if mode != oldValue { didChange(mode: mode) } }
     }
+    var positioningSource: PositioningSource = .phone {
+        didSet { if positioningSource != oldValue { didChange(positioningSource: positioningSource) } }
+    }
     private(set) var syncState: MapSyncState = .idle
     /// 0…1 while `syncState` is `.downloading`.
     private(set) var syncProgress: Double = 0
@@ -106,7 +119,22 @@ final class NavigationViewModel {
     var isAuthoring: Bool { mode == .authoring }
 
     var destinations: [NavigationPOI] { engine.destinations }
-    var localizationStatus: LocalizationStatus { arManager.localizationStatus }
+    var localizationStatus: LocalizationStatus {
+        positioningSource == .glasses ? glassesPositioning.localizationStatus : arManager.localizationStatus
+    }
+    /// The visitor's camera pose in the graph frame, whichever camera it came from.
+    var currentTransform: simd_float4x4 {
+        positioningSource == .glasses ? glassesPositioning.cameraTransform : arManager.cameraTransform
+    }
+    var mapAlignment: ImmersalAlignment? { baseMap.immersalAlignment }
+
+    /// Why the glasses cannot take over positioning right now, or `nil`.
+    var glassesBlockedReason: String? {
+        if !glasses.isConnected { return "Connect the glasses first." }
+        if mapAlignment == nil { return "This map has no Immersal alignment. Run a probe walk with the phone and save one." }
+        if !ImmersalConfig.isConfigured { return "Enter the Immersal token and map ids." }
+        return nil
+    }
     var isListening: Bool { recognizer.isListening }
     var mapName: String { baseMap.name }
     var usesAuthoredMap: Bool { mapStore.hasSavedMap }
@@ -120,7 +148,7 @@ final class NavigationViewModel {
     /// "between the Window and the Main Entrance, about 7 m from the Window" —
     /// shown while off route so a helper can place the visitor at a glance.
     var lastKnownDescription: String? {
-        let transform = arManager.cameraTransform
+        let transform = currentTransform
         return LocationDescriber(map: engine.map)
             .describe(position: NavigationGeometry.planarPosition(of: transform),
                       heading: NavigationGeometry.heading(of: transform))?
@@ -135,12 +163,16 @@ final class NavigationViewModel {
          mapStore: MapStore = MapStore(),
          arManager: ARNavigationManager? = nil,
          guidance: GuidanceManager? = nil,
-         recognizer: VoiceCommandRecognizer? = nil) {
+         recognizer: VoiceCommandRecognizer? = nil,
+         glasses: GlassesService? = nil,
+         glassesPositioning: GlassesPositioning? = nil) {
         self.thresholds = thresholds
         self.mapStore = mapStore
         self.arManager = arManager ?? ARNavigationManager(mapStore: mapStore)
         self.guidance = guidance ?? GuidanceManager()
         self.recognizer = recognizer ?? VoiceCommandRecognizer()
+        self.glasses = glasses ?? GlassesService()
+        self.glassesPositioning = glassesPositioning ?? GlassesPositioning()
         self.policy = GuidancePolicy(thresholds: thresholds)
 
         let initialMap = map ?? mapStore.loadMap() ?? SampleGreenhouseMap.map
@@ -161,15 +193,57 @@ final class NavigationViewModel {
     func startSession() {
         arManager.onFrame = { [weak self] snapshot in self?.handle(snapshot) }
         arManager.onPOIAnchorsChanged = { [weak self] positions in self?.applyAnchors(positions) }
+        glassesPositioning.onPose = { [weak self] snapshot in self?.handle(snapshot) }
+        glasses.onFrame = { [weak positioning = glassesPositioning] frame in positioning?.consume(frame) }
+        glasses.onKeyPress = { [weak self] action in self?.handle(keyAction: action) }
         recognizer.onFinalTranscript = { [weak self] text in self?.handle(transcript: text) }
+        recognizer.onDidStopListening = { [weak self] in self?.closeGlassesMicrophone() }
         AppCommandBus.shared.handler = { [weak self] command in self?.handle(appCommand: command) }
 
-        arManager.start(relocalize: true)
-        if arManager.isUsingSavedWorldMap {
-            guidance.speak("Relocalizing. Please look around slowly.", interrupt: true)
-        }
+        startPositioning()
+        glasses.reconnectLastDevice()
         Task { _ = await recognizer.requestAuthorization() }
         Task { await checkForMapUpdate() }
+    }
+
+    /// Starts whichever camera is positioning the visitor and says what to do
+    /// while it finds the map.
+    private func startPositioning() {
+        switch positioningSource {
+        case .phone:
+            glassesPositioning.stop()
+            arManager.start(relocalize: true)
+            if arManager.isUsingSavedWorldMap {
+                guidance.speak("Relocalizing. Please look around slowly.", interrupt: true)
+            }
+        case .glasses:
+            arManager.pause()
+            glassesPositioning.start(alignment: baseMap.immersalAlignment)
+            Task { [glasses, guidance] in
+                do {
+                    try await glasses.startStreaming()
+                } catch {
+                    guidance.speak("The glasses camera did not start. \(error.localizedDescription)", interrupt: true)
+                }
+            }
+            guidance.speak("Using the glasses. Please look around slowly.", interrupt: true)
+        }
+    }
+
+    private func didChange(positioningSource source: PositioningSource) {
+        stopNavigation()
+        pendingDestinationID = nil
+        statusMessage = nil
+        startPositioning()
+    }
+
+    /// The temple button on the glasses.
+    private func handle(keyAction: GlassesService.KeyAction) {
+        switch keyAction {
+        case .talk:         toggleListening()
+        case .whereAmI:     handle(command: .whereAmI)
+        case .stopGuidance: handle(command: .stop)
+        }
     }
 
     // MARK: - Server sync
@@ -231,6 +305,18 @@ final class NavigationViewModel {
     func stopSession() {
         stopNavigation()
         arManager.pause()
+        glassesPositioning.stop()
+    }
+
+    /// Re-reads the saved map without restarting tracking: the probe screen
+    /// may have stored an alignment, which glasses positioning picks up here.
+    func reloadMapKeepingSession() {
+        baseMap = mapStore.loadMap() ?? SampleGreenhouseMap.map
+        localVersion = mapStore.loadVersion()
+        rebuildEngine()
+        if positioningSource == .glasses {
+            glassesPositioning.start(alignment: baseMap.immersalAlignment)
+        }
     }
 
     /// Re-reads the saved map after the authoring screen closes and restarts
@@ -241,15 +327,15 @@ final class NavigationViewModel {
         baseMap = mapStore.loadMap() ?? SampleGreenhouseMap.map
         localVersion = mapStore.loadVersion()
         rebuildEngine()
-        arManager.start(relocalize: true)
+        startPositioning()
     }
 
     // MARK: - Navigation
 
     func startNavigation() {
         guard let destination = selectedDestination else { return }
-        let position = NavigationGeometry.planarPosition(of: arManager.cameraTransform)
-        guard let start = arManager.localizationStatus.isReliable ? engine.nearestNode(to: position) : nil else {
+        let position = NavigationGeometry.planarPosition(of: currentTransform)
+        guard let start = localizationStatus.isReliable ? engine.nearestNode(to: position) : nil else {
             statusMessage = "Wait for tracking before starting."
             return
         }
@@ -279,7 +365,7 @@ final class NavigationViewModel {
         debug.routeNodes = path.map(engine.displayName(of:))
         statusMessage = nil
 
-        if let instruction = makeInstruction(from: arManager.cameraTransform) {
+        if let instruction = makeInstruction(from: currentTransform) {
             currentInstruction = instruction
             lastInstruction = instruction
             guidance.speak("Starting route to the \(destination.name). \(instruction.spokenText)", interrupt: true)
@@ -313,7 +399,11 @@ final class NavigationViewModel {
             localVersion = nil
             rebuildEngine()
         }
-        arManager.start(relocalize: !discardSavedMap)
+        if positioningSource == .glasses {
+            startPositioning()
+        } else {
+            arManager.start(relocalize: !discardSavedMap)
+        }
     }
 
     // MARK: - Voice
@@ -331,8 +421,24 @@ final class NavigationViewModel {
             }
             guidance.stopSpeaking()           // never listen to ourselves
             guidance.play(.nodeReached)       // tactile "I'm listening"
-            recognizer.startListening()
+            if positioningSource == .glasses, glasses.isConnected {
+                // The phone is in a pocket: listen through the glasses' microphone.
+                recognizer.startListening(input: .external)
+                do {
+                    try await glasses.startMicrophone { [recognizer] buffer in recognizer.append(buffer) }
+                } catch {
+                    recognizer.stopListening(deliver: false)
+                    guidance.speak("The glasses microphone did not open.", interrupt: true)
+                }
+            } else {
+                recognizer.startListening()
+            }
         }
+    }
+
+    private func closeGlassesMicrophone() {
+        guard glasses.isMicOpen else { return }
+        Task { await glasses.stopMicrophone() }
     }
 
     private func handle(transcript: String) {
@@ -353,8 +459,8 @@ final class NavigationViewModel {
 
     private func handle(command: VoiceCommand) {
         if command != .unknown { unknownCommandCount = 0 }
-        let position = NavigationGeometry.planarPosition(of: arManager.cameraTransform)
-        let heading = NavigationGeometry.heading(of: arManager.cameraTransform)
+        let position = NavigationGeometry.planarPosition(of: currentTransform)
+        let heading = NavigationGeometry.heading(of: currentTransform)
 
         switch command {
         case .navigate(let poiID):
@@ -449,7 +555,7 @@ final class NavigationViewModel {
 
     // MARK: - Per-frame update
 
-    private func handle(_ snapshot: ARFrameSnapshot) {
+    private func handle(_ snapshot: PoseSnapshot) {
         updateDebug(with: snapshot)
         guard !isAuthoring else { return }
 
@@ -553,12 +659,19 @@ final class NavigationViewModel {
                                      isFinal: tracker.isFinalLeg)
     }
 
-    private func updateDebug(with snapshot: ARFrameSnapshot) {
+    private func updateDebug(with snapshot: PoseSnapshot) {
         guard showDebug else { return }
-        debug.fps = arManager.framesPerSecond
-        debug.trackingState = arManager.trackingStateDescription
-        debug.featurePoints = snapshot.featurePointCount
-        debug.worldMapping = arManager.worldMappingStatus.label
+        if positioningSource == .glasses {
+            debug.fps = Double(glasses.framesPerSecond)
+            debug.trackingState = "glasses \(glassesPositioning.fixes)/\(glassesPositioning.attempts) fixes"
+            debug.featurePoints = 0
+            debug.worldMapping = "immersal"
+        } else {
+            debug.fps = arManager.framesPerSecond
+            debug.trackingState = arManager.trackingStateDescription
+            debug.featurePoints = snapshot.featurePointCount
+            debug.worldMapping = arManager.worldMappingStatus.label
+        }
         debug.position = NavigationGeometry.planarPosition(of: snapshot.cameraTransform)
         debug.headingDegrees = NavigationGeometry.heading(of: snapshot.cameraTransform) * 180 / .pi
     }
