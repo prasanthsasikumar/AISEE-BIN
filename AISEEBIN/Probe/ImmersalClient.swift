@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 
 // THROWAWAY — see ImmersalPose.swift.
@@ -113,4 +112,3 @@ struct ImmersalClient {
     /// Distinguishes "the network failed, retry later" from "Immersal answered no".
     static func isTransportFailure(_ error: String) -> Bool { error.hasPrefix("transport:") }
 }
-#endif

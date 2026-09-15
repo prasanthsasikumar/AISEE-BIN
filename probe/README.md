@@ -7,10 +7,15 @@ and then be deleted:
 > ARKit's saved `ARWorldMap` drifts — and how much floor area does one free-tier
 > map (100 images) actually cover?
 
-Nothing in the shipping app depends on any of it. The Swift half is wrapped in
-`#if DEBUG`, so it is absent from Release builds — verified by grepping the
-Release binary for `ImmersalClient`, `ProbeSession` and `localizeb64`, none of
-which appear.
+Nothing in the shipping app depends on any of it, but it **does ship**: as of
+build 4 the harness is included in release builds so TestFlight testers can run
+a measurement walk. The ruler button sits at the top right of the Navigate
+screen and is hidden from VoiceOver, because stamping places means reading names
+off the screen, which makes it a sighted operator's tool.
+
+A walk uploads camera images to Immersal's cloud service, and nothing is
+uploaded unless someone starts a walk. The configuration screen says so, and it
+belongs in the TestFlight "What to Test" notes too.
 
 ## Why it is built this way
 
@@ -52,9 +57,9 @@ a blind visitor is worse than no fix at all.
 3. Install the app's own map on the device as usual, so ARKit has an
    `ARWorldMap` to relocalize against. Without one, the walk measures Immersal
    alone — the probe screen says so.
-4. Debug build on device → the small ruler button, top right of Navigate → paste
-   the token and the map ids. They are stored in `UserDefaults` on that device
-   only and are never written to this repo.
+4. Ruler button, top right of Navigate → paste the token and the map ids. They
+   are stored in `UserDefaults` on that device only and are never written to
+   this repo, so each tester enters their own.
 
 ## The walk
 
@@ -109,6 +114,7 @@ schema.
 rm -rf probe AISEEBIN/Probe AISEEBINTests/ProbeMathTests.swift
 ```
 
-Then remove the two `#if DEBUG` blocks that call into it — `onDebugFrame` in
-`AISEEBIN/Managers/ARNavigationManager.swift` and the ruler button in
-`AISEEBIN/Views/ContentView.swift` — and run `xcodegen generate`.
+Then remove the two call sites: `onProbeFrame` in
+`AISEEBIN/Managers/ARNavigationManager.swift`, and `showingProbe` with its
+overlay and cover in `AISEEBIN/Views/ContentView.swift`. Run `xcodegen generate`
+afterwards.

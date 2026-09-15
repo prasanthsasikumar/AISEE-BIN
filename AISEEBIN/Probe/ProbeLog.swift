@@ -1,4 +1,3 @@
-#if DEBUG
 import ARKit
 import Foundation
 import simd
@@ -178,4 +177,3 @@ extension ARFrame.WorldMappingStatus {
         }
     }
 }
-#endif

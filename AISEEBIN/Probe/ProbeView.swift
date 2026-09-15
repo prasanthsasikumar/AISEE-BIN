@@ -1,4 +1,3 @@
-#if DEBUG
 import ARKit
 import SwiftUI
 
@@ -43,11 +42,11 @@ struct ProbeView: View {
             }
             .sheet(isPresented: $showingProtocol) { WalkProtocolView() }
             .onAppear {
-                arManager.onDebugFrame = { [session] frame, trackingState in
+                arManager.onProbeFrame = { [session] frame, trackingState in
                     session.consume(frame: frame, trackingState: trackingState)
                 }
             }
-            .onDisappear { arManager.onDebugFrame = nil }
+            .onDisappear { arManager.onProbeFrame = nil }
         }
     }
 
@@ -65,9 +64,11 @@ struct ProbeView: View {
             } header: {
                 Text("Credentials")
             } footer: {
-                Text("Stored in UserDefaults on this device only — never written to the repo. "
-                     + "Map ids come from the Developer Portal after the Mapper app’s maps finish "
-                     + "constructing. Up to 8; list the interior map first, then the doorway map.")
+                Text("A measurement walk uploads camera images to Immersal’s cloud service "
+                     + "(Hexagon) to ask where the phone is. Nothing is uploaded unless you start "
+                     + "a walk. The token is stored on this device only.\n\n"
+                     + "Map ids come from the Immersal Developer Portal once the Mapper app’s maps "
+                     + "finish constructing. Up to 8; list the interior map first.")
             }
 
             Section {
@@ -224,4 +225,3 @@ private struct WalkProtocolView: View {
         }
     }
 }
-#endif

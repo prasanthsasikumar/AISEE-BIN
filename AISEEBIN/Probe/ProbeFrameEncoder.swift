@@ -1,4 +1,3 @@
-#if DEBUG
 import CoreVideo
 import Foundation
 import UIKit
@@ -87,4 +86,3 @@ enum ProbeFrameEncoder {
         return UIImage(cgImage: image).pngData()
     }
 }
-#endif

@@ -10,10 +10,8 @@ struct ContentView: View {
     @Bindable var viewModel: NavigationViewModel
     @Environment(\.scenePhase) private var scenePhase
 
-    #if DEBUG
     /// THROWAWAY, for the Immersal comparison harness in `Probe/`. Delete with it.
     @State private var showingProbe = false
-    #endif
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,9 +36,11 @@ struct ContentView: View {
                 viewModel.startSession()
             }
         }
-        #if DEBUG
-        // Throwaway entry point to the Immersal comparison harness. Deliberately
-        // small, unlabelled by accessibility, and absent from Release builds.
+        // Throwaway entry point to the Immersal comparison harness. Ships to
+        // TestFlight testers so they can run a measurement walk, and is hidden
+        // from VoiceOver: stamping places requires reading names off the screen,
+        // so it is a sighted operator's tool and would only be clutter in the
+        // rotor for the visitors this app is actually for.
         .overlay(alignment: .topTrailing) {
             Button {
                 showingProbe = true
@@ -57,7 +57,6 @@ struct ContentView: View {
             ProbeView(arManager: viewModel.arManager,
                       places: viewModel.mapStore.loadMap()?.pois ?? SampleGreenhouseMap.map.pois)
         }
-        #endif
     }
 
     // MARK: - Navigate

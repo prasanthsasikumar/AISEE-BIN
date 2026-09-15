@@ -1,4 +1,3 @@
-#if DEBUG
 import XCTest
 import simd
 @testable import AISEEBIN
@@ -220,4 +219,3 @@ private extension String {
         return count
     }
 }
-#endif

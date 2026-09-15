@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 import simd
 
@@ -134,4 +133,3 @@ enum ImmersalPose {
         return abs(immersal - displacement(previousAR, currentAR))
     }
 }
-#endif

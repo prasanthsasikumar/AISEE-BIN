@@ -1,4 +1,3 @@
-#if DEBUG
 import ARKit
 import Foundation
 import Observation
@@ -342,4 +341,3 @@ final class ProbeSession {
         ))
     }
 }
-#endif

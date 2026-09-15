@@ -1,4 +1,3 @@
-#if DEBUG
 import XCTest
 @testable import AISEEBIN
 
@@ -105,4 +104,3 @@ private final class StubProtocol: URLProtocol {
 
     override func stopLoading() {}
 }
-#endif
