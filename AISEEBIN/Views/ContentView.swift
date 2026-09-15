@@ -10,6 +10,11 @@ struct ContentView: View {
     @Bindable var viewModel: NavigationViewModel
     @Environment(\.scenePhase) private var scenePhase
 
+    #if DEBUG
+    /// THROWAWAY, for the Immersal comparison harness in `Probe/`. Delete with it.
+    @State private var showingProbe = false
+    #endif
+
     var body: some View {
         VStack(spacing: 0) {
             ModeSwitcher(mode: $viewModel.mode)
@@ -33,6 +38,26 @@ struct ContentView: View {
                 viewModel.startSession()
             }
         }
+        #if DEBUG
+        // Throwaway entry point to the Immersal comparison harness. Deliberately
+        // small, unlabelled by accessibility, and absent from Release builds.
+        .overlay(alignment: .topTrailing) {
+            Button {
+                showingProbe = true
+            } label: {
+                Image(systemName: "ruler")
+                    .font(.footnote)
+                    .padding(8)
+                    .background(.thinMaterial, in: Circle())
+            }
+            .padding(8)
+            .accessibilityHidden(true)
+        }
+        .fullScreenCover(isPresented: $showingProbe) {
+            ProbeView(arManager: viewModel.arManager,
+                      places: viewModel.mapStore.loadMap()?.pois ?? SampleGreenhouseMap.map.pois)
+        }
+        #endif
     }
 
     // MARK: - Navigate

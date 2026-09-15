@@ -74,6 +74,16 @@ final class ARNavigationManager: NSObject, ARSessionDelegate {
     /// Called on the main actor whenever the set of POI anchors changes.
     @ObservationIgnored var onPOIAnchorsChanged: (([String: SIMD2<Float>]) -> Void)?
 
+    #if DEBUG
+    /// THROWAWAY, for the Immersal comparison harness in `Probe/` only.
+    ///
+    /// `ARFrameSnapshot` deliberately drops the pixel buffer and the intrinsics
+    /// so that no `ARFrame` is retained; the harness needs both to ask a VPS
+    /// where it is, so it gets the frame itself and must copy what it wants
+    /// synchronously. Delete alongside `Probe/`.
+    @ObservationIgnored var onDebugFrame: ((ARFrame, ARCamera.TrackingState) -> Void)?
+    #endif
+
     static let poiAnchorPrefix = "poi:"
 
     @ObservationIgnored private var fpsWindowStart: TimeInterval = 0
@@ -275,6 +285,10 @@ final class ARNavigationManager: NSObject, ARSessionDelegate {
                                  timestamp: frame.timestamp,
                                  trackingReliable: trackingReliable,
                                  featurePointCount: featurePointCount))
+
+        #if DEBUG
+        onDebugFrame?(frame, frame.camera.trackingState)
+        #endif
     }
 
     private func updateFPS(timestamp: TimeInterval) {
