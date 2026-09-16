@@ -213,6 +213,7 @@ final class NavigationViewModel {
         switch positioningSource {
         case .phone:
             glassesPositioning.stop()
+            glasses.keepStreaming = false
             arManager.start(relocalize: true)
             if arManager.isUsingSavedWorldMap {
                 guidance.speak("Relocalizing. Please look around slowly.", interrupt: true)
@@ -220,6 +221,7 @@ final class NavigationViewModel {
         case .glasses:
             arManager.pause()
             glassesPositioning.start(alignment: baseMap.immersalAlignment)
+            glasses.keepStreaming = true
             Task { [glasses, guidance] in
                 do {
                     try await glasses.startStreaming()

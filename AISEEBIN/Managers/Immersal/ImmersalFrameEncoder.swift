@@ -112,16 +112,47 @@ enum ImmersalFrameEncoder {
         return grayscalePNG(drawing: source, width: image.width, height: image.height, factor: factor)
     }
 
+    /// 8-bit grayscale PNG of a BGRA image scaled to `targetWidth` pixels wide,
+    /// aspect kept, with the size the PNG actually has (intrinsics must be
+    /// computed for *that* size). Halving 1280×720 to 960×540 roughly halves
+    /// the payload, which is most of a fix's latency over cellular.
+    static func grayscalePNG(from image: BGRAImage, targetWidth: Int) -> (png: Data, width: Int, height: Int)? {
+        guard let source = cgImage(from: image) else { return nil }
+        let w = min(max(1, targetWidth), image.width)
+        let h = max(1, image.height * w / image.width)
+        guard let png = grayscalePNG(drawing: source, targetWidth: w, targetHeight: h,
+                                     interpolate: w < image.width) else { return nil }
+        return (png, w, h)
+    }
+
+    private static func cgImage(from image: BGRAImage) -> CGImage? {
+        let rgb = CGColorSpaceCreateDeviceRGB()
+        let info = CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Little.rawValue
+                                | CGImageAlphaInfo.premultipliedFirst.rawValue)
+        guard let provider = CGDataProvider(data: image.bytes as CFData) else { return nil }
+        return CGImage(width: image.width, height: image.height,
+                       bitsPerComponent: 8, bitsPerPixel: 32,
+                       bytesPerRow: image.rowBytes, space: rgb,
+                       bitmapInfo: info,
+                       provider: provider, decode: nil,
+                       shouldInterpolate: false, intent: .defaultIntent)
+    }
+
     /// Draws `source` into a gray context of the reduced size and encodes it.
     /// Drawing into a gray context is also what converts colour to luma.
     private static func grayscalePNG(drawing source: CGImage, width: Int, height: Int, factor: Int) -> Data? {
+        grayscalePNG(drawing: source, targetWidth: width / max(1, factor), targetHeight: height / max(1, factor),
+                     interpolate: factor > 1)
+    }
+
+    private static func grayscalePNG(drawing source: CGImage, targetWidth w: Int, targetHeight h: Int,
+                                     interpolate: Bool) -> Data? {
         let gray = CGColorSpaceCreateDeviceGray()
-        let w = width / max(1, factor), h = height / max(1, factor)
         guard let context = CGContext(data: nil, width: w, height: h,
                                       bitsPerComponent: 8, bytesPerRow: 0,
                                       space: gray, bitmapInfo: CGImageAlphaInfo.none.rawValue)
         else { return nil }
-        context.interpolationQuality = factor > 1 ? .high : .none
+        context.interpolationQuality = interpolate ? .high : .none
         context.draw(source, in: CGRect(x: 0, y: 0, width: w, height: h))
         guard let image = context.makeImage() else { return nil }
         return UIImage(cgImage: image).pngData()

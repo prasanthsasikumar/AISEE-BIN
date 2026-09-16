@@ -6,7 +6,7 @@ import simd
 
 /// Metres walked, from whatever counts steps. Abstracted so the positioning
 /// loop can be tested with a scripted distance.
-protocol WalkedDistanceSource: AnyObject {
+protocol WalkedDistanceSource: AnyObject, Sendable {
     var walkedMetres: Float { get }
     func start()
     func stop()
@@ -60,6 +60,10 @@ final class GlassesPositioning {
 
     /// Immersal answers in about a second; sending faster only queues.
     nonisolated static let minimumInterval: TimeInterval = 0.5
+    /// Frames are sent at this width. 960 keeps the field of view and halves
+    /// the PNG against the native 1280, and the phone probe localized fine at
+    /// 960 wide. Intrinsics are derived from the sent size, so this is safe to tune.
+    nonisolated static let sentFrameWidth = 960
     /// Cadence of the snapshots between fixes. ARKit gives 60; guidance needs far fewer.
     static let tickInterval: TimeInterval = 0.2
 
@@ -194,34 +198,38 @@ final class GlassesPositioning {
             claim.release()
             return
         }
+        // The fix describes where the wearer was *now*, not when the answer
+        // comes back a second or two later: remember the pedometer reading so
+        // the extrapolator can add whatever is walked meanwhile.
+        let walkedAtCapture = pedometer.walkedMetres
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
-            let png = ImmersalFrameEncoder.grayscalePNG(from: image, factor: 1)
-            await self.localizeCopied(png: png, width: image.width, height: image.height,
-                                      startedAt: now, generation: generation)
+            let encoded = ImmersalFrameEncoder.grayscalePNG(from: image, targetWidth: Self.sentFrameWidth)
+            await self.localizeCopied(encoded, capturedAt: now, walkedAtCapture: walkedAtCapture,
+                                      generation: generation)
         }
     }
 
-    private func localizeCopied(png: Data?, width: Int, height: Int,
-                                startedAt: TimeInterval, generation: Int) async {
+    private func localizeCopied(_ encoded: (png: Data, width: Int, height: Int)?,
+                                capturedAt: TimeInterval, walkedAtCapture: Float, generation: Int) async {
         defer { claim.release() }
         guard running, generation == self.generation else { return }
-        frameSize = (width, height)
-        guard let png else {
+        guard let encoded else {
             lastError = "encode"
             return
         }
-        let intrinsics = camera.intrinsics(width: width, height: height)
-        let result = await localize(png, intrinsics)
+        frameSize = (encoded.width, encoded.height)
+        let intrinsics = camera.intrinsics(width: encoded.width, height: encoded.height)
+        let result = await localize(encoded.png, intrinsics)
         guard running, generation == self.generation else { return }
-        apply(result, at: ProcessInfo.processInfo.systemUptime)
+        apply(result, capturedAt: capturedAt, walkedAtCapture: walkedAtCapture)
     }
 
     // MARK: - Applying a fix
 
     private static let logger = Logger(subsystem: "com.flowsxr.aiseebin", category: "positioning")
 
-    private func apply(_ result: ImmersalLocalizeResult, at time: TimeInterval) {
+    private func apply(_ result: ImmersalLocalizeResult, capturedAt: TimeInterval, walkedAtCapture walked: Float) {
         attempts += 1
         Self.logger.notice("localize \(self.attempts): \(result.success ? "fix" : result.error, privacy: .public) map=\(result.mapID ?? -1) \(Int(result.latency * 1000)) ms \(result.requestBytes) B")
         lastLatencyMS = Int((result.latency * 1000).rounded())
@@ -237,7 +245,6 @@ final class GlassesPositioning {
         let poseInGraph = alignment.toGraph(cameraPose: poseInMap)
         let position = NavigationGeometry.planarPosition(of: poseInGraph)
         let heading = NavigationGeometry.heading(of: poseInGraph)
-        let walked = pedometer.walkedMetres
 
         guard gate.evaluate(position: position, walked: walked) else {
             rejectedFixes += 1
@@ -247,7 +254,7 @@ final class GlassesPositioning {
         }
         fixes += 1
         Self.logger.notice("fix \(self.fixes): graph (\(position.x), \(position.y)) heading \(heading * 180 / .pi) deg, walked \(walked) m")
-        extrapolator.anchor(position: position, heading: heading, walked: walked, time: time)
+        extrapolator.anchor(position: position, heading: heading, walked: walked, time: capturedAt)
         tick()
     }
 

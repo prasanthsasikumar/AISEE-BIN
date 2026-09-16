@@ -49,6 +49,10 @@ final class GlassesService {
 
     private(set) var isStreaming = false
     private(set) var isMicOpen = false
+    /// While true, a stream the SDK ends on its own (hotspot hiccup, glasses
+    /// dozing) is restarted after a short pause. Set by whoever needs frames
+    /// continuously; a user toggling the stream off clears it.
+    var keepStreaming = false
     /// The most recent decoded frame, rendered at most a few times a second
     /// for the on-screen preview. Never used for localization — see `onFrame`.
     private(set) var previewImage: UIImage?
@@ -221,13 +225,32 @@ final class GlassesService {
                     self.previewImage = nil
                     self.framesPerSecond = 0
                     if let text { self.lastStreamError = text }
+                    self.restartStreamIfWanted()
                 }
             })
         isStreaming = await coordinator.streaming
         guard isStreaming else { throw AiSeeError.streamUnavailable }
     }
 
+    private func restartStreamIfWanted() {
+        guard keepStreaming else { return }
+        Task { [weak self] in
+            for attempt in 1...5 {
+                try? await Task.sleep(for: .seconds(2))
+                guard let self, self.keepStreaming, self.isConnected, !self.isStreaming else { return }
+                self.append("livestream: restarting (attempt \(attempt))")
+                do {
+                    try await self.startStreaming()
+                    return
+                } catch {
+                    self.append("livestream: restart failed: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
     func stopStreaming() async {
+        keepStreaming = false
         await coordinator.stopLiveStream()
         fanout.latest = nil
         isStreaming = false
