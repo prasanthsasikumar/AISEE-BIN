@@ -237,9 +237,20 @@ struct GlassesView: View {
                 .localize(pngData: png, fx: k.fx, fy: k.fy, ox: k.ox, oy: k.oy)
         })
         Task {
-            // Adopt the result once the runner saves it.
-            while case .running = calibration.state { try? await Task.sleep(for: .milliseconds(300)) }
-            positioning.camera = GlassesCamera.load()
+            // Adopt the result once the runner saves it. The runner flips to
+            // `.running` on its own task, so wait for a terminal state rather
+            // than for `.running` to end — polling straight away would see
+            // `.idle` and reload the old value.
+            for _ in 0..<1200 {   // six minutes, well past three rounds
+                try? await Task.sleep(for: .milliseconds(300))
+                switch calibration.state {
+                case .finished, .failed:
+                    positioning.camera = GlassesCamera.load()
+                    return
+                case .idle, .running:
+                    continue
+                }
+            }
         }
     }
 
