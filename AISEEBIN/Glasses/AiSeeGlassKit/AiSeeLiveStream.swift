@@ -10,7 +10,7 @@
 import CoreMedia
 import Foundation
 
-#if canImport(RTKAIDeviceConnection)
+#if canImport(RTKAIDeviceConnection) && !targetEnvironment(simulator)
 import RTKAIDeviceConnection
 
 /// `@unchecked Sendable` is safe because every piece of mutable state below is

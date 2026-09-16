@@ -15,7 +15,7 @@ import CoreBluetooth
 import Foundation
 import Observation
 
-#if canImport(RTKAIDeviceConnection)
+#if canImport(RTKAIDeviceConnection) && !targetEnvironment(simulator)
 import RTKAIDeviceConnection
 import RTKLEFoundation
 import RTKAudioConnectSDK

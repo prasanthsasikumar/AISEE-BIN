@@ -168,7 +168,7 @@ final class GlassesService {
     /// The kit binds nothing itself: every connection change must be handed to
     /// the coordinator, or a capture ends up talking to a dead device.
     private func attachCoordinator() {
-        #if canImport(RTKAIDeviceConnection)
+        #if canImport(RTKAIDeviceConnection) && !targetEnvironment(simulator)
         let live = connection.connection
         Task { await coordinator.attach(live) }
         #else

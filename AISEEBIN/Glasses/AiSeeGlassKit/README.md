@@ -1,3 +1,9 @@
+> **AISEE-BIN copy.** One deviation from the verbatim kit: every `#if canImport(RTK…)` also
+> requires `!targetEnvironment(simulator)`. XcodeGen adds `Vendor/RTK` to the framework search
+> path for every SDK, and the frameworks' Objective-C module maps import fine on the simulator
+> even though only the Swift interfaces' device slices exist — so `canImport` was true with
+> nothing usable behind it. Re-apply when refreshing the kit from `aisee-glass-sample`.
+
 # AiSeeGlassKit
 
 Drop-in layer for the AiSee glasses (Realtek RTKAIDeviceConnection 1.6.4). Copy this folder verbatim.

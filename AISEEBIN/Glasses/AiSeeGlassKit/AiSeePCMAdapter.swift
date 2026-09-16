@@ -38,7 +38,7 @@ enum AiSeePCM {
     }
 }
 
-#if canImport(RTKAudioStreaming)
+#if canImport(RTKAudioStreaming) && !targetEnvironment(simulator)
 import RTKAudioStreaming
 
 /// Terminal stream target: receives resampled Int16 PCM from the SDK and emits

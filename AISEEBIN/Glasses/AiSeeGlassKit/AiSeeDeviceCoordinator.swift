@@ -10,7 +10,7 @@
 import AVFoundation
 import Foundation
 
-#if canImport(RTKAIDeviceConnection)
+#if canImport(RTKAIDeviceConnection) && !targetEnvironment(simulator)
 import RTKAIDeviceConnection
 
 actor AiSeeDeviceCoordinator {

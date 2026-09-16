@@ -13,7 +13,7 @@
 
 import Foundation
 
-#if canImport(RTKAIDeviceConnection)
+#if canImport(RTKAIDeviceConnection) && !targetEnvironment(simulator)
 import RTKAIDeviceConnection
 
 struct AiSeePhotoCapture {
