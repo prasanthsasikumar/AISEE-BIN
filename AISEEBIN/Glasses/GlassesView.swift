@@ -38,11 +38,11 @@ struct GlassesView: View {
             .onAppear {
                 if !glasses.isConnected { glasses.startScan() }
             }
-            .onDisappear {
-                glasses.stopScan()
-                ImmersalConfig.token = token
-                ImmersalConfig.mapIDsText = mapIDsText
-            }
+            .onDisappear { glasses.stopScan() }
+            // Saved as typed, so the calibration button and the positioning
+            // status react without closing the sheet first.
+            .onChange(of: token) { _, value in ImmersalConfig.token = value }
+            .onChange(of: mapIDsText) { _, value in ImmersalConfig.mapIDsText = value }
         }
     }
 
@@ -179,7 +179,10 @@ struct GlassesView: View {
             switch calibration.state {
             case .idle, .finished, .failed:
                 Button("Calibrate against the map") { runCalibration() }
-                    .disabled(!glasses.isStreaming || !ImmersalConfig.isConfigured)
+                    .disabled(calibrationBlockedReason != nil)
+                if let reason = calibrationBlockedReason {
+                    Text(reason).font(.footnote).foregroundStyle(.secondary)
+                }
             case .running(let round, let candidate):
                 HStack {
                     ProgressView()
@@ -213,6 +216,12 @@ struct GlassesView: View {
         } footer: {
             Text("Stand still somewhere the Immersal map covers. The same frame is tried at each focal length; the one the map recognises most wins.")
         }
+    }
+
+    private var calibrationBlockedReason: String? {
+        if !glasses.isStreaming { return "Turn on Live video above first." }
+        if token.isEmpty || mapIDsText.immersalMapIDs.isEmpty { return "Enter the Immersal token and map ids below first." }
+        return nil
     }
 
     private func runCalibration() {
