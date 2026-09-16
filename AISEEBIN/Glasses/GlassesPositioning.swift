@@ -147,7 +147,7 @@ final class GlassesPositioning {
         attempts = 0; fixes = 0; rejectedFixes = 0
         lastError = nil; lastLatencyMS = nil; lastMapID = nil; secondsSinceFix = nil
         guard alignment != nil else {
-            localizationStatus = .unsupported
+            localizationStatus = .limited(reason: "Map not aligned")
             return
         }
         guard ImmersalConfig.isConfigured else {

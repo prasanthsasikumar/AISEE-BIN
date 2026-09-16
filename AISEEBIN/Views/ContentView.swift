@@ -266,7 +266,11 @@ struct ContentView: View {
         case .notStarted:    return viewModel.positioningSource == .glasses ? "Glasses not streaming" : "Tracking off"
         case .initializing:  return "Starting camera"
         case .relocalizing:  return "Waiting for map"
-        case .limited:       return viewModel.positioningSource == .glasses ? "Waiting for a fix" : "Hold steady"
+        case .limited(let reason):
+            if viewModel.positioningSource == .glasses {
+                return reason == "Map not aligned" ? "Map not aligned" : "Waiting for a fix"
+            }
+            return "Hold steady"
         case .trackingReady: return viewModel.selectedDestination == nil ? "Choose a destination" : nil
         }
     }

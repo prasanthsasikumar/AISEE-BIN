@@ -95,14 +95,15 @@ final class GuidanceManager: NSObject, AVSpeechSynthesizerDelegate {
         let audioSession = AVAudioSession.sharedInstance()
         do {
             // Play-and-record so push-to-talk can open the microphone without
-            // re-configuring the session; speech routes to the loudspeaker (or
-            // Bluetooth headset) and ducks other audio while we talk.
-            var options: AVAudioSession.CategoryOptions = [.duckOthers, .defaultToSpeaker, .allowBluetoothA2DP]
-            if #available(iOS 26.0, *) {
-                options.insert(.allowBluetoothHFP)
-            } else {
-                options.insert(.allowBluetooth)
-            }
+            // re-configuring the session; speech routes to the loudspeaker or
+            // to Bluetooth over A2DP and ducks other audio while we talk.
+            //
+            // Deliberately *not* HFP (`.allowBluetooth` / `.allowBluetoothHFP`):
+            // HFP is the phone-call profile, and with it allowed iOS opens a
+            // call link for every utterance, which audio glasses announce as
+            // "call ended" after each sentence. A2DP output plus the built-in
+            // (or the glasses' own SDK) microphone is what this app wants.
+            let options: AVAudioSession.CategoryOptions = [.duckOthers, .defaultToSpeaker, .allowBluetoothA2DP]
             try audioSession.setCategory(.playAndRecord, mode: .default, options: options)
             try audioSession.setActive(true)
         } catch {

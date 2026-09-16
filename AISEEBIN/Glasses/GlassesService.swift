@@ -153,6 +153,28 @@ final class GlassesService {
     func reconnectLastDevice() { connection.reconnectLastDevice() }
     func refreshBattery() async { await connection.refreshBattery() }
 
+    /// Connects without anyone tapping anything: the last device if it is in
+    /// range, otherwise glasses already paired with the phone in iOS Settings
+    /// (the kit lists those with no signal reading, because they do not
+    /// advertise). A blind visitor puts the glasses on and the app follows.
+    func connectAutomatically() {
+        guard !isConnected else { return }
+        if UserDefaults.standard.string(forKey: AiSeeConnectionService.lastPeripheralKey) != nil {
+            reconnectLastDevice()
+        } else {
+            startScan()
+        }
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard let self, !self.isConnected else { return }
+            if case .connecting = self.connection.state { return }
+            if let paired = self.connection.discovered.first(where: { $0.rssi == 0 }) {
+                self.append("connection: auto-connecting to paired \(paired.name)")
+                self.connect(paired.id)
+            }
+        }
+    }
+
     private func observeConnection() {
         withObservationTracking {
             _ = connection.state

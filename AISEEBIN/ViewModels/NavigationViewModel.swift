@@ -131,8 +131,8 @@ final class NavigationViewModel {
     /// Why the glasses cannot take over positioning right now, or `nil`.
     var glassesBlockedReason: String? {
         if !glasses.isConnected { return "Connect the glasses first." }
-        if mapAlignment == nil { return "This map has no Immersal alignment. Run a probe walk with the phone and save one." }
-        if !ImmersalConfig.isConfigured { return "Enter the Immersal token and map ids." }
+        if mapAlignment == nil { return "The glasses show their view but cannot position you until this map has an Immersal alignment: run a probe walk with the phone and save one." }
+        if !ImmersalConfig.isConfigured { return "Enter the Immersal token and map ids below." }
         return nil
     }
     var isListening: Bool { recognizer.isListening }
@@ -201,7 +201,8 @@ final class NavigationViewModel {
         AppCommandBus.shared.handler = { [weak self] command in self?.handle(appCommand: command) }
 
         startPositioning()
-        glasses.reconnectLastDevice()
+        observeGlassesConnection()
+        glasses.connectAutomatically()
         Task { _ = await recognizer.requestAuthorization() }
         Task { await checkForMapUpdate() }
     }
@@ -227,6 +228,27 @@ final class NavigationViewModel {
                 }
             }
             guidance.speak("Using the glasses. Please look around slowly.", interrupt: true)
+        }
+    }
+
+    /// Follows the glasses: connected means they are on the visitor's face and
+    /// the phone is going into a pocket, so they take over positioning and the
+    /// glasses feed replaces the phone camera; disconnected hands it back.
+    /// The switch in `GlassesView` still overrides either way.
+    private func observeGlassesConnection() {
+        withObservationTracking {
+            _ = glasses.isConnected
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                if self.glasses.isConnected, self.positioningSource == .phone {
+                    self.positioningSource = .glasses
+                } else if !self.glasses.isConnected, self.positioningSource == .glasses {
+                    self.guidance.speak("Glasses disconnected. Using the phone camera.", interrupt: true)
+                    self.positioningSource = .phone
+                }
+                self.observeGlassesConnection()
+            }
         }
     }
 

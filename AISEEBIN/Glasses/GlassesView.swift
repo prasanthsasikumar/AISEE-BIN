@@ -138,7 +138,7 @@ struct GlassesView: View {
             Toggle("Use glasses for positioning",
                    isOn: Binding(get: { viewModel.positioningSource == .glasses },
                                  set: { viewModel.positioningSource = $0 ? .glasses : .phone }))
-                .disabled(viewModel.positioningSource == .phone && viewModel.glassesBlockedReason != nil)
+                .disabled(!glasses.isConnected)
             if viewModel.positioningSource == .glasses {
                 LabeledContent("Status", value: positioning.localizationStatus.label)
                 LabeledContent("Fixes", value: "\(positioning.fixes) / \(positioning.attempts)")
@@ -161,7 +161,7 @@ struct GlassesView: View {
         } header: {
             Text("Positioning")
         } footer: {
-            if let reason = viewModel.glassesBlockedReason, viewModel.positioningSource == .phone {
+            if let reason = viewModel.glassesBlockedReason {
                 Text(reason)
             } else {
                 Text("The phone camera is paused while the glasses position you. Switch back to hand the phone to a helper.")
