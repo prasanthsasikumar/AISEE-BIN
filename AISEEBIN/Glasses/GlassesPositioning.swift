@@ -1,6 +1,7 @@
 import CoreMotion
 import Foundation
 import Observation
+import OSLog
 import simd
 
 /// Metres walked, from whatever counts steps. Abstracted so the positioning
@@ -218,8 +219,11 @@ final class GlassesPositioning {
 
     // MARK: - Applying a fix
 
+    private static let logger = Logger(subsystem: "com.flowsxr.aiseebin", category: "positioning")
+
     private func apply(_ result: ImmersalLocalizeResult, at time: TimeInterval) {
         attempts += 1
+        Self.logger.notice("localize \(self.attempts): \(result.success ? "fix" : result.error, privacy: .public) map=\(result.mapID ?? -1) \(Int(result.latency * 1000)) ms \(result.requestBytes) B")
         lastLatencyMS = Int((result.latency * 1000).rounded())
         lastMapID = result.mapID
         guard result.success, let raw = result.pose,
@@ -237,10 +241,12 @@ final class GlassesPositioning {
 
         guard gate.evaluate(position: position, walked: walked) else {
             rejectedFixes += 1
+            Self.logger.notice("fix rejected: jumped \(self.gate.lastJump) m after walking \(walked) m")
             lastError = String(format: "fix rejected: jumped %.1f m", gate.lastJump)
             return
         }
         fixes += 1
+        Self.logger.notice("fix \(self.fixes): graph (\(position.x), \(position.y)) heading \(heading * 180 / .pi) deg, walked \(walked) m")
         extrapolator.anchor(position: position, heading: heading, walked: walked, time: time)
         tick()
     }

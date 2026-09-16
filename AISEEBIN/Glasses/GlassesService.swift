@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import Observation
+import OSLog
 import UIKit
 
 /// The app's one handle on the AiSee glasses.
@@ -266,7 +267,12 @@ final class GlassesService {
 
     // MARK: - Diagnostics
 
+    /// Mirrored to the unified log so `idevicesyslog -p AISEEBIN` (or Console)
+    /// shows the kit's diagnostics without opening the sheet.
+    private static let logger = Logger(subsystem: "com.flowsxr.aiseebin", category: "glasses")
+
     private func append(_ line: String) {
+        Self.logger.notice("\(line, privacy: .public)")
         log.append(line)
         if log.count > 60 { log.removeFirst(log.count - 60) }
     }
