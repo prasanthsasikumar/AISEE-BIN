@@ -19,31 +19,33 @@
 	<key>CFBundleShortVersionString</key>
 	<string>0.1.0</string>
 	<key>CFBundleVersion</key>
-	<string>4</string>
+	<string>5</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>ImmersalDefaultToken</key>
+	<string>$(IMMERSAL_DEFAULT_TOKEN)</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>AISEE-BIN connects to your AiSee glasses over Bluetooth so their camera and button can guide you.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>AISEE-BIN receives the glasses’ live video over their local Wi-Fi hotspot.</string>
-	<key>NSMotionUsageDescription</key>
-	<string>AISEE-BIN counts your steps to keep guiding you between position fixes when the phone is in your pocket.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>AISEE-BIN uses the camera to track your position inside the greenhouse and guide you between exhibits.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>AISEE-BIN receives the glasses’ live video over their local Wi-Fi hotspot.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>AISEE-BIN listens for spoken commands such as "take me to the Orchid Display" when you press the talk button.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>AISEE-BIN counts your steps to keep guiding you between position fixes when the phone is in your pocket.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>AISEE-BIN converts your spoken commands to text so it can pick a destination or answer where you are.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>bluetooth-central</string>
-		<string>audio</string>
-	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
 	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-central</string>
+		<string>audio</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UIRequiredDeviceCapabilities</key>

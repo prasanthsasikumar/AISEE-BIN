@@ -27,6 +27,7 @@
 		37F09F70666F696E32B6F55B /* GlassesPositioning.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97885123C8C5A05ACE0A19CD /* GlassesPositioning.swift */; };
 		40E2114EB22E7CF99532DC26 /* AiSeeLiveStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCCF751DB45E8D9E55EA3E7 /* AiSeeLiveStream.swift */; };
 		419D2483B3ADDFF7D0F1270B /* RTKAIDeviceConnection.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 8D57E8988C3B58C97A2D8807 /* RTKAIDeviceConnection.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		46043C4692A2522DE0B3DDFC /* ImmersalConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 390ED76CA87572D815D5986A /* ImmersalConfigTests.swift */; };
 		475A70A66FE1F0B4A3FF88E6 /* MapAuthoringSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B170D7D1B7AA8E6E046364DF /* MapAuthoringSession.swift */; };
 		498368D8D2B64DC2E1EBD309 /* libavutil.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E35653D3A720A5BAFB9DBF6C /* libavutil.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		4E9F75AF036A7DAACBFE921D /* VoiceCommandRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFD7F0E186803749AE191EF7 /* VoiceCommandRecognizer.swift */; };
@@ -149,6 +150,7 @@
 		2C578835CC242A3C51D0FBB4 /* GlassesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesService.swift; sourceTree = "<group>"; };
 		30B39DE568843C3A29626009 /* PointCloudCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PointCloudCodec.swift; sourceTree = "<group>"; };
 		36E7E7FB52D5FD3D1DB85663 /* AiSeeTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeTypes.swift; sourceTree = "<group>"; };
+		390ED76CA87572D815D5986A /* ImmersalConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalConfigTests.swift; sourceTree = "<group>"; };
 		395123273695F83CCD1FCC82 /* AppCommandBus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommandBus.swift; sourceTree = "<group>"; };
 		422D20AF3BC61E11863E9258 /* MapSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSyncService.swift; sourceTree = "<group>"; };
 		428A5744E4DC3A40A1F0BF37 /* NearbyQueryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyQueryTests.swift; sourceTree = "<group>"; };
@@ -386,6 +388,7 @@
 				B16658E9F9DB9EA34F123137 /* GzipCodecTests.swift */,
 				CDB7C172F4E9C254E328B9A2 /* ImmersalAlignmentTests.swift */,
 				D7700AECDC1CD6FBBF36B051 /* ImmersalClientTests.swift */,
+				390ED76CA87572D815D5986A /* ImmersalConfigTests.swift */,
 				A3CD1B51F70D82DD4ADB2E6C /* LocationDescriberTests.swift */,
 				6B82DC7FA8B4B13387732993 /* MapAuthoringSessionTests.swift */,
 				061A49BCDCE064003CC9EA08 /* MapDownloadTests.swift */,
@@ -599,6 +602,7 @@
 				558B3AA7366B93F213835B88 /* GzipCodecTests.swift in Sources */,
 				FCA6A8F455A5054B0DCFE558 /* ImmersalAlignmentTests.swift in Sources */,
 				0AC40621190D37E75E5272C0 /* ImmersalClientTests.swift in Sources */,
+				46043C4692A2522DE0B3DDFC /* ImmersalConfigTests.swift in Sources */,
 				8A8FACA8783B9D9F847CDDB3 /* LocationDescriberTests.swift in Sources */,
 				F4FBCD068C88F0C8144F19D6 /* MapAuthoringSessionTests.swift in Sources */,
 				D50AEBB7E738E97E25AC36EB /* MapDownloadTests.swift in Sources */,
@@ -630,6 +634,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(inherited)";
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -670,6 +675,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(inherited)";
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

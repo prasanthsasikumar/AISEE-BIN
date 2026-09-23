@@ -132,7 +132,7 @@ final class NavigationViewModel {
     var glassesBlockedReason: String? {
         if !glasses.isConnected { return "Connect the glasses first." }
         if mapAlignment == nil { return "The glasses show their view but cannot position you until this map has an Immersal alignment: run a probe walk with the phone and save one." }
-        if !ImmersalConfig.isConfigured { return "Enter the Immersal token and map ids below." }
+        if !ImmersalConfig.isConfigured { return ImmersalConfig.missingCredentialsHint }
         return nil
     }
     var isListening: Bool { recognizer.isListening }

@@ -57,9 +57,12 @@ a blind visitor is worse than no fix at all.
 3. Install the app's own map on the device as usual, so ARKit has an
    `ARWorldMap` to relocalize against. Without one, the walk measures Immersal
    alone — the probe screen says so.
-4. Ruler button, top right of Navigate → paste the token and the map ids. They
-   are stored in `UserDefaults` on that device only and are never written to
-   this repo, so each tester enters their own.
+4. Ruler button, top right of Navigate → paste the map ids (and the token, if
+   this build was made without one). They are stored in `UserDefaults` on that
+   device only and are never written to this repo. TestFlight builds carry a
+   default token: the archive step passes `IMMERSAL_DEFAULT_TOKEN=<token>` to
+   `xcodebuild`, read from a file outside the repo, and the map must belong to
+   that token's Immersal account.
 
 ## The walk
 

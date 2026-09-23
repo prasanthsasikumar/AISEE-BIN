@@ -79,12 +79,12 @@ targets:
       - target: AISEEBIN
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.flowsxr.aiseebin
+        PRODUCT_BUNDLE_IDENTIFIER: com.flowsxr.aiseebin.tests
         # XcodeGen adds Vendor/RTK to the target's search path for the framework
         # dependencies above, unconditionally; on the simulator that makes
         # `canImport(RTKAIDeviceConnection)` true with no usable slice behind
         # it. The sdk-conditional setting wins, so drop the path there.
-        "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(inherited)".tests
+        "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(inherited)"
         GENERATE_INFOPLIST_FILE: true
 schemes:
   AISEEBIN:

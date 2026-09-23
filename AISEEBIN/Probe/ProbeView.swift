@@ -21,7 +21,7 @@ struct ProbeView: View {
     @State private var alignmentSaved = false
 
     @State private var session = ProbeSession()
-    @State private var token = ImmersalConfig.token
+    @State private var token = ImmersalConfig.storedToken
     @State private var mapIDsText = ImmersalConfig.mapIDsText
     @State private var showingProtocol = false
 
@@ -60,18 +60,21 @@ struct ProbeView: View {
     private var configuration: some View {
         Group {
             Section {
-                SecureField("Immersal developer token", text: $token)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
                 TextField("Map ids, comma separated", text: $mapIDsText)
                     .keyboardType(.numbersAndPunctuation)
+                    .autocorrectionDisabled()
+                SecureField(ImmersalConfig.hasBundledToken ? "Immersal token (built in; type to override)" : "Immersal developer token",
+                            text: $token)
+                    .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
             } header: {
                 Text("Credentials")
             } footer: {
                 Text("A measurement walk uploads camera images to Immersal’s cloud service "
                      + "(Hexagon) to ask where the phone is. Nothing is uploaded unless you start "
-                     + "a walk. The token is stored on this device only.\n\n"
+                     + (ImmersalConfig.hasBundledToken
+                        ? "a walk. A developer token is built into this build; anything typed here overrides it, on this device only.\n\n"
+                        : "a walk. The token is stored on this device only.\n\n")
                      + "Map ids come from the Immersal Developer Portal once the Mapper app’s maps "
                      + "finish constructing. Up to 8; list the interior map first.")
             }
@@ -99,7 +102,7 @@ struct ProbeView: View {
                 } label: {
                     Text("Start walk").font(.headline)
                 }
-                .disabled(token.isEmpty || mapIDsText.immersalMapIDs.isEmpty)
+                .disabled((token.isEmpty && !ImmersalConfig.hasBundledToken) || mapIDsText.immersalMapIDs.isEmpty)
             } footer: {
                 if let error = session.lastError { Text(error).foregroundStyle(.red) }
             }

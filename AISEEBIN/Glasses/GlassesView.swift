@@ -10,7 +10,7 @@ struct GlassesView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var calibration = FocalCalibrationRunner()
-    @State private var token = ImmersalConfig.token
+    @State private var token = ImmersalConfig.storedToken
     @State private var mapIDsText = ImmersalConfig.mapIDsText
     @State private var streamBusy = false
     @State private var streamError: String?
@@ -220,7 +220,7 @@ struct GlassesView: View {
 
     private var calibrationBlockedReason: String? {
         if !glasses.isStreaming { return "Turn on Live video above first." }
-        if token.isEmpty || mapIDsText.immersalMapIDs.isEmpty { return "Enter the Immersal token and map ids below first." }
+        if ImmersalConfig.token.isEmpty || mapIDsText.immersalMapIDs.isEmpty { return ImmersalConfig.missingCredentialsHint }
         return nil
     }
 
@@ -258,11 +258,12 @@ struct GlassesView: View {
 
     private var immersalSection: some View {
         Section {
-            SecureField("Immersal developer token", text: $token)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
             TextField("Map ids, comma separated", text: $mapIDsText)
                 .keyboardType(.numbersAndPunctuation)
+                .autocorrectionDisabled()
+            SecureField(ImmersalConfig.hasBundledToken ? "Immersal token (built in; type to override)" : "Immersal developer token",
+                        text: $token)
+                .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
             if let alignment = viewModel.mapAlignment {
                 LabeledContent("Map alignment") {
@@ -276,7 +277,9 @@ struct GlassesView: View {
         } header: {
             Text("Immersal")
         } footer: {
-            Text("Shared with the measurement harness. Stored on this device only.")
+            Text(ImmersalConfig.hasBundledToken
+                 ? "Map ids come from the Immersal Mapper app once its scan finishes constructing. A developer token is built into this build. Stored on this device only."
+                 : "Shared with the measurement harness. Stored on this device only.")
         }
     }
 
