@@ -16,6 +16,7 @@ const state = {
   current: null,          // loaded version row
   graph: null,            // editable copy of graph JSON
   points: null,           // Float32Array xyz
+  pendingPoints: null,    // Float32Array xyz not yet in storage (an Immersal import); uploaded with the next save
   pointsBitmap: null,     // offscreen canvas cache of the point cloud
   pointsBitmapMeta: null, // {minX,minZ,scale}
   mode: 'select',
@@ -89,6 +90,15 @@ async function rest(path, options = {}) {
 }
 
 function publicURL(path) { return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`; }
+
+/// Puts one blob into the maps bucket. Paths embed the version, so nothing is
+/// ever overwritten; the bucket's insert policy lets the publishable key do this.
+async function uploadObject(path, body, contentType = 'application/octet-stream') {
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
+    method: 'POST', headers: { ...headers, 'Content-Type': contentType, 'x-upsert': 'false' }, body,
+  });
+  if (!res.ok) throw new Error(`upload ${path}: ${res.status} ${await res.text()}`);
+}
 
 /// Fetches a storage object, inflating it when the path says it is gzipped.
 /// The app uploads blobs compressed (roughly half the bytes over a slow link);
@@ -175,14 +185,24 @@ async function saveVersion() {
   try {
     setStatus('Saving…');
     const version = await rest('rpc/ab_next_version', { method: 'POST', body: JSON.stringify({ slug: state.slug }) });
+    let pointcloudPath = state.current?.pointcloud_path ?? null, pointCount = state.current?.point_count ?? null;
+    if (state.pendingPoints) {
+      // Same layout the app uses, minus gzip: the cloud is small and the browser
+      // has no cheap way to compress a Float32Array.
+      pointcloudPath = `${state.slug}/v${version}/points.f32`;
+      pointCount = state.pendingPoints.length / 3;
+      setStatus(`Uploading ${pointCount} points…`);
+      await uploadObject(pointcloudPath, state.pendingPoints);
+    }
     const row = {
       map_slug: state.slug, version, source: 'web', note: $('note').value || null,
       graph: state.graph,
       worldmap_path: state.current?.worldmap_path ?? null,
-      pointcloud_path: state.current?.pointcloud_path ?? null,
-      point_count: state.current?.point_count ?? null,
+      pointcloud_path: pointcloudPath,
+      point_count: pointCount,
     };
     const [saved] = await rest('ab_map_versions', { method: 'POST', body: JSON.stringify(row), headers: { Prefer: 'return=representation' } });
+    state.pendingPoints = null;
     state.dirty = false; $('note').value = '';
     state.current = saved;
     await loadSlugs();      // a renamed map relabels its dropdown entry
@@ -636,9 +656,45 @@ $('slug').addEventListener('change', () => {
     return;
   }
   if (state.dirty && !confirm('Discard unsaved changes?')) { $('slug').value = state.slug; return; }
-  state.slug = slug; state.current = null; state.graph = null; state.points = null; state.pointsBitmap = null; state.dirty = false;
+  state.slug = slug; state.current = null; state.graph = null; state.points = null; state.pointsBitmap = null; state.pendingPoints = null; state.dirty = false;
   loadVersions().catch(e => setStatus(e.message, true)); draw();
 });
+
+// ---------- Immersal import ----------
+// Opens a finished Immersal scan as a new map. The route is then drawn straight
+// in Immersal's coordinates and saved with an identity alignment to that map id,
+// so the app and the glasses can use it without an alignment walk.
+const IMMERSAL_TOKEN_KEY = 'aiseebin.immersal.token';
+$('importImmersal').onclick = async () => {
+  if (state.dirty && !confirm('Discard unsaved changes?')) return;
+  const idText = prompt('Immersal map id (from the Mapper app or the Developer Portal):', '');
+  if (idText === null) return;
+  let token = localStorage.getItem(IMMERSAL_TOKEN_KEY) || '';
+  if (!token) {
+    token = prompt('Immersal developer token for the account that owns the map. Kept in this browser only.', '') || '';
+    if (!token.trim()) return;
+    token = token.trim(); localStorage.setItem(IMMERSAL_TOKEN_KEY, token);
+  }
+  const btn = $('importImmersal'); btn.disabled = true;
+  try {
+    setStatus(`Fetching Immersal map ${idText.trim()}…`);
+    const map = await ImmersalImport.fetchMap({ id: idText.trim(), token });
+    const slug = ImmersalImport.slugFromName(map.name) || `immersal-${map.id}`;
+    const taken = [...$('slug').options].some(o => o.value === slug);
+    if (taken && !confirm(`A map called "${slug}" already exists on the server. Continue and save the import as its next version?`)) return;
+    state.slug = slug; state.current = null; state.versions = []; state.history = []; state.future = [];
+    state.graph = { name: map.name, pois: [], edges: [], immersalAlignment: ImmersalImport.identityAlignment(map.id) };
+    state.points = map.points; state.pendingPoints = map.points; state.pointsBitmap = null;
+    state.selectedNode = state.selectedEdge = null;
+    buildPointsBitmap();
+    await loadSlugs();
+    state.dirty = true; renderVersions(); renderSidebar(); updateSaveButton(); fitView(); draw();
+    setStatus(`Imported "${map.name}" (Immersal ${map.id}): ${map.points.length / 3} points. Add places and paths, then save.`);
+  } catch (e) {
+    if (/Immersal:.*auth/i.test(e.message)) localStorage.removeItem(IMMERSAL_TOKEN_KEY);
+    setStatus(`Import failed: ${e.message}`, true);
+  } finally { btn.disabled = false; }
+};
 
 $('exportJSON').onclick = () => {
   if (!state.graph) return;

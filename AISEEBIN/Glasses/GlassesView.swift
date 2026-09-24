@@ -267,7 +267,11 @@ struct GlassesView: View {
                 .autocorrectionDisabled()
             if let alignment = viewModel.mapAlignment {
                 LabeledContent("Map alignment") {
-                    Text(String(format: "%d fixes · %.2f m", alignment.pairCount, alignment.rmsError))
+                    // pairCount 0 means the route was drawn in Immersal's frame in the
+                    // web editor, so nothing was fitted; anything else came from a walk.
+                    Text(alignment.pairCount == 0
+                         ? "Immersal frame (drawn in editor)"
+                         : String(format: "%d fixes · %.2f m", alignment.pairCount, alignment.rmsError))
                 }
             } else {
                 Label("This map has no Immersal alignment yet. Run a probe walk with the phone and save one.",
