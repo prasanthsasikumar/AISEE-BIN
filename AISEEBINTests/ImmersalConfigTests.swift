@@ -20,6 +20,17 @@ final class ImmersalConfigTests: XCTestCase {
         XCTAssertEqual(ImmersalConfig.resolveToken(stored: " ", bundled: nil), "")
     }
 
+    func testTypedMapIDsWinOverTheDefault() {
+        XCTAssertEqual(ImmersalConfig.resolveMapIDsText(stored: "1, 2", bundled: "151658"), "1, 2")
+    }
+
+    func testDefaultMapIDsFillInWhenNothingParses() {
+        XCTAssertEqual(ImmersalConfig.resolveMapIDsText(stored: nil, bundled: "151658"), "151658")
+        XCTAssertEqual(ImmersalConfig.resolveMapIDsText(stored: "", bundled: "151658"), "151658")
+        XCTAssertEqual(ImmersalConfig.resolveMapIDsText(stored: "abc", bundled: "151658"), "151658")
+        XCTAssertEqual(ImmersalConfig.resolveMapIDsText(stored: "", bundled: ""), "")
+    }
+
     func testTypedTokenIsTrimmed() {
         XCTAssertEqual(ImmersalConfig.resolveToken(stored: " abc \n", bundled: nil), "abc")
     }

@@ -11,7 +11,7 @@ struct GlassesView: View {
 
     @State private var calibration = FocalCalibrationRunner()
     @State private var token = ImmersalConfig.storedToken
-    @State private var mapIDsText = ImmersalConfig.mapIDsText
+    @State private var mapIDsText = ImmersalConfig.storedMapIDsText
     @State private var streamBusy = false
     @State private var streamError: String?
 
@@ -220,7 +220,7 @@ struct GlassesView: View {
 
     private var calibrationBlockedReason: String? {
         if !glasses.isStreaming { return "Turn on Live video above first." }
-        if ImmersalConfig.token.isEmpty || mapIDsText.immersalMapIDs.isEmpty { return ImmersalConfig.missingCredentialsHint }
+        if !ImmersalConfig.isConfigured { return ImmersalConfig.missingCredentialsHint }
         return nil
     }
 
@@ -258,7 +258,7 @@ struct GlassesView: View {
 
     private var immersalSection: some View {
         Section {
-            TextField("Map ids, comma separated", text: $mapIDsText)
+            TextField(ImmersalConfig.mapIDsPlaceholder, text: $mapIDsText)
                 .keyboardType(.numbersAndPunctuation)
                 .autocorrectionDisabled()
             SecureField(ImmersalConfig.hasBundledToken ? "Immersal token (built in; type to override)" : "Immersal developer token",

@@ -22,7 +22,7 @@ struct ProbeView: View {
 
     @State private var session = ProbeSession()
     @State private var token = ImmersalConfig.storedToken
-    @State private var mapIDsText = ImmersalConfig.mapIDsText
+    @State private var mapIDsText = ImmersalConfig.storedMapIDsText
     @State private var showingProtocol = false
 
     var body: some View {
@@ -60,7 +60,7 @@ struct ProbeView: View {
     private var configuration: some View {
         Group {
             Section {
-                TextField("Map ids, comma separated", text: $mapIDsText)
+                TextField(ImmersalConfig.mapIDsPlaceholder, text: $mapIDsText)
                     .keyboardType(.numbersAndPunctuation)
                     .autocorrectionDisabled()
                 SecureField(ImmersalConfig.hasBundledToken ? "Immersal token (built in; type to override)" : "Immersal developer token",
@@ -102,7 +102,8 @@ struct ProbeView: View {
                 } label: {
                     Text("Start walk").font(.headline)
                 }
-                .disabled((token.isEmpty && !ImmersalConfig.hasBundledToken) || mapIDsText.immersalMapIDs.isEmpty)
+                .disabled(ImmersalConfig.resolveToken(stored: token, bundled: ImmersalConfig.bundledToken).isEmpty
+                          || ImmersalConfig.resolveMapIDsText(stored: mapIDsText, bundled: ImmersalConfig.defaultMapIDsText).immersalMapIDs.isEmpty)
             } footer: {
                 if let error = session.lastError { Text(error).foregroundStyle(.red) }
             }

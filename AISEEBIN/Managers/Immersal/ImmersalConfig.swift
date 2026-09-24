@@ -41,16 +41,28 @@ enum ImmersalConfig {
         return typed.isEmpty ? (bundled ?? "") : typed
     }
 
+    /// The map ids a build offers when none have been typed on the device:
+    /// the test space's map under the bundled token's Immersal account. Map
+    /// ids are not secrets, so unlike the token this lives in source. Empty
+    /// when the build should ask.
+    static let defaultMapIDsText = "151658"   // "HusselIndoor", Pro account, 2026-09-24
+
     /// Numeric map ids from the Developer Portal, in the order they should be
     /// offered to `/localizeb64` (max 8).
-    static var mapIDs: [Int] {
-        get { (UserDefaults.standard.string(forKey: mapIDsKey) ?? "").immersalMapIDs }
-        set { UserDefaults.standard.set(newValue.map(String.init).joined(separator: ","), forKey: mapIDsKey) }
-    }
+    static var mapIDs: [Int] { mapIDsText.immersalMapIDs }
+
+    /// Only what was typed on this device, for the map-id field.
+    static var storedMapIDsText: String { UserDefaults.standard.string(forKey: mapIDsKey) ?? "" }
 
     static var mapIDsText: String {
-        get { UserDefaults.standard.string(forKey: mapIDsKey) ?? "" }
+        get { resolveMapIDsText(stored: storedMapIDsText, bundled: defaultMapIDsText) }
         set { UserDefaults.standard.set(newValue, forKey: mapIDsKey) }
+    }
+
+    /// Typed map ids win; the build's default fills in when nothing parses.
+    static func resolveMapIDsText(stored: String?, bundled: String) -> String {
+        let typed = stored ?? ""
+        return typed.immersalMapIDs.isEmpty ? bundled : typed
     }
 
     static var isConfigured: Bool { !token.isEmpty && !mapIDs.isEmpty }
@@ -58,6 +70,11 @@ enum ImmersalConfig {
     /// What is still missing, worded for the screen that asks for it.
     static var missingCredentialsHint: String {
         hasBundledToken ? "Enter the Immersal map ids below." : "Enter the Immersal token and map ids below."
+    }
+
+    /// Placeholder for the map-id field: shows the default that applies when it is left empty.
+    static var mapIDsPlaceholder: String {
+        defaultMapIDsText.isEmpty ? "Map ids, comma separated" : "Map ids (default \(defaultMapIDsText))"
     }
 }
 
