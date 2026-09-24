@@ -29,6 +29,10 @@ final class ProbeSession {
     /// Beyond this, stop hoarding images — the walk matters more than the queue.
     static let pendingLimit = 400
 
+    /// The Immersal maps this walk localizes against: the loaded map's own,
+    /// when it has an alignment, else what Settings holds. Set before `start`.
+    var mapIDs: [Int] = ImmersalConfig.mapIDs
+
     private(set) var state: State = .idle
     private(set) var attempts = 0
     private(set) var successes = 0
@@ -93,7 +97,7 @@ final class ProbeSession {
             previousFix = nil; previousFixAR = nil
             lastLocalizeAt = -.infinity; lastARSampleAt = -.infinity
             state = .running
-            marker("probe started · maps \(ImmersalConfig.mapIDs.map(String.init).joined(separator: "+")) · downscale \(ImmersalFrameEncoder.downscale)")
+            marker("probe started · maps \(mapIDs.map(String.init).joined(separator: "+")) · downscale \(ImmersalFrameEncoder.downscale)")
         } catch {
             lastError = "could not open log: \(error.localizedDescription)"
         }
@@ -134,7 +138,7 @@ final class ProbeSession {
 
         guard elapsed - lastLocalizeAt >= Self.localizeInterval,
               !requestInFlight,
-              ImmersalConfig.isConfigured,
+              !ImmersalConfig.token.isEmpty, !mapIDs.isEmpty,
               let plane = ImmersalFrameEncoder.copyLuma(from: frame.capturedImage)
         else { return }
 
@@ -142,7 +146,7 @@ final class ProbeSession {
         requestInFlight = true
         let intrinsics = ImmersalFrameEncoder.scaledIntrinsics(frame.camera.intrinsics)
         let token = ImmersalConfig.token
-        let mapIDs = ImmersalConfig.mapIDs
+        let mapIDs = self.mapIDs
 
         Task { [weak self] in
             let png = await Task.detached(priority: .userInitiated) {
@@ -225,7 +229,7 @@ final class ProbeSession {
     /// frame — which is the graph frame whenever the session relocalized into
     /// the saved world map.
     func fitAlignment() throws -> ImmersalAlignment {
-        try ImmersalAlignment.fit(pairs: alignmentPairs, mapIDs: ImmersalConfig.mapIDs)
+        try ImmersalAlignment.fit(pairs: alignmentPairs, mapIDs: mapIDs)
     }
 
     // MARK: - Ground truth
@@ -280,11 +284,11 @@ final class ProbeSession {
     /// replayed frames are meaningless and are marked `replayed` in the log so
     /// the analysis can exclude them.
     func replayPending() async {
-        guard !isReplaying, ImmersalConfig.isConfigured else { return }
+        guard !isReplaying, !ImmersalConfig.token.isEmpty, !mapIDs.isEmpty else { return }
         isReplaying = true
         defer { isReplaying = false }
 
-        let client = ImmersalClient(token: ImmersalConfig.token, mapIDs: ImmersalConfig.mapIDs)
+        let client = ImmersalClient(token: ImmersalConfig.token, mapIDs: mapIDs)
         let queued = pending
         for frame in queued {
             guard let png = try? Data(contentsOf: frame.url) else { continue }

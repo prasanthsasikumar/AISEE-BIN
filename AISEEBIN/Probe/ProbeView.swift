@@ -98,6 +98,9 @@ struct ProbeView: View {
                 Button {
                     ImmersalConfig.token = token
                     ImmersalConfig.mapIDsText = mapIDsText
+                    // A map with its own Immersal alignment is measured against
+                    // that map, whatever Settings says.
+                    session.mapIDs = ImmersalConfig.mapIDs(for: mapStore.loadMap()?.immersalAlignment)
                     session.start()
                 } label: {
                     Text("Start walk").font(.headline)
