@@ -736,9 +736,8 @@ struct ScanPreview: View {
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             .overlay(alignment: .topLeading) { telemetry.padding(14) }
             .overlay(alignment: .topTrailing) { menu.padding(14) }
-            .overlay(alignment: .bottom) {
-                if !isCompact { scanQuality.padding(14) }
-            }
+            // The coverage bar under the preview carries the walk's progress;
+            // the old per-frame feature bar here measured only what was in view.
     }
 
     private var telemetry: some View {

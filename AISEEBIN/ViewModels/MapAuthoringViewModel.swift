@@ -116,8 +116,21 @@ final class MapAuthoringViewModel {
         set { UserDefaults.standard.set(newValue, forKey: "authoring.guideSeen") }
     }
 
-    /// Scan coverage for the bar: ARKit feature count against what relocalizes reliably.
-    var coverageFraction: Double { min(1, Double(arManager.featurePointCount) / 3500) }
+    /// How much of a walk has been done. With Immersal capture on, photos taken
+    /// against what a five-to-ten-minute walk yields; otherwise ARKit's own
+    /// mapping status, the only signal it gives about the world map as a whole.
+    static let photosForFullCoverage = 80
+    var coverageFraction: Double {
+        if scanner.running || scanner.captured > 0 {
+            return min(1, Double(scanner.captured) / Double(Self.photosForFullCoverage))
+        }
+        switch mappingStatus {
+        case .mapped:    return 1
+        case .extending: return 0.6
+        case .limited:   return 0.3
+        default:         return 0
+        }
+    }
 
     /// Places with no path to anything: guidance could never reach them.
     var unconnectedPlaces: [NavigationPOI] {
@@ -140,8 +153,16 @@ final class MapAuthoringViewModel {
         stage = .walk
     }
 
-    func finishWalking() { stage = .publish }
-    func backToWalking() { stage = .walk }
+    /// Photo capture pauses here so the upload queue can drain; ARKit keeps
+    /// running because Publish still has to capture the world map.
+    func finishWalking() {
+        scanner.stop()
+        stage = .publish
+    }
+    func backToWalking() {
+        if immersalScanEnabled { scanner.resume() }
+        stage = .walk
+    }
     func startAnother() { stage = .start }
 
     /// Connects every unconnected place to its nearest other place.
@@ -370,7 +391,19 @@ final class MapAuthoringViewModel {
         var immersalMapID: Int?
         if scanner.running || scanner.captured > 0 {
             scanner.stop()
-            progressStage = "Waiting for \(scanner.queued) Immersal photo\(scanner.queued == 1 ? "" : "s") to upload…"
+            // Show the queue draining: this is the slow part when the walk was
+            // long, and a bar stuck at zero reads as a hang.
+            let total = scanner.captured
+            while scanner.queued > 0 {
+                let done = scanner.uploaded + scanner.failed
+                progressStage = "Sending Immersal photos (\(done) of \(total))…"
+                progressFraction = total > 0 ? Double(done) / Double(total) : 0
+                progressBytesText = "\(scanner.queued) to go"
+                try? await Task.sleep(for: .milliseconds(400))
+            }
+            progressStage = "Asking Immersal to build the map…"
+            progressFraction = 1
+            progressBytesText = nil
             do {
                 let id = try await scanner.construct(name: session.map.name)
                 immersalMapID = id

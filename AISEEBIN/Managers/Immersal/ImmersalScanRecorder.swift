@@ -23,7 +23,9 @@ final class ImmersalScanRecorder {
     var queued: Int { captured - uploaded - failed }
 
     @ObservationIgnored private var generation = 0
-    @ObservationIgnored private var uploads: [Task<Void, Never>] = []
+    /// Three uploads in flight at once; each lane keeps its own order, and the
+    /// explicit image index keeps the server's order across lanes.
+    @ObservationIgnored private var lanes: [Task<Void, Never>?] = [nil, nil, nil]
     @ObservationIgnored private let gate = Gate()
 
     /// The part ARKit's thread touches: the frame policy behind a lock, so no
@@ -35,6 +37,7 @@ final class ImmersalScanRecorder {
         private var nextIndex = 0
 
         func arm() { lock.withLock { armed = true; policy.reset(); nextIndex = 0 } }
+        func rearm() { lock.withLock { armed = true } }
         func disarm() { lock.withLock { armed = false } }
         /// nil when not armed; otherwise whether to capture, whether the phone is
         /// moving too fast, and the index this capture takes.
@@ -80,6 +83,14 @@ final class ImmersalScanRecorder {
         DiagnosticsLog.write("immersal-scan stop captured=\(captured) uploaded=\(uploaded) failed=\(failed)")
     }
 
+    /// Carries on after a `stop`, keeping counts and image indices.
+    func resume() {
+        guard !running, generation > 0 else { return }
+        gate.rearm()
+        running = true
+        DiagnosticsLog.write("immersal-scan resume at \(captured) photos")
+    }
+
     /// ARKit's delegate thread. Cheap decision, then the copy and the hop.
     nonisolated func consume(_ frame: ARFrame, trackingNormal: Bool) {
         let transform = frame.camera.transform
@@ -97,7 +108,8 @@ final class ImmersalScanRecorder {
     private func enqueue(_ shot: Shot) {
         captured += 1
         let gen = generation
-        let previous = uploads.last
+        let lane = shot.index % lanes.count
+        let previous = lanes[lane]
         let task = Task { [weak self] in
             _ = await previous?.value          // keep server-side order
             let png = await Task.detached(priority: .utility) {
@@ -122,7 +134,7 @@ final class ImmersalScanRecorder {
             }
             await self.noteFailure(lastError?.localizedDescription ?? "upload failed", index: shot.index)
         }
-        uploads.append(task)
+        lanes[lane] = task
     }
 
     private func noteUploaded(index: Int, bytes: Int) {
@@ -139,8 +151,8 @@ final class ImmersalScanRecorder {
 
     /// Waits for every queued upload to finish.
     func drain() async {
-        for task in uploads { _ = await task.value }
-        uploads.removeAll()
+        for task in lanes { _ = await task?.value }
+        lanes = [nil, nil, nil]
     }
 
     /// Builds the map from what was uploaded. Returns Immersal's map id.
