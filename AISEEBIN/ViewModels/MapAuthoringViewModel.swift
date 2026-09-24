@@ -41,6 +41,22 @@ final class MapAuthoringViewModel {
     let arManager: ARNavigationManager
     let mapStore: MapStore
     @ObservationIgnored private let sync = MapSyncService()
+    /// Captures an Immersal map during a fresh scan, on ARKit's own poses.
+    let scanner = ImmersalScanRecorder()
+    /// Off, and a walk only produces the ARKit map as before.
+    var immersalScanEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: "authoring.immersalScan") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "authoring.immersalScan") }
+    }
+    /// One line for the telemetry strip: "immersal 12 photos · 11 up · 1 queued · too fast".
+    var scanSummary: String? {
+        guard scanner.running || scanner.captured > 0 else { return nil }
+        var parts = ["immersal \(scanner.captured) photos", "\(scanner.uploaded) up"]
+        if scanner.queued > 0 { parts.append("\(scanner.queued) queued") }
+        if scanner.failed > 0 { parts.append("\(scanner.failed) failed") }
+        if scanner.tooFast { parts.append("slow down") }
+        return parts.joined(separator: " · ")
+    }
 
     private(set) var session: MapAuthoringSession
     private(set) var statusMessage: String?
@@ -108,6 +124,7 @@ final class MapAuthoringViewModel {
             session = MapAuthoringSession(mapName: Self.defaultMapName)
         }
         startTrailRecording()
+        arManager.onScanFrame = { [weak scanner] frame, trackingNormal in scanner?.consume(frame, trackingNormal: trackingNormal) }
     }
 
     deinit {
@@ -161,7 +178,14 @@ final class MapAuthoringViewModel {
         arManager.start(relocalize: false)
         hasUnsavedChanges = false
         resetTrail()
-        statusMessage = "Fresh scan started. Walk slowly and sweep the camera across foliage and fixtures."
+        session.setImmersalAlignment(nil)
+        if immersalScanEnabled, !ImmersalConfig.token.isEmpty {
+            Task { await scanner.start(clearing: true) }
+            statusMessage = "Fresh scan started. Walk slowly and sweep the camera across the space; photos for Immersal are taken as you go."
+        } else {
+            scanner.stop()
+            statusMessage = "Fresh scan started. Walk slowly and sweep the camera across foliage and fixtures."
+        }
     }
 
     /// Restarts tracking against the saved world map so new nodes can be added
@@ -275,12 +299,33 @@ final class MapAuthoringViewModel {
             progressVersion = nil
         }
         progressStep = .upload
-        progressStage = "Uploading world map (\(Self.format(bundle.worldMap.count)))…"
         progressFraction = 0
-        log("upload: starting, worldmap=\(bundle.worldMap.count) bytes, points=\(bundle.points.count) bytes")
+        // A walk that captured Immersal photos publishes their map first, so the
+        // route carries the map id: an identity alignment, since Immersal builds
+        // the map on the very ARKit poses the places were marked in.
+        var immersalMapID: Int?
+        if scanner.running || scanner.captured > 0 {
+            scanner.stop()
+            progressStage = "Waiting for \(scanner.queued) Immersal photo\(scanner.queued == 1 ? "" : "s") to upload…"
+            do {
+                let id = try await scanner.construct(name: session.map.name)
+                immersalMapID = id
+                session.setImmersalAlignment(.identity(mapID: id, origin: ImmersalAlignment.originScan))
+                try? mapStore.saveMap(session.map)
+                log("immersal: construction started, map \(id) from \(scanner.uploaded) photos")
+            } catch {
+                log("immersal: construct FAILED: \(error)")
+                errorMessage = "Immersal map not built: \(error.localizedDescription). The ARKit map is being published anyway."
+            }
+        }
+        // A graph drawn in the editor on an Immersal scan is not in this
+        // session's ARKit frame, so a world map from this session would mislead.
+        let worldMap: Data? = session.map.immersalAlignment?.isEditorDrawn == true ? nil : bundle.worldMap
+        progressStage = worldMap == nil ? "Uploading point cloud…" : "Uploading world map (\(Self.format(bundle.worldMap.count)))…"
+        log("upload: starting, worldmap=\(worldMap?.count ?? 0) bytes, points=\(bundle.points.count) bytes")
         do {
             let saved = try await sync.upload(graph: session.map,
-                                              worldMap: bundle.worldMap,
+                                              worldMap: worldMap,
                                               pointCloud: bundle.points,
                                               pointCount: lastPointCount ?? 0,
                                               note: note,
@@ -299,6 +344,18 @@ final class MapAuthoringViewModel {
             localVersion = record
             statusMessage = "Published “\(session.map.name)” as version \(saved.version). Fine-tune it at \(ServerConfig.editorURL.host ?? "the web editor")."
             log("upload: done, version \(saved.version)")
+            if let id = immersalMapID {
+                statusMessage = "Published version \(saved.version). Immersal is building map \(id) from \(scanner.uploaded) photos; this takes a few minutes."
+                Task { [weak self] in
+                    guard let self else { return }
+                    let done = await scanner.waitForConstruction(of: id) { [weak self] status in
+                        self?.statusMessage = "Published. Immersal map \(id): \(status)…"
+                    }
+                    statusMessage = done ? "Immersal map \(id) is ready. Glasses and phone-via-Immersal can use this map now."
+                                         : "Immersal map \(id) did not finish. The ARKit map still works; try the scan again with more light."
+                    log("immersal: map \(id) \(done ? "done" : "failed/timeout")")
+                }
+            }
         } catch {
             log("upload FAILED: \(error)")
             errorMessage = "Upload failed: \(error.localizedDescription)"

@@ -25,6 +25,22 @@ struct ImmersalAlignment: Codable, Equatable {
     /// Diagnostic only; nothing branches on them.
     var pairCount: Int
     var rmsError: Float
+    /// Where an unfitted (identity) alignment came from: `nil` for one drawn in
+    /// the web editor on an Immersal scan, which never had an ARKit world map;
+    /// `"scan"` for one produced by an Author walk that captured the Immersal
+    /// map on ARKit's own poses, which has a world map in the same frame.
+    var origin: String? = nil
+
+    static let originScan = "scan"
+
+    /// The graph *is* in Immersal's frame: no transform, nothing fitted.
+    static func identity(mapID: Int, origin: String?) -> ImmersalAlignment {
+        ImmersalAlignment(mapIDs: [mapID], yaw: 0, tx: 0, tz: 0, pairCount: 0, rmsError: 0, origin: origin)
+    }
+
+    /// True for an identity alignment made in the editor: the only case where a
+    /// world map on disk cannot belong to this map.
+    var isEditorDrawn: Bool { pairCount == 0 && origin == nil }
 
     /// Fewer pairs than this and the fit is a guess, not a measurement.
     static let minimumPairs = 8

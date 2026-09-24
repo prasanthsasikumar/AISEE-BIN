@@ -230,6 +230,10 @@ final class GlassesPositioning {
             return
         }
         frameSize = (encoded.width, encoded.height)
+        // A sample of what the glasses send, for pulling off a tester's phone.
+        if attempts < 3 || attempts % 20 == 0 {
+            try? encoded.png.write(to: DiagnosticsLog.url.deletingLastPathComponent().appendingPathComponent("immersal-glasses-last.png"))
+        }
         let intrinsics = camera.intrinsics(width: encoded.width, height: encoded.height)
         let result = await localize(encoded.png, intrinsics)
         guard running, generation == self.generation else { return }
@@ -243,6 +247,7 @@ final class GlassesPositioning {
     private func apply(_ result: ImmersalLocalizeResult, capturedAt: TimeInterval, walkedAtCapture walked: Float) {
         attempts += 1
         Self.logger.notice("localize \(self.attempts): \(result.success ? "fix" : result.error, privacy: .public) map=\(result.mapID ?? -1) \(Int(result.latency * 1000)) ms \(result.requestBytes) B")
+        DiagnosticsLog.write("glasses-immersal localize \(attempts): \(result.success ? "fix" : result.error) map=\(result.mapID ?? -1) \(Int(result.latency * 1000)) ms \(result.requestBytes) B walked=\(String(format: "%.1f", walked))")
         lastLatencyMS = Int((result.latency * 1000).rounded())
         lastMapID = result.mapID
         guard result.success, let raw = result.pose,
@@ -263,11 +268,13 @@ final class GlassesPositioning {
         guard gate.evaluate(position: position, walked: walked) else {
             rejectedFixes += 1
             Self.logger.notice("fix rejected: jumped \(self.gate.lastJump) m after walking \(walked) m")
+            DiagnosticsLog.write(String(format: "glasses-immersal fix rejected: jumped %.1f m after walking %.1f m", gate.lastJump, walked))
             lastError = String(format: "fix rejected: jumped %.1f m", gate.lastJump)
             return
         }
         fixes += 1
         Self.logger.notice("fix \(self.fixes): graph (\(position.x), \(position.y)) heading \(heading * 180 / .pi) deg, walked \(walked) m")
+        DiagnosticsLog.write(String(format: "glasses-immersal fix %d: graph (%.2f, %.2f) heading %.0f deg walked %.1f m", fixes, position.x, position.y, heading * 180 / .pi, walked))
         extrapolator.anchor(position: position, heading: heading, walked: walked, time: capturedAt)
         tick()
     }

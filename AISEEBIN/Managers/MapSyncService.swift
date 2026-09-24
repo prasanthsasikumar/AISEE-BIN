@@ -347,8 +347,11 @@ struct MapSyncService {
     // MARK: - Write
 
     /// Publishes a new version: uploads the world map and point cloud, then the row.
+    /// `worldMap` is nil for a map whose graph is not in ARKit's frame (drawn in
+    /// the editor on an Immersal scan): the row then carries no world map and the
+    /// phone positions itself through Immersal instead.
     func upload(graph: NavigationMap,
-                worldMap: Data,
+                worldMap: Data?,
                 pointCloud: Data,
                 pointCount: Int,
                 note: String?,
@@ -364,7 +367,7 @@ struct MapSyncService {
         // size — ARWorldMap is already dense — but on a link this slow that is still
         // half a minute, far more than the second or two spent compressing.
         await progress(TransferProgress(stage: "Compressing…", fraction: 0, version: version))
-        let worldMapBody = GzipCodec.compress(worldMap)
+        let worldMapBody = worldMap.map { GzipCodec.compress($0) } ?? Data()
         let pointsBody = GzipCodec.compress(pointCloud)
 
         // Overall fraction is bytes sent over total bytes across both files, counted
@@ -372,9 +375,11 @@ struct MapSyncService {
         let allBytes = worldMapBody.count + pointsBody.count
         let totalBytes = Double(allBytes)
         let worldMapLabel = "Uploading world map v\(version) (\(ByteCountFormatter.string(fromByteCount: Int64(worldMapBody.count), countStyle: .file)))"
-        try await uploadObject(worldMapBody, to: worldMapPath, contentType: "application/gzip") { sent, _ in
-            progress(TransferProgress(stage: worldMapLabel, fraction: Double(sent) / totalBytes,
-                                      version: version, sentBytes: Int(sent), totalBytes: allBytes))
+        if worldMap != nil {
+            try await uploadObject(worldMapBody, to: worldMapPath, contentType: "application/gzip") { sent, _ in
+                progress(TransferProgress(stage: worldMapLabel, fraction: Double(sent) / totalBytes,
+                                          version: version, sentBytes: Int(sent), totalBytes: allBytes))
+            }
         }
         let pointsLabel = "Uploading point cloud (\(ByteCountFormatter.string(fromByteCount: Int64(pointsBody.count), countStyle: .file)))"
         try await uploadObject(pointsBody, to: pointsPath, contentType: "application/gzip") { sent, _ in
@@ -387,10 +392,11 @@ struct MapSyncService {
 
         struct Row: Encodable {
             let map_slug: String; let version: Int; let source: String; let note: String?
-            let graph: NavigationMap; let worldmap_path: String; let pointcloud_path: String; let point_count: Int
+            let graph: NavigationMap; let worldmap_path: String?; let pointcloud_path: String; let point_count: Int
         }
         let row = Row(map_slug: slug, version: version, source: MapSource.ios.rawValue, note: note,
-                      graph: graph, worldmap_path: worldMapPath, pointcloud_path: pointsPath, point_count: pointCount)
+                      graph: graph, worldmap_path: worldMap == nil ? nil : worldMapPath,
+                      pointcloud_path: pointsPath, point_count: pointCount)
 
         var req = request(ServerConfig.supabaseURL.appendingPathComponent("rest/v1/ab_map_versions"), method: "POST")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")

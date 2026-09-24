@@ -89,6 +89,11 @@ struct MapAuthoringSession {
 
     /// Renames the map. The server slug is bound separately, at first publish,
     /// so renaming never moves a map's version history.
+    /// Ties the map to an Immersal map built on this walk's own poses.
+    mutating func setImmersalAlignment(_ alignment: ImmersalAlignment?) {
+        map.immersalAlignment = alignment
+    }
+
     mutating func rename(to name: String) {
         map.name = name
     }

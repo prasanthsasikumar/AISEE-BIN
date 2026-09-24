@@ -463,6 +463,7 @@ struct ScanPreview: View {
             Text(viewModel.arManager.localizationStatus.label)
             Text("mapping: \(viewModel.mappingStatus.label)   features \(viewModel.arManager.featurePointCount)")
             Text("x \(p.x, specifier: "%.1f")  z \(p.y, specifier: "%.1f")   trail: \(viewModel.trail.count) pts")
+            if let scan = viewModel.scanSummary { Text(scan) }
         }
         .font(.dsMonoTiny)
         .foregroundStyle(telemetryTint)
@@ -480,6 +481,8 @@ struct ScanPreview: View {
             Button("Continue Existing Scan (relocalize)", action: onContinue)
                 .disabled(!viewModel.mapStore.hasSavedWorldMap)
             Divider()
+            Toggle("Also Capture Immersal Map", isOn: Binding(get: { viewModel.immersalScanEnabled },
+                                                             set: { viewModel.immersalScanEnabled = $0 }))
             Button("Start Fresh Scan", role: .destructive, action: onFreshScan)
         } label: {
             Image(systemName: "ellipsis")

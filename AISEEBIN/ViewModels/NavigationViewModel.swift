@@ -259,10 +259,11 @@ final class NavigationViewModel {
         case .phone:
             glassesPositioning.stop()
             glasses.keepStreaming = false
-            if let alignment = baseMap.immersalAlignment, alignment.pairCount == 0, arManager.hasSavedWorldMap {
+            if let alignment = baseMap.immersalAlignment, alignment.isEditorDrawn, arManager.hasSavedWorldMap {
                 // A map drawn in the editor never had a world map; one on disk
                 // is a leftover from an earlier map and would keep ARKit
-                // hunting for a room it is not in.
+                // hunting for a room it is not in. A map from an Author walk
+                // that also captured Immersal keeps its world map: same frame.
                 try? arManager.deleteSavedWorldMap()
             }
             DiagnosticsLog.write("startPositioning phone map=\(baseMap.name) alignment=\(baseMap.immersalAlignment?.mapIDs ?? []) pairs=\(baseMap.immersalAlignment?.pairCount ?? -1) worldMap=\(arManager.hasSavedWorldMap) anchored=\(phoneAnchoredByImmersal)")
