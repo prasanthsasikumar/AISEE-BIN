@@ -217,33 +217,29 @@ struct AuthoringView: View {
             .buttonStyle(.plain)
             .disabled(!canMark)
 
+            // Save and Upload are fixed squares: the row is narrower than three
+            // labelled buttons on every phone, and a squeezed flexible button
+            // grows tall instead of narrow (seen on iOS 26). With hard sizes the
+            // only flexible child is Mark here, which shrinks its label instead.
             Button {
                 lastAction = .save
                 Task { await viewModel.saveLocally() }
             } label: {
-                // Labelled when it fits, icon-only when it does not. Without the
-                // fallback a squeezed label wraps to one letter per line and the
-                // button grows several rows tall.
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "square.and.arrow.down")
-                        unsavedMarker(after: "Save")
-                    }
-                    HStack(spacing: 1) {
-                        Image(systemName: "square.and.arrow.down")
-                        if viewModel.hasUnsavedChanges { Text("*").foregroundStyle(DS.A.destructive) }
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "square.and.arrow.down")
+                        .font(.dsTitle3.weight(.semibold))
+                        .frame(width: Self.actionBarHeight, height: Self.actionBarHeight)
+                    if viewModel.hasUnsavedChanges {
+                        Circle().fill(DS.A.destructive).frame(width: 8, height: 8).padding(10)
                     }
                 }
-                .font(.dsHeadline)
-                .lineLimit(1)
                 .foregroundStyle(viewModel.canSave ? DS.A.lavender : DS.A.inkDisabled)
-                .padding(.horizontal, 18)
-                .frame(height: Self.actionBarHeight)
                 .background(viewModel.canSave ? DS.A.lavenderBg : DS.A.inset,
                             in: RoundedRectangle(cornerRadius: DS.R.row, style: .continuous))
                 .dsStroke(viewModel.canSave ? DS.A.hairlineLav : DS.A.hairline, 1.5, radius: DS.R.row)
             }
             .buttonStyle(.plain)
+            .fixedSize()
             .disabled(!viewModel.canSave)
             .accessibilityLabel(viewModel.hasUnsavedChanges ? "Save, unsaved changes" : "Save")
 
@@ -253,34 +249,23 @@ struct AuthoringView: View {
             } label: {
                 Group {
                     if viewModel.isBusy, let fraction = viewModel.progressFraction {
-                        HStack(spacing: 8) {
-                            ProgressView().tint(.white)
-                            Text("\(Int((fraction * 100).rounded()))%").font(.dsHeadline.monospacedDigit())
-                        }
+                        Text("\(Int((fraction * 100).rounded()))%")
+                            .font(.dsHeadline.monospacedDigit())
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     } else if viewModel.isBusy {
                         ProgressView().tint(.white)
                     } else {
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "icloud.and.arrow.up")
-                                Text("Upload")
-                            }
-                            Image(systemName: "icloud.and.arrow.up")
-                        }
-                        .font(.dsHeadline)
-                        .lineLimit(1)
+                        Image(systemName: "icloud.and.arrow.up").font(.dsTitle3.weight(.semibold))
                     }
                 }
+                .frame(width: Self.actionBarHeight, height: Self.actionBarHeight)
                 .foregroundStyle(viewModel.canUpload || viewModel.isBusy ? .white : DS.A.inkDisabled)
-                .padding(.horizontal, 18)
-                // A floor wide enough for "100%", so the bar does not jump about
-                // as the upload progresses.
-                .frame(minWidth: 92)
-                .frame(height: Self.actionBarHeight)
                 .background(uploadFill, in: RoundedRectangle(cornerRadius: DS.R.row, style: .continuous))
                 .dsStroke(viewModel.canUpload || viewModel.isBusy ? .clear : DS.A.hairline, 1.5, radius: DS.R.row)
             }
             .buttonStyle(.plain)
+            .fixedSize()
             .disabled(!viewModel.canUpload)
             .accessibilityLabel("Upload")
         }
@@ -295,14 +280,6 @@ struct AuthoringView: View {
     /// One height for all three action-bar buttons, so they line up whether they
     /// are showing a label, an icon alone, or a progress spinner.
     private static let actionBarHeight: CGFloat = 60
-
-    /// A title with the unsaved-changes asterisk held tight against it.
-    private func unsavedMarker(after title: String) -> some View {
-        HStack(spacing: 0) {
-            Text(title)
-            if viewModel.hasUnsavedChanges { Text("*").foregroundStyle(DS.A.destructive) }
-        }
-    }
 
     private var canMark: Bool { viewModel.canMark && !viewModel.isBusy }
 
