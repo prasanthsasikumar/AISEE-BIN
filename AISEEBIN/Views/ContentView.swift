@@ -10,8 +10,6 @@ struct ContentView: View {
     @Bindable var viewModel: NavigationViewModel
     @Environment(\.scenePhase) private var scenePhase
 
-    /// THROWAWAY, for the Immersal comparison harness in `Probe/`. Delete with it.
-    @State private var showingProbe = false
     @State private var showingGlasses = false
 
     var body: some View {
@@ -23,6 +21,8 @@ struct ContentView: View {
                 navigationScreen
             case .authoring:
                 AuthoringView(arManager: viewModel.arManager, mapStore: viewModel.mapStore)
+            case .settings:
+                SettingsView(viewModel: viewModel)
             }
         }
         .background(viewModel.mode == .navigation ? DS.N.canvas : DS.A.canvas)
@@ -36,29 +36,6 @@ struct ContentView: View {
             if phase == .active, viewModel.localizationStatus == .notStarted {
                 viewModel.startSession()
             }
-        }
-        // Throwaway entry point to the Immersal comparison harness. Ships to
-        // TestFlight testers so they can run a measurement walk, and is hidden
-        // from VoiceOver: stamping places requires reading names off the screen,
-        // so it is a sighted operator's tool and would only be clutter in the
-        // rotor for the visitors this app is actually for.
-        .overlay(alignment: .topTrailing) {
-            Button {
-                showingProbe = true
-            } label: {
-                Image(systemName: "ruler")
-                    .font(.footnote)
-                    .padding(8)
-                    .background(.thinMaterial, in: Circle())
-            }
-            .padding(8)
-            .accessibilityHidden(true)
-        }
-        .fullScreenCover(isPresented: $showingProbe) {
-            ProbeView(arManager: viewModel.arManager,
-                      mapStore: viewModel.mapStore,
-                      places: viewModel.mapStore.loadMap()?.pois ?? SampleGreenhouseMap.map.pois,
-                      onAlignmentSaved: { viewModel.reloadMapKeepingSession() })
         }
         .sheet(isPresented: $showingGlasses) {
             GlassesView(viewModel: viewModel)

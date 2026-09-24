@@ -18,6 +18,7 @@
 		14460B305CD9256BE9B93E7C /* ProximityAnnouncer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 265ECD08052BDF5803336C52 /* ProximityAnnouncer.swift */; };
 		1481315E9F439653A036706A /* AiSeeH264Decoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21C552ED5A1C79AC279B5A9B /* AiSeeH264Decoder.swift */; };
 		1AB16387C633B6569529F61C /* NavigationGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF7B9346BA410D9FDF2F6EFD /* NavigationGeometryTests.swift */; };
+		1F151CA046E6CF088C59B287 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDB9021F1A22A773A3BA02C8 /* SettingsView.swift */; };
 		1F77CBD104CAE305B88D97B6 /* RouteTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A915C41DB6DAE48DA6B759A7 /* RouteTracker.swift */; };
 		1FFA070BD5723B4ED54F3D92 /* GlassesPositioningLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 096480BB907702BBDE476ED1 /* GlassesPositioningLogicTests.swift */; };
 		249E6E0F44A5988497DEF17C /* LocationDescriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0AAA2F434BF04EF6309461 /* LocationDescriber.swift */; };
@@ -211,6 +212,7 @@
 		DA0794BDCDE64D0B0863A88F /* PoseExtrapolator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoseExtrapolator.swift; sourceTree = "<group>"; };
 		DD0AAA2F434BF04EF6309461 /* LocationDescriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationDescriber.swift; sourceTree = "<group>"; };
 		DD61D73D3FA8E3165ABFB6C5 /* GlassesCamera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesCamera.swift; sourceTree = "<group>"; };
+		DDB9021F1A22A773A3BA02C8 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		E35653D3A720A5BAFB9DBF6C /* libavutil.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = libavutil.framework; path = Vendor/RTK/libavutil.framework; sourceTree = "<group>"; };
 		E45842AD38368B637A1DCAEC /* FixGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixGate.swift; sourceTree = "<group>"; };
 		ED0A9F795D184C9FCE140CBA /* AiSeeDeviceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeDeviceCoordinator.swift; sourceTree = "<group>"; };
@@ -275,6 +277,7 @@
 				F237A6DFAC3FB676EB0856AF /* AuthoringView.swift */,
 				77E1B72F4F53B64E77838144 /* ContentView.swift */,
 				8903140164287315C269215C /* DesignSystem.swift */,
+				DDB9021F1A22A773A3BA02C8 /* SettingsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -588,6 +591,7 @@
 				14460B305CD9256BE9B93E7C /* ProximityAnnouncer.swift in Sources */,
 				1F77CBD104CAE305B88D97B6 /* RouteTracker.swift in Sources */,
 				984CE263A0B23B153F2214E4 /* SampleGreenhouseMap.swift in Sources */,
+				1F151CA046E6CF088C59B287 /* SettingsView.swift in Sources */,
 				4E9F75AF036A7DAACBFE921D /* VoiceCommandRecognizer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

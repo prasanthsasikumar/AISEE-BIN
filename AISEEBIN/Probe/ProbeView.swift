@@ -21,8 +21,8 @@ struct ProbeView: View {
     @State private var alignmentSaved = false
 
     @State private var session = ProbeSession()
-    @State private var token = ImmersalConfig.storedToken
-    @State private var mapIDsText = ImmersalConfig.storedMapIDsText
+    @State private var token = ImmersalConfig.token
+    @State private var mapIDsText = ImmersalConfig.mapIDsText
     @State private var showingProtocol = false
 
     var body: some View {

@@ -10,8 +10,8 @@ struct GlassesView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var calibration = FocalCalibrationRunner()
-    @State private var token = ImmersalConfig.storedToken
-    @State private var mapIDsText = ImmersalConfig.storedMapIDsText
+    @State private var token = ImmersalConfig.token
+    @State private var mapIDsText = ImmersalConfig.mapIDsText
     @State private var streamBusy = false
     @State private var streamError: String?
 

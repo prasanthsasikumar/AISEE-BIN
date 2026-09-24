@@ -28,6 +28,9 @@ enum PositioningSource: Equatable {
 enum AppMode: String, CaseIterable, Identifiable {
     case navigation = "Navigate"
     case authoring = "Author"
+    /// Set-up a sighted helper does once: Immersal credentials, glasses, the
+    /// measurement walk. Leaves the session and any guidance running.
+    case settings = "Settings"
     var id: String { rawValue }
 }
 
@@ -99,7 +102,7 @@ final class NavigationViewModel {
     private(set) var debug = DebugInfo()
     var showDebug = false
     var mode: AppMode = .navigation {
-        didSet { if mode != oldValue { didChange(mode: mode) } }
+        didSet { if mode != oldValue { didChange(mode: mode, from: oldValue) } }
     }
     var positioningSource: PositioningSource = .phone {
         didSet { if positioningSource != oldValue { didChange(positioningSource: positioningSource) } }
@@ -565,15 +568,20 @@ final class NavigationViewModel {
         }
     }
 
-    private func didChange(mode: AppMode) {
+    private func didChange(mode: AppMode, from previous: AppMode) {
         switch mode {
         case .authoring:
             stopNavigation()
             recognizer.stopListening(deliver: false)
             guidance.stopSpeaking()
         case .navigation:
+            // Coming back from Settings changes nothing underneath: the
+            // session kept tracking and guidance kept talking.
+            guard previous != .settings else { return }
             reloadMapAndRestart()
             Task { await checkForMapUpdate() }
+        case .settings:
+            break
         }
     }
 

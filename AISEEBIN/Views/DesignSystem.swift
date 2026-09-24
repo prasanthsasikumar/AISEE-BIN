@@ -215,21 +215,22 @@ struct ModeSwitcher: View {
         .accessibilityLabel("Mode")
     }
 
+    // Navigate is the dark palette; Author and Settings share the light one.
     private func ink(on selected: Bool) -> Color {
-        switch (mode, selected) {
-        case (.navigation, true):  return DS.A.ink
-        case (.navigation, false): return DS.N.inkTertiary
-        case (.authoring, true):   return DS.N.ink
-        case (.authoring, false):  return DS.A.inkTertiary
+        switch (mode == .navigation, selected) {
+        case (true, true):   return DS.A.ink
+        case (true, false):  return DS.N.inkTertiary
+        case (false, true):  return DS.N.ink
+        case (false, false): return DS.A.inkTertiary
         }
     }
 
     private func fill(on selected: Bool) -> Color {
-        switch (mode, selected) {
-        case (.navigation, true):  return DS.N.ink
-        case (.navigation, false): return DS.N.segmentTrack
-        case (.authoring, true):   return DS.A.ink
-        case (.authoring, false):  return DS.A.segmentIdleBg
+        switch (mode == .navigation, selected) {
+        case (true, true):   return DS.N.ink
+        case (true, false):  return DS.N.segmentTrack
+        case (false, true):  return DS.A.ink
+        case (false, false): return DS.A.segmentIdleBg
         }
     }
 }
