@@ -691,8 +691,12 @@ $('importImmersal').onclick = async () => {
     state.dirty = true; renderVersions(); renderSidebar(); updateSaveButton(); fitView(); draw();
     setStatus(`Imported "${map.name}" (Immersal ${map.id}): ${map.points.length / 3} points. Add places and paths, then save.`);
   } catch (e) {
-    if (/Immersal:.*auth/i.test(e.message)) localStorage.removeItem(IMMERSAL_TOKEN_KEY);
-    setStatus(`Import failed: ${e.message}`, true);
+    // A wrong or stale token is the usual cause of both, so forget it and let
+    // the next attempt ask again rather than failing the same way forever.
+    if (/Immersal:.*(auth|not found)/i.test(e.message)) {
+      localStorage.removeItem(IMMERSAL_TOKEN_KEY);
+      setStatus(`Import failed: ${e.message}. The saved token has been forgotten; try again and you will be asked for the token of the account that owns the map.`, true);
+    } else setStatus(`Import failed: ${e.message}`, true);
   } finally { btn.disabled = false; }
 };
 
