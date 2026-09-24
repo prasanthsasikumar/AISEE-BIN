@@ -20,7 +20,8 @@ struct ContentView: View {
             case .navigation:
                 navigationScreen
             case .authoring:
-                AuthoringView(arManager: viewModel.arManager, mapStore: viewModel.mapStore)
+                AuthoringView(arManager: viewModel.arManager, mapStore: viewModel.mapStore,
+                              onTestNow: { viewModel.mode = .navigation })
             case .settings:
                 SettingsView(viewModel: viewModel)
             }

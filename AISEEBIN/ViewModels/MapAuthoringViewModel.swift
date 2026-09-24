@@ -99,6 +99,70 @@ final class MapAuthoringViewModel {
 
     var nodes: [NavigationPOI] { session.map.pois }
     var edges: [NavigationEdge] { session.map.edges }
+
+    // MARK: - Guided flow
+
+    /// Where a first-time mapper is in the walk. The screen shows one step at
+    /// a time with one primary action; the machinery underneath is unchanged.
+    enum Stage: Equatable { case start, walk, publish, done }
+    private(set) var stage: Stage = .start
+    /// Immersal construction after a publish: nil, "building…", "ready", "failed".
+    private(set) var immersalMapStatus: String?
+    private(set) var immersalMapID: Int?
+    private(set) var publishedVersion: Int?
+
+    var guideSeen: Bool {
+        get { UserDefaults.standard.bool(forKey: "authoring.guideSeen") }
+        set { UserDefaults.standard.set(newValue, forKey: "authoring.guideSeen") }
+    }
+
+    /// Scan coverage for the bar: ARKit feature count against what relocalizes reliably.
+    var coverageFraction: Double { min(1, Double(arManager.featurePointCount) / 3500) }
+
+    /// Places with no path to anything: guidance could never reach them.
+    var unconnectedPlaces: [NavigationPOI] {
+        guard nodes.count > 1 else { return [] }
+        return nodes.filter { neighbours(of: $0.id).isEmpty }
+    }
+
+    /// Names the map and starts a fresh scan, with Immersal capture if enabled.
+    func startNewScan(named name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        session = MapAuthoringSession(mapName: trimmed.isEmpty ? Self.defaultMapName : trimmed)
+        startFreshScan()
+        immersalMapStatus = nil; immersalMapID = nil; publishedVersion = nil
+        stage = .walk
+    }
+
+    /// Adds to the scan already on this phone.
+    func resumeExistingScan() {
+        continueExistingScan()
+        stage = .walk
+    }
+
+    func finishWalking() { stage = .publish }
+    func backToWalking() { stage = .walk }
+    func startAnother() { stage = .start }
+
+    /// Connects every unconnected place to its nearest other place.
+    func connectUnconnected() {
+        for place in unconnectedPlaces {
+            let others = nodes.filter { $0.id != place.id }
+            guard let nearest = others.min(by: {
+                simd_distance(SIMD2($0.x, $0.z), SIMD2(place.x, place.z)) < simd_distance(SIMD2($1.x, $1.z), SIMD2(place.x, place.z))
+            }) else { continue }
+            connect(place.id, to: nearest.id)
+        }
+    }
+
+    /// The whole publish: save, Immersal construction, upload; then the done stage.
+    func publish(note: String?) async {
+        await upload(name: session.map.name, note: note)
+        if errorMessage == nil, let version = localVersion?.version {
+            publishedVersion = version
+            stage = .done
+        }
+    }
     var chainFromID: String? { session.lastAddedID }
     var mappingStatus: ARFrame.WorldMappingStatus { arManager.worldMappingStatus }
     var canMark: Bool { arManager.localizationStatus.isReliable }
@@ -346,11 +410,14 @@ final class MapAuthoringViewModel {
             log("upload: done, version \(saved.version)")
             if let id = immersalMapID {
                 statusMessage = "Published version \(saved.version). Immersal is building map \(id) from \(scanner.uploaded) photos; this takes a few minutes."
+                self.immersalMapID = id
+                immersalMapStatus = "building…"
                 Task { [weak self] in
                     guard let self else { return }
                     let done = await scanner.waitForConstruction(of: id) { [weak self] status in
-                        self?.statusMessage = "Published. Immersal map \(id): \(status)…"
+                        self?.immersalMapStatus = status == "done" ? "ready" : "\(status)…"
                     }
+                    immersalMapStatus = done ? "ready" : "failed"
                     statusMessage = done ? "Immersal map \(id) is ready. Glasses and phone-via-Immersal can use this map now."
                                          : "Immersal map \(id) did not finish. The ARKit map still works; try the scan again with more light."
                     log("immersal: map \(id) \(done ? "done" : "failed/timeout")")

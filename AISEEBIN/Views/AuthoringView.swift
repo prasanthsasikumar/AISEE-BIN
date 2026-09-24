@@ -10,50 +10,61 @@ struct AuthoringView: View {
     @State private var showMarkSheet = false
     @State private var editingNode: NavigationPOI?
     @State private var connectingFrom: NavigationPOI?
-    @State private var confirmFreshScan = false
-    @State private var showUploadSheet = false
     @State private var showMapPicker = false
+    @State private var showGuide = false
+    @State private var showProbe = false
     /// Set when switching maps would discard unsaved marks; the alert confirms it.
     @State private var mapPendingSwitch: RemoteMapSummary?
-    @State private var uploadNote = ""
-    /// Seeded from the map's current name each time the publish alert opens.
-    @State private var uploadName = ""
+    /// Set when starting a new scan would discard the scan on this phone.
+    @State private var pendingNewScanName: String?
+    @State private var newMapName = ""
+    @State private var publishNote = ""
     /// Remembered so the error card can offer the right retry.
     @State private var lastAction: LastAction?
+    /// Switches the app to Navigate on the map just published.
+    let onTestNow: () -> Void
 
     private enum LastAction: Equatable {
         case save
-        case upload(name: String, note: String?)
+        case upload(note: String?)
         case importLatest(slug: String)
-
         var retryLabel: String {
             switch self {
             case .save:         return "Try save again"
-            case .upload:       return "Try upload again"
+            case .upload:       return "Try publish again"
             case .importLatest: return "Try import again"
             }
         }
     }
 
-    init(arManager: ARNavigationManager, mapStore: MapStore) {
+    init(arManager: ARNavigationManager, mapStore: MapStore, onTestNow: @escaping () -> Void = {}) {
         _viewModel = State(initialValue: MapAuthoringViewModel(arManager: arManager, mapStore: mapStore))
+        self.onTestNow = onTestNow
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            ScanPreview(viewModel: viewModel,
-                        isCompact: !viewModel.nodes.isEmpty,
-                        onImport: { showMapPicker = true },
-                        onContinue: { viewModel.continueExistingScan() },
-                        onFreshScan: { confirmFreshScan = true })
+            Stepper(stage: viewModel.stage) { showGuide = true }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 16)
-
-            content
+                .padding(.bottom, 12)
+            switch viewModel.stage {
+            case .start:   startStage
+            case .walk:    walkStage
+            case .publish: publishStage
+            case .done:    doneStage
+            }
         }
         .background(DS.A.canvas)
-        .safeAreaInset(edge: .bottom, spacing: 0) { actionBar }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if viewModel.stage == .walk { walkActionBar }
+        }
         .overlay { errorCard }
+        .onAppear {
+            if !viewModel.guideSeen { showGuide = true }
+        }
+        .sheet(isPresented: $showGuide, onDismiss: { viewModel.guideSeen = true }) {
+            AuthorGuideSheet()
+        }
         .sheet(isPresented: $showMapPicker) {
             ServerMapPicker(viewModel: viewModel) { map in
                 showMapPicker = false
@@ -66,6 +77,11 @@ struct AuthoringView: View {
                 }
             }
         }
+        .fullScreenCover(isPresented: $showProbe) {
+            ProbeView(arManager: viewModel.arManager,
+                      mapStore: viewModel.mapStore,
+                      places: viewModel.nodes)
+        }
         .alert("Discard unsaved marks?", isPresented: .constant(mapPendingSwitch != nil),
                presenting: mapPendingSwitch) { map in
             Button("Discard and import", role: .destructive) {
@@ -75,6 +91,16 @@ struct AuthoringView: View {
             Button("Cancel", role: .cancel) { mapPendingSwitch = nil }
         } message: { map in
             Text("Importing “\(map.name)” replaces this bundle's world map and marked nodes. Marks you have not published will be lost.")
+        }
+        .alert("Replace the scan on this phone?", isPresented: .constant(pendingNewScanName != nil),
+               presenting: pendingNewScanName) { name in
+            Button("Start new scan", role: .destructive) {
+                pendingNewScanName = nil
+                viewModel.startNewScan(named: name)
+            }
+            Button("Cancel", role: .cancel) { pendingNewScanName = nil }
+        } message: { _ in
+            Text("This deletes the local world map and marked places. Versions already on the server are kept.")
         }
         .sheet(isPresented: $showMarkSheet) {
             NodeForm(title: "Mark this spot",
@@ -87,21 +113,6 @@ struct AuthoringView: View {
                 viewModel.update(node.id, name: name, category: category, details: details)
             }
         }
-        .alert("Publish to server", isPresented: $showUploadSheet) {
-            TextField("Map name", text: $uploadName)
-            TextField("What changed? (optional)", text: $uploadNote)
-            Button("Upload") {
-                let name = uploadName.trimmingCharacters(in: .whitespacesAndNewlines)
-                let trimmedNote = uploadNote.trimmingCharacters(in: .whitespacesAndNewlines)
-                let note = trimmedNote.isEmpty ? nil : trimmedNote
-                lastAction = .upload(name: name, note: note)
-                uploadNote = ""
-                Task { await viewModel.upload(name: name, note: note) }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("The name is what this map is called in the web editor. Uploads the world map, feature points and graph as a new version. Fine-tune it at \(ServerConfig.editorURL.host ?? "").")
-        }
         .confirmationDialog("Connect \(connectingFrom?.name ?? "") to…",
                             isPresented: Binding(get: { connectingFrom != nil },
                                                  set: { if !$0 { connectingFrom = nil } }),
@@ -112,40 +123,127 @@ struct AuthoringView: View {
                 }
             }
         }
-        .alert("Start a fresh scan?", isPresented: $confirmFreshScan) {
-            Button("Discard local map and rescan", role: .destructive) { viewModel.startFreshScan() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This deletes the local world map and marked nodes. Versions already on the server are kept.")
+    }
+
+    // MARK: - Stage 1: start
+
+    private var startStage: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("New map").font(.dsTitle2).foregroundStyle(DS.A.ink)
+                    Text("Name the place, then walk it once: scan as you go, mark each spot a visitor would stop at, and publish before you leave.")
+                        .font(.dsSubhead).foregroundStyle(DS.A.inkSecondary)
+                    TextField("Map name, e.g. Gardens by the Bay", text: $newMapName)
+                        .font(.dsBody)
+                        .padding(14)
+                        .background(DS.A.inset, in: RoundedRectangle(cornerRadius: DS.R.field, style: .continuous))
+                        .dsStroke(DS.A.hairline, 1.5, radius: DS.R.field)
+                        .autocorrectionDisabled()
+                    PrimaryButton(title: "Start scanning", icon: "camera.viewfinder", enabled: !newMapName.trimmingCharacters(in: .whitespaces).isEmpty) {
+                        let name = newMapName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if viewModel.mapStore.hasSavedWorldMap || !viewModel.nodes.isEmpty {
+                            pendingNewScanName = name
+                        } else {
+                            viewModel.startNewScan(named: name)
+                        }
+                    }
+                }
+                .padding(20)
+                .background(DS.A.card, in: RoundedRectangle(cornerRadius: DS.R.card, style: .continuous))
+                .dsStroke(DS.A.hairline, 1.5, radius: DS.R.card)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Or").dsEyebrow(DS.A.inkTertiary).padding(.horizontal, 4)
+                    if viewModel.mapStore.hasSavedWorldMap {
+                        SecondaryRow(icon: "arrow.uturn.forward", title: "Add to the scan on this phone",
+                                     detail: "\(viewModel.mapName) · \(viewModel.nodes.count) places") { viewModel.resumeExistingScan() }
+                    }
+                    SecondaryRow(icon: "icloud.and.arrow.down", title: "Open a map from the server",
+                                 detail: "to add places to an existing map") { showMapPicker = true }
+                    SecondaryRow(icon: "questionmark.circle", title: "How authoring works",
+                                 detail: "four rules, one minute") { showGuide = true }
+                }
+                if viewModel.showsProgress {
+                    PublishProgressCard(stage: viewModel.progressStage, step: viewModel.progressStep,
+                                        fraction: viewModel.progressFraction, bytesText: viewModel.progressBytesText,
+                                        version: viewModel.progressVersion, showsChecklist: viewModel.isUploading)
+                }
+                if let message = viewModel.statusMessage {
+                    NoticeBanner(icon: "checkmark", text: message, style: .success)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
+        }
+        .onAppear { if newMapName.isEmpty, viewModel.mapName != MapAuthoringViewModel.defaultMapName { newMapName = viewModel.mapName } }
+    }
+
+    // MARK: - Stage 2: walk and mark
+
+    private var walkStage: some View {
+        VStack(spacing: 0) {
+            ScanPreview(viewModel: viewModel,
+                        isCompact: !viewModel.nodes.isEmpty,
+                        onImport: { showMapPicker = true },
+                        onContinue: { viewModel.resumeExistingScan() },
+                        onFreshScan: { pendingNewScanName = viewModel.mapName })
+                .padding(.horizontal, 20)
+                .padding(.bottom, 10)
+            coverageRow
+                .padding(.horizontal, 20)
+                .padding(.bottom, 10)
+            placesList
         }
     }
 
-    // MARK: - Scrolling body
+    /// One bar for how well the space is covered, with the Immersal photo count beside it.
+    private var coverageRow: some View {
+        let fraction = viewModel.coverageFraction
+        return HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Coverage").dsEyebrow(DS.A.inkTertiary)
+                    Spacer()
+                    Text("\(Int(fraction * 100))%").font(.dsMonoTiny.weight(.semibold)).foregroundStyle(DS.A.inkSecondary)
+                }
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(DS.A.inset)
+                        Capsule().fill(fraction >= 0.6 ? DS.A.okText : DS.A.lavender).frame(width: geo.size.width * fraction)
+                    }
+                }
+                .frame(height: 8)
+            }
+            if viewModel.scanner.running || viewModel.scanner.captured > 0 {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(viewModel.scanner.uploaded)/\(viewModel.scanner.captured)").font(.dsHeadline).monospacedDigit().foregroundStyle(DS.A.ink)
+                    Text(viewModel.scanner.tooFast ? "slow down" : "photos").font(.dsMonoTiny)
+                        .foregroundStyle(viewModel.scanner.tooFast ? DS.A.warnText : DS.A.inkTertiary)
+                }
+            }
+        }
+        .padding(14)
+        .background(DS.A.card, in: RoundedRectangle(cornerRadius: DS.R.field, style: .continuous))
+        .dsStroke(DS.A.hairline, 1.5, radius: DS.R.field)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Coverage \(Int(fraction * 100)) percent")
+    }
 
-    private var content: some View {
+    private var placesList: some View {
         List {
             if viewModel.showsProgress {
-                PublishProgressCard(stage: viewModel.progressStage,
-                                    step: viewModel.progressStep,
-                                    fraction: viewModel.progressFraction,
-                                    bytesText: viewModel.progressBytesText,
-                                    version: viewModel.progressVersion,
-                                    showsChecklist: viewModel.isUploading)
+                PublishProgressCard(stage: viewModel.progressStage, step: viewModel.progressStep,
+                                    fraction: viewModel.progressFraction, bytesText: viewModel.progressBytesText,
+                                    version: viewModel.progressVersion, showsChecklist: viewModel.isUploading)
                     .plainRow()
             }
-
-            if let warning = viewModel.mappingWarning {
-                NoticeBanner(icon: "exclamationmark.triangle.fill", text: warning, style: .warning)
-                    .plainRow()
+            if let warning = viewModel.mappingWarning, viewModel.nodes.isEmpty {
+                NoticeBanner(icon: "exclamationmark.triangle.fill", text: warning, style: .warning).plainRow()
             }
-
-            if let message = viewModel.statusMessage {
-                NoticeBanner(icon: "checkmark", text: message, style: .success)
-                    .plainRow()
-            }
-
             if viewModel.nodes.isEmpty {
-                EmptyPlacesCard().plainRow()
+                NoticeBanner(icon: "figure.walk", text: "Walk slowly, sweep the camera across walls and fixtures, and tap Mark here at each place a visitor would stop.", style: .success)
+                    .plainRow()
             } else {
                 Section {
                     ForEach(viewModel.nodes) { node in
@@ -175,8 +273,7 @@ struct AuthoringView: View {
                     HStack {
                         Text("\(viewModel.mapName) · \(viewModel.nodes.count) places").dsEyebrow(DS.A.inkTertiary)
                         Spacer()
-                        Text(viewModel.localVersion.map { "server v\($0.version)" } ?? "swipe row for actions")
-                            .font(.dsMonoTiny).foregroundStyle(DS.A.inkMuted)
+                        Text("swipe row for actions").font(.dsMonoTiny).foregroundStyle(DS.A.inkMuted)
                     }
                     .padding(.horizontal, 2)
                     .padding(.bottom, 6)
@@ -191,9 +288,7 @@ struct AuthoringView: View {
         .environment(\.defaultMinListHeaderHeight, 0)
     }
 
-    // MARK: - Action bar
-
-    private var actionBar: some View {
+    private var walkActionBar: some View {
         HStack(spacing: 10) {
             Button {
                 showMarkSheet = true
@@ -202,9 +297,6 @@ struct AuthoringView: View {
                     Image(systemName: "mappin.and.ellipse").font(.dsTitle3.weight(.semibold))
                     Text("Mark here").font(.dsTitle3.weight(.semibold))
                 }
-                // This one is the flexible child, so it absorbs any shortfall in the
-                // row. Held to a single line, shrinking slightly on a narrow phone,
-                // rather than wrapping and dragging the whole bar taller.
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
                 .foregroundStyle(canMark ? .white : DS.A.inkDisabled)
@@ -217,57 +309,24 @@ struct AuthoringView: View {
             .buttonStyle(.plain)
             .disabled(!canMark)
 
-            // Save and Upload are fixed squares: the row is narrower than three
-            // labelled buttons on every phone, and a squeezed flexible button
-            // grows tall instead of narrow (seen on iOS 26). With hard sizes the
-            // only flexible child is Mark here, which shrinks its label instead.
+            // Finished walking: on to the publish checklist.
             Button {
-                lastAction = .save
-                Task { await viewModel.saveLocally() }
+                viewModel.finishWalking()
             } label: {
-                ZStack(alignment: .topTrailing) {
-                    Image(systemName: "square.and.arrow.down")
-                        .font(.dsTitle3.weight(.semibold))
-                        .frame(width: Self.actionBarHeight, height: Self.actionBarHeight)
-                    if viewModel.hasUnsavedChanges {
-                        Circle().fill(DS.A.destructive).frame(width: 8, height: 8).padding(10)
-                    }
+                HStack(spacing: 6) {
+                    Text("Done").font(.dsHeadline)
+                    Image(systemName: "chevron.right").font(.dsHeadline)
                 }
-                .foregroundStyle(viewModel.canSave ? DS.A.lavender : DS.A.inkDisabled)
-                .background(viewModel.canSave ? DS.A.lavenderBg : DS.A.inset,
-                            in: RoundedRectangle(cornerRadius: DS.R.row, style: .continuous))
-                .dsStroke(viewModel.canSave ? DS.A.hairlineLav : DS.A.hairline, 1.5, radius: DS.R.row)
+                .foregroundStyle(viewModel.nodes.isEmpty ? DS.A.inkDisabled : DS.A.ink)
+                .padding(.horizontal, 16)
+                .frame(height: Self.actionBarHeight)
+                .background(DS.A.inset, in: RoundedRectangle(cornerRadius: DS.R.row, style: .continuous))
+                .dsStroke(DS.A.hairline, 1.5, radius: DS.R.row)
             }
             .buttonStyle(.plain)
             .fixedSize()
-            .disabled(!viewModel.canSave)
-            .accessibilityLabel(viewModel.hasUnsavedChanges ? "Save, unsaved changes" : "Save")
-
-            Button {
-                uploadName = viewModel.mapName
-                showUploadSheet = true
-            } label: {
-                Group {
-                    if viewModel.isBusy, let fraction = viewModel.progressFraction {
-                        Text("\(Int((fraction * 100).rounded()))%")
-                            .font(.dsHeadline.monospacedDigit())
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    } else if viewModel.isBusy {
-                        ProgressView().tint(.white)
-                    } else {
-                        Image(systemName: "icloud.and.arrow.up").font(.dsTitle3.weight(.semibold))
-                    }
-                }
-                .frame(width: Self.actionBarHeight, height: Self.actionBarHeight)
-                .foregroundStyle(viewModel.canUpload || viewModel.isBusy ? .white : DS.A.inkDisabled)
-                .background(uploadFill, in: RoundedRectangle(cornerRadius: DS.R.row, style: .continuous))
-                .dsStroke(viewModel.canUpload || viewModel.isBusy ? .clear : DS.A.hairline, 1.5, radius: DS.R.row)
-            }
-            .buttonStyle(.plain)
-            .fixedSize()
-            .disabled(!viewModel.canUpload)
-            .accessibilityLabel("Upload")
+            .disabled(viewModel.nodes.isEmpty || viewModel.isBusy)
+            .accessibilityLabel("Finished walking")
         }
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, 20)
@@ -277,16 +336,98 @@ struct AuthoringView: View {
         .overlay(alignment: .top) { Rectangle().fill(DS.A.hairline).frame(height: 1) }
     }
 
-    /// One height for all three action-bar buttons, so they line up whether they
-    /// are showing a label, an icon alone, or a progress spinner.
-    private static let actionBarHeight: CGFloat = 60
+    // MARK: - Stage 3: publish
 
-    private var canMark: Bool { viewModel.canMark && !viewModel.isBusy }
+    private var publishStage: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Ready to publish?").font(.dsTitle2).foregroundStyle(DS.A.ink)
+                    ChecklistRow(ok: !viewModel.nodes.isEmpty,
+                                 text: "\(viewModel.nodes.count) place\(viewModel.nodes.count == 1 ? "" : "s") marked")
+                    ChecklistRow(ok: viewModel.unconnectedPlaces.isEmpty,
+                                 text: viewModel.unconnectedPlaces.isEmpty ? "All places connected by paths"
+                                       : "\(viewModel.unconnectedPlaces.count) place\(viewModel.unconnectedPlaces.count == 1 ? "" : "s") not connected: \(viewModel.unconnectedPlaces.map(\.name).joined(separator: ", "))")
+                    if !viewModel.unconnectedPlaces.isEmpty {
+                        Button("Connect them to the nearest place") { viewModel.connectUnconnected() }
+                            .font(.dsSubhead.weight(.semibold)).foregroundStyle(DS.A.lavender)
+                    }
+                    ChecklistRow(ok: viewModel.coverageFraction >= 0.6,
+                                 text: "Scan coverage \(Int(viewModel.coverageFraction * 100))%\(viewModel.coverageFraction < 0.6 ? " · walk a little more for a reliable map" : "")")
+                    if viewModel.scanner.captured > 0 {
+                        ChecklistRow(ok: viewModel.scanner.queued == 0 && viewModel.scanner.failed == 0,
+                                     text: "Immersal photos: \(viewModel.scanner.uploaded) of \(viewModel.scanner.captured) uploaded\(viewModel.scanner.queued > 0 ? " · \(viewModel.scanner.queued) still sending" : "")\(viewModel.scanner.failed > 0 ? " · \(viewModel.scanner.failed) failed" : "")")
+                    }
+                    TextField("What changed? (optional)", text: $publishNote)
+                        .font(.dsBody)
+                        .padding(14)
+                        .background(DS.A.inset, in: RoundedRectangle(cornerRadius: DS.R.field, style: .continuous))
+                        .dsStroke(DS.A.hairline, 1.5, radius: DS.R.field)
+                    PrimaryButton(title: viewModel.isBusy ? "Publishing…" : "Publish \(viewModel.mapName)", icon: "icloud.and.arrow.up",
+                                  enabled: viewModel.canUpload && !viewModel.isBusy) {
+                        let trimmed = publishNote.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let note = trimmed.isEmpty ? nil : trimmed
+                        lastAction = .upload(note: note)
+                        Task { await viewModel.publish(note: note) }
+                    }
+                    Text("Uploads the ARKit map, the places and paths, and asks Immersal to build its map from the photos. Stay on this screen until it says published.")
+                        .font(.dsMonoTiny).foregroundStyle(DS.A.inkMuted)
+                    Button { viewModel.backToWalking() } label: {
+                        Label("Back to walking", systemImage: "chevron.left").font(.dsSubhead.weight(.semibold)).foregroundStyle(DS.A.inkSecondary)
+                    }
+                    .disabled(viewModel.isBusy)
+                }
+                .padding(20)
+                .background(DS.A.card, in: RoundedRectangle(cornerRadius: DS.R.card, style: .continuous))
+                .dsStroke(DS.A.hairline, 1.5, radius: DS.R.card)
 
-    private var uploadFill: Color {
-        if viewModel.isBusy { return DS.A.lavenderDeep }
-        return viewModel.canUpload ? DS.A.ink : DS.A.inset
+                if viewModel.showsProgress {
+                    PublishProgressCard(stage: viewModel.progressStage, step: viewModel.progressStep,
+                                        fraction: viewModel.progressFraction, bytesText: viewModel.progressBytesText,
+                                        version: viewModel.progressVersion, showsChecklist: viewModel.isUploading)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
+        }
     }
+
+    // MARK: - Stage 4: done
+
+    private var doneStage: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Label("Published", systemImage: "checkmark.seal.fill").font(.dsTitle2).foregroundStyle(DS.A.okText)
+                    Text("\(viewModel.mapName), version \(viewModel.publishedVersion ?? viewModel.localVersion?.version ?? 0), with \(viewModel.nodes.count) places.")
+                        .font(.dsBody).foregroundStyle(DS.A.ink)
+                    if let id = viewModel.immersalMapID {
+                        ChecklistRow(ok: viewModel.immersalMapStatus == "ready",
+                                     pending: viewModel.immersalMapStatus != "ready" && viewModel.immersalMapStatus != "failed",
+                                     text: "Immersal map \(id): \(viewModel.immersalMapStatus ?? "building…")")
+                        if viewModel.immersalMapStatus != "ready" && viewModel.immersalMapStatus != "failed" {
+                            Text("Usually a few minutes. The phone can leave this screen; the glasses and the accuracy walk need this map to be ready.")
+                                .font(.dsMonoTiny).foregroundStyle(DS.A.inkMuted)
+                        }
+                    }
+                    PrimaryButton(title: "Test it now", icon: "location.fill", enabled: true, action: onTestNow)
+                    SecondaryRow(icon: "ruler", title: "Measure accuracy", detail: "Immersal vs ARKit walk on this map") { showProbe = true }
+                    SecondaryRow(icon: "plus.circle", title: "Start another map", detail: "keeps this one on the server") { viewModel.startAnother() }
+                }
+                .padding(20)
+                .background(DS.A.card, in: RoundedRectangle(cornerRadius: DS.R.card, style: .continuous))
+                .dsStroke(DS.A.hairline, 1.5, radius: DS.R.card)
+                if let message = viewModel.statusMessage {
+                    NoticeBanner(icon: "checkmark", text: message, style: .success)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
+        }
+    }
+
+    private static let actionBarHeight: CGFloat = 60
+    private var canMark: Bool { viewModel.canMark && !viewModel.isBusy }
 
     // MARK: - Error
 
@@ -310,12 +451,155 @@ struct AuthoringView: View {
         viewModel.errorMessage = nil
         switch action {
         case .save:               Task { await viewModel.saveLocally() }
-        case .upload(let name, let note):
-            Task { await viewModel.upload(name: name, note: note) }
+        case .upload(let note):   Task { await viewModel.publish(note: note) }
         case .importLatest(let slug):
             Task { await viewModel.importLatestFromServer(slug: slug) }
         case nil:                 break
         }
+    }
+}
+
+// MARK: - Guided-flow pieces
+
+/// Three steps across the top: the current one filled, the ones behind it ticked.
+private struct Stepper: View {
+    let stage: MapAuthoringViewModel.Stage
+    let onHelp: () -> Void
+
+    private var index: Int {
+        switch stage { case .start: return 0; case .walk: return 1; case .publish, .done: return 2 }
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(Array(["Name", "Walk & mark", "Publish"].enumerated()), id: \.offset) { i, title in
+                let done = i < index, current = i == index
+                HStack(spacing: 6) {
+                    Image(systemName: done ? "checkmark.circle.fill" : "\(i + 1).circle\(current ? ".fill" : "")")
+                    Text(title).lineLimit(1).minimumScaleFactor(0.8)
+                }
+                .font(.dsSubhead.weight(current ? .semibold : .regular))
+                .foregroundStyle(current ? DS.A.ink : (done ? DS.A.okText : DS.A.inkTertiary))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(current ? DS.A.card : .clear, in: Capsule())
+                .dsStroke(current ? DS.A.hairline : .clear, 1.5, radius: 22)
+            }
+            Button(action: onHelp) {
+                Image(systemName: "questionmark.circle").font(.dsHeadline).foregroundStyle(DS.A.inkTertiary)
+                    .frame(width: 36, height: 36)
+            }
+            .accessibilityLabel("How authoring works")
+        }
+        .padding(4)
+        .background(DS.A.inset, in: Capsule())
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Step \(index + 1) of 3")
+    }
+}
+
+private struct PrimaryButton: View {
+    let title: String
+    let icon: String
+    let enabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: icon).font(.dsTitle3.weight(.semibold))
+                Text(title).font(.dsTitle3.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.75)
+            }
+            .foregroundStyle(enabled ? .white : DS.A.inkDisabled)
+            .frame(maxWidth: .infinity)
+            .frame(height: 60)
+            .background(enabled ? DS.A.lavender : DS.A.lavenderBg, in: RoundedRectangle(cornerRadius: DS.R.row, style: .continuous))
+            .dsStroke(enabled ? .clear : DS.A.hairlineLav, 1.5, radius: DS.R.row)
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+    }
+}
+
+private struct SecondaryRow: View {
+    let icon: String
+    let title: String
+    let detail: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon).font(.dsHeadline).foregroundStyle(DS.A.lavender).frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.dsHeadline).foregroundStyle(DS.A.ink)
+                    Text(detail).font(.dsSubhead).foregroundStyle(DS.A.inkTertiary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.dsSubhead).foregroundStyle(DS.A.inkTertiary)
+            }
+            .padding(14)
+            .background(DS.A.card, in: RoundedRectangle(cornerRadius: DS.R.field, style: .continuous))
+            .dsStroke(DS.A.hairline, 1.5, radius: DS.R.field)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct ChecklistRow: View {
+    let ok: Bool
+    var pending = false
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            if pending {
+                ProgressView().tint(DS.A.lavender).frame(width: 22)
+            } else {
+                Image(systemName: ok ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                    .font(.dsHeadline).foregroundStyle(ok ? DS.A.okText : DS.A.warnIcon).frame(width: 22)
+            }
+            Text(text).font(.dsSubhead).foregroundStyle(DS.A.ink)
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+/// The four rules, once, for a first-time mapper.
+struct AuthorGuideSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    private let rules: [(String, String, String)] = [
+        ("figure.walk", "Walk slowly", "About one step a second. Fast moves blur the camera and the map gets holes."),
+        ("camera.viewfinder", "Point at walls and furniture", "The camera needs texture: displays, shelves, signs. Floors and blank walls give it nothing."),
+        ("mappin.and.ellipse", "Mark where a visitor would stand", "Tap Mark here at each stop, facing the thing. Name it the way a visitor would ask for it."),
+        ("icloud.and.arrow.up", "Publish before you leave", "Tap Done, then Publish, and stay until it says published. Needs mobile data, about 150 MB."),
+    ]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("One walk makes the whole map: the space, the places, and the paths between them.")
+                        .font(.dsBody).foregroundStyle(DS.A.inkSecondary)
+                    ForEach(Array(rules.enumerated()), id: \.offset) { i, rule in
+                        HStack(alignment: .top, spacing: 14) {
+                            Image(systemName: rule.0).font(.dsTitle3).foregroundStyle(DS.A.lavender).frame(width: 32)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("\(i + 1). \(rule.1)").font(.dsHeadline).foregroundStyle(DS.A.ink)
+                                Text(rule.2).font(.dsSubhead).foregroundStyle(DS.A.inkSecondary)
+                            }
+                        }
+                    }
+                }
+                .padding(20)
+            }
+            .background(DS.A.canvas)
+            .navigationTitle("How authoring works")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .primaryAction) { Button("Got it") { dismiss() } } }
+        }
+        .preferredColorScheme(.light)
     }
 }
 
