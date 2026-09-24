@@ -131,11 +131,15 @@ struct ProbeView: View {
                 }
             }
 
-            Section("Protocol markers") {
+            Section {
                 marker("Stepped outside", "arrow.up.forward.square")
                 marker("Back inside", "arrow.down.left.square")
                 marker("Lens covered", "eye.slash")
                 marker("Lens uncovered", "eye")
+            } header: {
+                Text("Protocol markers")
+            } footer: {
+                Text("These only write a timestamp into the walk log for the analysis; nothing changes on screen except the tick.")
             }
 
             Section("Live") {
@@ -197,8 +201,17 @@ struct ProbeView: View {
     private func marker(_ label: String, _ icon: String) -> some View {
         Button {
             session.marker(label)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         } label: {
-            Label(label, systemImage: icon).frame(minHeight: 40)
+            HStack {
+                Label(label, systemImage: icon)
+                Spacer()
+                if let last = session.lastMarker, last.label == label {
+                    Text(String(format: "%d:%02d", Int(last.elapsed) / 60, Int(last.elapsed) % 60)).font(.footnote.monospacedDigit()).foregroundStyle(.secondary)
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                }
+            }
+            .frame(minHeight: 40)
         }
     }
 
@@ -248,12 +261,12 @@ private struct WalkProtocolView: View {
     @Environment(\.dismiss) private var dismiss
 
     private let steps = [
-        ("Cold start at the entrance", "Launch with the ARWorldMap installed and stand still. Both systems are now racing for a first fix; do not walk until one lands."),
-        ("Walk the fixed loop", "Normal walking pace. Stop at each place, stand on the spot, tap its name. The tap is the only ground truth there is."),
-        ("Cover the lens, twice", "Mid-loop, tap “Lens covered”, cover it for five seconds, uncover, tap “Lens uncovered”. Repeat once more later in the loop."),
-        ("Out through the doorway", "Tap “Stepped outside”, walk ~15 m along the path, turn around, come back, tap “Back inside”."),
-        ("Re-stamp two interior places", "Return to the first two places and stamp them again. This is what exposes drift accumulated outside."),
-        ("Finish", "Tap Finish walk, then export the CSV before closing the app."),
+        ("Cold start where the scan began", "Stand still with the map loaded. Both systems are racing for a first fix; do not walk until Tracking Ready and at least one Immersal fix."),
+        ("Walk a loop past every place", "Normal walking pace. At each place, stand on the exact spot, face what it is, and tap its name under Standing at. Those taps are the only ground truth there is."),
+        ("Cover the lens, twice", "Mid-loop, tap Lens covered, cover the camera for five seconds, uncover, tap Lens uncovered. Repeat once more later in the loop."),
+        ("Leave the mapped area, if you can", "Optional, for spaces with an exit: tap Stepped outside, walk about 15 m away, turn around, come back, tap Back inside. Skip this in a single room."),
+        ("Stamp the first two places again", "Return to the first two places and tap them again. This is what exposes drift accumulated on the way round."),
+        ("Finish", "Tap Finish walk. Save alignment to map if offered, then export the CSV before closing the app."),
     ]
 
     var body: some View {

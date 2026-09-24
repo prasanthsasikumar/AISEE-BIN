@@ -38,6 +38,9 @@ final class ProbeSession {
     private(set) var lastMapID: Int?
     private(set) var lastDisagreement: Float?
     private(set) var lastStampLabel: String?
+    /// The protocol marker most recently tapped, with the walk time it was
+    /// tapped at, so the button shows that it took.
+    private(set) var lastMarker: (label: String, elapsed: TimeInterval)?
     private(set) var pendingCount = 0
     private(set) var isReplaying = false
     /// Provisional map-space position of the latest fix, for the live readout
@@ -85,7 +88,7 @@ final class ProbeSession {
             try? FileManager.default.createDirectory(at: pendingDirectory, withIntermediateDirectories: true)
             attempts = 0; successes = 0; rowCount = 0
             lastError = nil; lastLatencyMS = nil; lastMapID = nil
-            lastDisagreement = nil; lastFixPosition = nil; lastStampLabel = nil
+            lastDisagreement = nil; lastFixPosition = nil; lastStampLabel = nil; lastMarker = nil
             alignmentPairs = []
             previousFix = nil; previousFixAR = nil
             lastLocalizeAt = -.infinity; lastARSampleAt = -.infinity
@@ -245,8 +248,10 @@ final class ProbeSession {
 
     func marker(_ note: String) {
         guard state == .running, let log, let startedAt else { return }
+        let elapsed = Date().timeIntervalSince(startedAt)
+        lastMarker = (note, elapsed)
         append(ProbeLogRow(event: .marker,
-                           elapsed: Date().timeIntervalSince(startedAt),
+                           elapsed: elapsed,
                            arPosition: lastARPosition,
                            arOrientation: lastAROrientation,
                            note: note),
