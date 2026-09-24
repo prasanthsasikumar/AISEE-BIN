@@ -66,9 +66,25 @@
 
   /// Looks the map up and downloads its sparse cloud.
   /// Resolves to { id, name, status, points } or throws with Immersal's reason.
-  async function fetchMap({ id, token, fetch: fetchImpl = root.fetch }) {
+  ///
+  /// Two ways in. With a `token`, straight to Immersal (name and status come
+  /// from /metadataget). With a `base` and no token, through the site's own
+  /// read-only proxy, which adds the account token server side and only
+  /// forwards the point cloud download, so the page never holds a token; the
+  /// name is then a placeholder for the editor's Name field to replace.
+  async function fetchMap({ id, token, base, fetch: fetchImpl = root.fetch }) {
     const mapId = parseInt(id, 10);
     if (!Number.isInteger(mapId) || mapId <= 0) throw new Error('map id must be a positive integer');
+    if (!token) {
+      if (!base) throw new Error('need a token or a proxy base');
+      const res = await fetchImpl(`${base}/sparse?id=${mapId}`);
+      // Immersal answers 400 for an unknown id and 404 for a map with no cloud yet.
+      if (res.status === 400 || res.status === 404) throw new Error(`Immersal: map ${mapId} not found under the site's account, or not finished constructing`);
+      if (!res.ok) throw new Error(`Immersal: sparse point cloud ${res.status} ${res.statusText}`);
+      const points = parsePLYPoints(await res.arrayBuffer());
+      if (!points.length) throw new Error('Immersal returned an empty point cloud');
+      return { id: mapId, name: `Immersal ${mapId}`, status: 'done', points };
+    }
     const metaRes = await fetchImpl(`${API}/metadataget`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, id: mapId }),

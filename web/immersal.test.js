@@ -65,6 +65,18 @@ test('fetchMap surfaces Immersal reasons and refuses unfinished maps', async () 
   await assert.rejects(fetchMap({ id: 'abc', token: 't', fetch: async () => json({}) }), /positive integer/);
 });
 
+test('fetchMap goes through the site proxy when there is no token', async () => {
+  const calls = [];
+  const fetchImpl = async (url) => { calls.push(url); return { ok: true, status: 200, arrayBuffer: async () => ply([[1, 2, 3]]) }; };
+  const map = await fetchMap({ id: 151658, base: '/immersal', fetch: fetchImpl });
+  assert.deepEqual(calls, ['/immersal/sparse?id=151658']);
+  assert.equal(map.name, 'Immersal 151658');
+  assert.deepEqual(Array.from(map.points), [1, 2, 3]);
+  await assert.rejects(fetchMap({ id: 1, base: '/immersal', fetch: async () => ({ ok: false, status: 404, statusText: 'Not Found' }) }), /not found under the site's account/);
+  await assert.rejects(fetchMap({ id: 1, base: '/immersal', fetch: async () => ({ ok: false, status: 400, statusText: 'Bad Request' }) }), /not found under the site's account/);
+  await assert.rejects(fetchMap({ id: 1, fetch: async () => ({}) }), /token or a proxy/);
+});
+
 test('fetchMap returns name and points on success', async () => {
   const calls = [];
   const fetchImpl = async (url, opts) => {

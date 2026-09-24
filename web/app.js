@@ -17,6 +17,9 @@ const state = {
   graph: null,            // editable copy of graph JSON
   points: null,           // Float32Array xyz
   pendingPoints: null,    // Float32Array xyz not yet in storage (an Immersal import); uploaded with the next save
+  heights: null,          // {min,max,med,lo,hi} percentiles of point y, for the Scan view band
+  band: null,             // {lo,hi} height band drawn, or null for everything
+  density: false,         // draw points as soft blobs so clusters read as shapes
   pointsBitmap: null,     // offscreen canvas cache of the point cloud
   pointsBitmapMeta: null, // {minX,minZ,scale}
   mode: 'select',
@@ -159,7 +162,7 @@ async function loadVersion(row) {
   state.selectedNode = state.selectedEdge = state.connectFrom = null;
   state.dirty = false;
   state.history = []; state.future = []; updateUndoButtons();
-  state.points = null; state.pointsBitmap = null;
+  state.points = null; state.pointsBitmap = null; state.heights = null; renderScanTools();
   renderVersions(); renderSidebar(); updateSaveButton();
   $('downloadWorldMap').href = row.worldmap_path ? publicURL(row.worldmap_path) : '#';
   $('downloadPoints').href = row.pointcloud_path ? publicURL(row.pointcloud_path) : '#';
@@ -170,7 +173,7 @@ async function loadVersion(row) {
     try {
       const buf = await fetchMaybeGzipped(publicURL(row.pointcloud_path));
       state.points = new Float32Array(buf);
-      buildPointsBitmap();
+      computeHeights(); renderScanTools(); buildPointsBitmap();
       setStatus(`Loaded v${row.version}: ${state.graph.pois.length} nodes, ${state.graph.edges.length} edges, ${state.points.length / 3} points.`);
     } catch (e) { setStatus(`Point cloud failed: ${e.message}`, true); }
     fitView(); draw();
@@ -275,24 +278,49 @@ function fitView() {
 }
 
 // ---------- point cloud cache ----------
+/// Percentiles of point height, computed once per cloud: the colour ramp uses
+/// 5–95%, the Scan view sliders span 1–99%, and "floor" is the median band.
+function computeHeights() {
+  const pts = state.points; if (!pts || !pts.length) { state.heights = null; return; }
+  const n = pts.length / 3, step = Math.max(1, Math.floor(n / 40000));
+  const ys = []; for (let i = 0; i < n; i += step) ys.push(pts[i * 3 + 1]);
+  ys.sort((a, c) => a - c); const q = f => ys[Math.min(ys.length - 1, Math.floor(ys.length * f))];
+  state.heights = { min: q(0.01), max: q(0.99), med: q(0.5), lo: q(0.05), hi: q(0.95) };
+}
+
+function inBand(y) { return !state.band || (y >= state.band.lo && y <= state.band.hi); }
+
 function buildPointsBitmap() {
   const pts = state.points; if (!pts || !pts.length) return;
+  if (!state.heights) computeHeights();
   const b = contentBounds(); const scale = 25; // px per metre in the cache
   const w = Math.ceil((b.maxX - b.minX) * scale) + 2, h = Math.ceil((b.maxZ - b.minZ) * scale) + 2;
   if (w * h > 40e6) { setStatus('Point cloud too large to cache; drawing directly.'); return; }
   const off = document.createElement('canvas'); off.width = w; off.height = h;
-  const octx = off.getContext('2d'); const img = octx.createImageData(w, h); const d = img.data;
-  // height range for colouring (5th..95th percentile of y)
-  const ys = Array.from({ length: Math.min(20000, pts.length / 3) }, (_, i) => pts[Math.floor(i * pts.length / 3 / Math.min(20000, pts.length / 3)) * 3 + 1]).sort((a, c) => a - c);
-  const lo = ys[Math.floor(ys.length * 0.05)] ?? -1, hi = ys[Math.floor(ys.length * 0.95)] ?? 1;
-  for (let i = 0; i < pts.length; i += 3) {
-    const px = Math.floor((pts[i] - b.minX) * scale), py = Math.floor((pts[i + 2] - b.minZ) * scale);
-    if (px < 0 || py < 0 || px >= w || py >= h) continue;
-    const t = Math.max(0, Math.min(1, (pts[i + 1] - lo) / (hi - lo || 1)));
-    const k = (py * w + px) * 4;
-    d[k] = 60 + 190 * t; d[k + 1] = 110 + 100 * t; d[k + 2] = 230 - 190 * t; d[k + 3] = Math.min(255, d[k + 3] + 110);
+  const octx = off.getContext('2d');
+  const { lo, hi } = state.heights;
+  if (state.density) {
+    // Soft blobs accumulate where features cluster, so furniture, textured
+    // walls and floor pattern read as solid shapes instead of specks.
+    octx.globalAlpha = 0.10; octx.fillStyle = '#9db4ff'; const r = 0.22 * scale;
+    for (let i = 0; i < pts.length; i += 3) {
+      if (!inBand(pts[i + 1])) continue;
+      const px = (pts[i] - b.minX) * scale, py = (pts[i + 2] - b.minZ) * scale;
+      if (px < -r || py < -r || px >= w + r || py >= h + r) continue;
+      octx.beginPath(); octx.arc(px, py, r, 0, 6.2832); octx.fill();
+    }
+  } else {
+    const img = octx.createImageData(w, h); const d = img.data;
+    for (let i = 0; i < pts.length; i += 3) {
+      if (!inBand(pts[i + 1])) continue;
+      const px = Math.floor((pts[i] - b.minX) * scale), py = Math.floor((pts[i + 2] - b.minZ) * scale);
+      if (px < 0 || py < 0 || px >= w || py >= h) continue;
+      const t = Math.max(0, Math.min(1, (pts[i + 1] - lo) / (hi - lo || 1)));
+      const k = (py * w + px) * 4;
+      d[k] = 60 + 190 * t; d[k + 1] = 110 + 100 * t; d[k + 2] = 230 - 190 * t; d[k + 3] = Math.min(255, d[k + 3] + 110);
+    }
+    octx.putImageData(img, 0, 0);
   }
-  octx.putImageData(img, 0, 0);
   state.pointsBitmap = off; state.pointsBitmapMeta = { minX: b.minX, minZ: b.minZ, scale };
 }
 
@@ -382,6 +410,7 @@ function drawPoints() {
     ctx.fillStyle = 'rgba(120,160,255,.5)';
     const stride = Math.max(3, Math.floor(state.points.length / 3 / 60000) * 3);
     for (let i = 0; i < state.points.length; i += stride) {
+      if (!inBand(state.points[i + 1])) continue;
       const [x, y] = toScreen(state.points[i], state.points[i + 2]); ctx.fillRect(x, y, 1.5, 1.5);
     }
   }
@@ -664,21 +693,18 @@ $('slug').addEventListener('change', () => {
 // Opens a finished Immersal scan as a new map. The route is then drawn straight
 // in Immersal's coordinates and saved with an identity alignment to that map id,
 // so the app and the glasses can use it without an alignment walk.
-const IMMERSAL_TOKEN_KEY = 'aiseebin.immersal.token';
 $('importImmersal').onclick = async () => {
   if (state.dirty && !confirm('Discard unsaved changes?')) return;
   const idText = prompt('Immersal map id (from the Mapper app or the Developer Portal):', '');
-  if (idText === null) return;
-  let token = localStorage.getItem(IMMERSAL_TOKEN_KEY) || '';
-  if (!token) {
-    token = prompt('Immersal developer token for the account that owns the map. Kept in this browser only.', '') || '';
-    if (!token.trim()) return;
-    token = token.trim(); localStorage.setItem(IMMERSAL_TOKEN_KEY, token);
-  }
+  if (idText === null || !idText.trim()) return;
   const btn = $('importImmersal'); btn.disabled = true;
   try {
     setStatus(`Fetching Immersal map ${idText.trim()}…`);
-    const map = await ImmersalImport.fetchMap({ id: idText.trim(), token });
+    // The site's own proxy adds the account token server side; nothing to type.
+    const map = await ImmersalImport.fetchMap({ id: idText.trim(), base: '/immersal' });
+    const name = (prompt(`Name for this map (it becomes the server key and what the app calls it):`, map.name) || '').trim();
+    if (!name) { setStatus('Import cancelled.'); return; }
+    map.name = name;
     const slug = ImmersalImport.slugFromName(map.name) || `immersal-${map.id}`;
     const taken = [...$('slug').options].some(o => o.value === slug);
     if (taken && !confirm(`A map called "${slug}" already exists on the server. Continue and save the import as its next version?`)) return;
@@ -686,19 +712,128 @@ $('importImmersal').onclick = async () => {
     state.graph = { name: map.name, pois: [], edges: [], immersalAlignment: ImmersalImport.identityAlignment(map.id) };
     state.points = map.points; state.pendingPoints = map.points; state.pointsBitmap = null;
     state.selectedNode = state.selectedEdge = null;
-    buildPointsBitmap();
+    computeHeights(); renderScanTools(); buildPointsBitmap();
     await loadSlugs();
     state.dirty = true; renderVersions(); renderSidebar(); updateSaveButton(); fitView(); draw();
     setStatus(`Imported "${map.name}" (Immersal ${map.id}): ${map.points.length / 3} points. Add places and paths, then save.`);
   } catch (e) {
-    // A wrong or stale token is the usual cause of both, so forget it and let
-    // the next attempt ask again rather than failing the same way forever.
-    if (/Immersal:.*(auth|not found)/i.test(e.message)) {
-      localStorage.removeItem(IMMERSAL_TOKEN_KEY);
-      setStatus(`Import failed: ${e.message}. The saved token has been forgotten; try again and you will be asked for the token of the account that owns the map.`, true);
-    } else setStatus(`Import failed: ${e.message}`, true);
+    setStatus(`Import failed: ${e.message}`, true);
   } finally { btn.disabled = false; }
 };
+
+// ---------- Scan view: height band, density, histogram ----------
+// Lives in a collapsed disclosure in the sidebar; applies to the canvas and the 3D view.
+const bandLo = $('bandLo'), bandHi = $('bandHi');
+const sliderToY = v => { const h = state.heights; return h.min + (h.max - h.min) * v / 1000; };
+const yToSlider = y => { const h = state.heights; return Math.round((y - h.min) / ((h.max - h.min) || 1) * 1000); };
+function setBand(lo, hi, fromSlider) {
+  if (!state.heights) return;
+  const h = state.heights;
+  if (lo === null) state.band = null; else state.band = { lo: Math.min(lo, hi), hi: Math.max(lo, hi) };
+  const shownLo = state.band ? state.band.lo : h.min, shownHi = state.band ? state.band.hi : h.max;
+  if (!fromSlider) { bandLo.value = yToSlider(shownLo); bandHi.value = yToSlider(shownHi); }
+  $('bandLoV').textContent = `${shownLo.toFixed(2)} m`; $('bandHiV').textContent = `${shownHi.toFixed(2)} m`;
+  state.pointsBitmap = null; buildPointsBitmap(); draw(); rebuild3D();
+}
+bandLo.addEventListener('input', () => setBand(sliderToY(+bandLo.value), sliderToY(+bandHi.value), true));
+bandHi.addEventListener('input', () => setBand(sliderToY(+bandLo.value), sliderToY(+bandHi.value), true));
+document.querySelectorAll('#scanTools [data-band]').forEach(b => b.onclick = () => {
+  const h = state.heights; if (!h) return;
+  if (b.dataset.band === 'all') setBand(null); else if (b.dataset.band === 'floor') setBand(h.med - 0.25, h.med + 0.15); else setBand(h.med + 0.3, h.med + 2.2);
+});
+$('density').addEventListener('change', () => { state.density = $('density').checked; state.pointsBitmap = null; buildPointsBitmap(); draw(); });
+
+function renderScanTools() {
+  const box = $('scanTools'); const h = state.heights;
+  box.hidden = !h; if (!h) return;
+  state.band = null; bandLo.value = 0; bandHi.value = 1000;
+  $('bandLoV').textContent = `${h.min.toFixed(2)} m`; $('bandHiV').textContent = `${h.max.toFixed(2)} m`;
+  // histogram of y in 0.25 m bins, largest bin labelled as the floor
+  const pts = state.points, bin = 0.25, counts = new Map();
+  const step = Math.max(1, Math.floor(pts.length / 3 / 60000));
+  for (let i = 0; i < pts.length; i += 3 * step) { const k = Math.floor(pts[i + 1] / bin) * bin; counts.set(k, (counts.get(k) || 0) + 1); }
+  const keys = [...counts.keys()].filter(k => counts.get(k) >= 4).sort((a, c) => a - c); const max = Math.max(1, ...keys.map(k => counts.get(k)));
+  const W = 240, H = 110, left = 42, right = 6, top = 4, bottom = 14; const bh = Math.max(2, (H - top - bottom) / Math.max(1, keys.length) - 2); let s = '';
+  keys.slice().reverse().forEach((k, i) => { const y = top + i * (bh + 2); const w = (W - left - right) * counts.get(k) / max;
+    const t = Math.max(0, Math.min(1, (k + bin / 2 - h.lo) / ((h.hi - h.lo) || 1)));
+    s += `<rect x="${left}" y="${y.toFixed(1)}" width="${Math.max(1, w).toFixed(1)}" height="${bh.toFixed(1)}" rx="1.5" fill="rgb(${Math.round(60 + 190 * t)},${Math.round(110 + 100 * t)},${Math.round(230 - 190 * t)})"/>`;
+    if (i % 2 === 0 || keys.length < 8) s += `<text x="${left - 4}" y="${(y + bh * 0.8).toFixed(1)}" text-anchor="end">${k.toFixed(2)}</text>`;
+    if (counts.get(k) === max) s += `<text x="${(left + w + 4).toFixed(1)}" y="${(y + bh * 0.8).toFixed(1)}">floor</text>`; });
+  s += `<text x="${left}" y="${H - 2}">m, 0.25 m bins</text>`;
+  $('heightHist').innerHTML = s;
+}
+
+// ---------- 3D overlay ----------
+// three.js is fetched the first time the overlay opens, so the editor stays light.
+const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+const v3 = { renderer: null, scene: null, cam: null, cloud: null, nodes: null, grid: null, centre: null, dist0: 10, orbit: { yaw: 0.6, pitch: 0.5, dist: 0 } };
+function loadThree() {
+  if (window.THREE) return Promise.resolve();
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = THREE_URL; s.onload = res; s.onerror = () => rej(new Error('could not load three.js')); document.head.appendChild(s); });
+}
+function open3D() {
+  if (!state.points || !state.points.length) { setStatus('No point cloud loaded for this version.', true); return; }
+  $('view3d').hidden = false; $('status3d').textContent = 'Loading…';
+  loadThree().then(() => { init3D(); rebuild3D(true); $('status3d').textContent = `${state.points.length / 3} points · nodes shown as dots at floor height`; })
+    .catch(e => { $('status3d').textContent = e.message; });
+}
+function close3D() { $('view3d').hidden = true; }
+$('open3d').onclick = open3D; $('close3d').onclick = close3D;
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('view3d').hidden) close3D(); });
+function init3D() {
+  if (v3.renderer) return;
+  const cv3 = $('canvas3d');
+  v3.renderer = new THREE.WebGLRenderer({ canvas: cv3, antialias: true }); v3.renderer.setClearColor(0x0c0e14);
+  v3.scene = new THREE.Scene(); v3.cam = new THREE.PerspectiveCamera(50, 1, 0.05, 1000);
+  let drag = null; const touches = new Map(); let pinch = null;
+  cv3.addEventListener('pointerdown', e => { cv3.setPointerCapture(e.pointerId); touches.set(e.pointerId, e); cv3.classList.add('drag');
+    if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), dist: v3.orbit.dist }; drag = null; }
+    else drag = { x: e.clientX, y: e.clientY, yaw: v3.orbit.yaw, pitch: v3.orbit.pitch }; });
+  cv3.addEventListener('pointermove', e => { if (touches.has(e.pointerId)) touches.set(e.pointerId, e);
+    if (pinch && touches.size === 2) { const [a, b] = [...touches.values()]; v3.orbit.dist = Math.max(0.5, Math.min(v3.dist0 * 5, pinch.dist * pinch.d / Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY))); render3D(); return; }
+    if (!drag) return; v3.orbit.yaw = drag.yaw - (e.clientX - drag.x) * 0.008; v3.orbit.pitch = Math.max(-1.4, Math.min(1.5, drag.pitch + (e.clientY - drag.y) * 0.006)); render3D(); });
+  const end = e => { touches.delete(e.pointerId); if (touches.size < 2) pinch = null; if (!touches.size) { drag = null; cv3.classList.remove('drag'); } };
+  cv3.addEventListener('pointerup', end); cv3.addEventListener('pointercancel', end);
+  cv3.addEventListener('wheel', e => { e.preventDefault(); v3.orbit.dist = Math.max(0.5, Math.min(v3.dist0 * 5, v3.orbit.dist * Math.exp(e.deltaY * 0.0015))); render3D(); }, { passive: false });
+  const reset = () => { v3.orbit.yaw = 0.6; v3.orbit.pitch = 0.5; v3.orbit.dist = v3.dist0; render3D(); };
+  cv3.addEventListener('dblclick', reset); $('reset3d').onclick = reset;
+  window.addEventListener('resize', () => { if (!$('view3d').hidden) render3D(); });
+}
+function rebuild3D(recentre = false) {
+  if (!v3.renderer || $('view3d').hidden || !state.points) return;
+  const pts = state.points, h = state.heights || { lo: -1, hi: 1, med: 0 };
+  const b = contentBounds(true);
+  if (recentre || !v3.centre) {
+    v3.centre = new THREE.Vector3((b.minX + b.maxX) / 2, h.med, (b.minZ + b.maxZ) / 2);
+    const span = Math.max(b.maxX - b.minX, b.maxZ - b.minZ, 2); v3.dist0 = span * 1.15; v3.orbit.dist = v3.dist0;
+    if (v3.grid) v3.scene.remove(v3.grid);
+    v3.grid = new THREE.GridHelper(Math.ceil(span) + 4, Math.ceil(span) + 4, 0x3a4150, 0x22262f); v3.grid.position.set(v3.centre.x, h.med - 0.02, v3.centre.z); v3.scene.add(v3.grid);
+  }
+  const step = Math.max(1, Math.floor(pts.length / 3 / 400000)); const idx = [];
+  for (let i = 0; i < pts.length / 3; i += step) { const x = pts[i * 3], y = pts[i * 3 + 1], z = pts[i * 3 + 2];
+    if (inBand(y) && x >= b.minX - 1 && x <= b.maxX + 1 && z >= b.minZ - 1 && z <= b.maxZ + 1) idx.push(i); }
+  const pos = new Float32Array(idx.length * 3), col = new Float32Array(idx.length * 3);
+  idx.forEach((i, k) => { const y = pts[i * 3 + 1]; const t = Math.max(0, Math.min(1, (y - h.lo) / ((h.hi - h.lo) || 1)));
+    pos[k * 3] = pts[i * 3]; pos[k * 3 + 1] = y; pos[k * 3 + 2] = pts[i * 3 + 2];
+    col[k * 3] = (60 + 190 * t) / 255; col[k * 3 + 1] = (110 + 100 * t) / 255; col[k * 3 + 2] = (230 - 190 * t) / 255; });
+  if (v3.cloud) { v3.scene.remove(v3.cloud); v3.cloud.geometry.dispose(); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  v3.cloud = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.08, vertexColors: true })); v3.scene.add(v3.cloud);
+  // the route graph, as dots on the floor plane so markers can be judged against the room
+  if (v3.nodes) { v3.scene.remove(v3.nodes); }
+  v3.nodes = new THREE.Group();
+  (state.graph?.pois || []).forEach(p => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), new THREE.MeshBasicMaterial({ color: CATEGORY_COLORS[p.category] || '#9aa0a6' })); m.position.set(p.x, h.med + 0.12, p.z); v3.nodes.add(m); });
+  v3.scene.add(v3.nodes);
+  render3D();
+}
+function render3D() {
+  if (!v3.renderer || $('view3d').hidden) return;
+  const cv3 = $('canvas3d'); const r = cv3.getBoundingClientRect();
+  v3.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); v3.renderer.setSize(r.width, r.height, false); v3.cam.aspect = r.width / r.height; v3.cam.updateProjectionMatrix();
+  const o = v3.orbit, d = o.dist || v3.dist0, cp = Math.cos(o.pitch), c = v3.centre;
+  v3.cam.position.set(c.x + d * cp * Math.sin(o.yaw), c.y + d * Math.sin(o.pitch), c.z + d * cp * Math.cos(o.yaw)); v3.cam.lookAt(c);
+  v3.renderer.render(v3.scene, v3.cam);
+}
 
 $('exportJSON').onclick = () => {
   if (!state.graph) return;

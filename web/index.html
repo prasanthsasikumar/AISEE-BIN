@@ -25,6 +25,7 @@
     <button id="fit" title="Fit view to content">Fit</button>
     <label class="chk"><input type="checkbox" id="showPoints" checked> points</label>
     <label class="chk"><input type="checkbox" id="showLabels" checked> labels</label>
+    <button id="open3d" title="Turn the point cloud around in 3D (Esc closes)">3D</button>
   </div>
   <div class="toolbar right">
     <input id="note" placeholder="what changed?" size="18">
@@ -49,6 +50,19 @@
     <h2>Map</h2>
     <label>Name <input id="mapName"></label>
     <div id="mapStats" class="muted small"></div>
+    <details id="scanTools" class="scan">
+      <summary>Scan view</summary>
+      <div class="muted small">Only points in this height band are drawn. Floor shows the walkable area; the band above it shows walls and furniture.</div>
+      <div class="scanRange"><span id="bandLoV">–</span><input id="bandLo" type="range" min="0" max="1000" value="0" aria-label="Lowest height shown"></div>
+      <div class="scanRange"><span id="bandHiV">–</span><input id="bandHi" type="range" min="0" max="1000" value="1000" aria-label="Highest height shown"></div>
+      <div class="scanPresets">
+        <button type="button" data-band="all">Everything</button>
+        <button type="button" data-band="floor">Floor</button>
+        <button type="button" data-band="walls">Walls &amp; furniture</button>
+      </div>
+      <label class="chk"><input type="checkbox" id="density"> density (clusters read as solid shapes)</label>
+      <svg id="heightHist" viewBox="0 0 240 110" role="img" aria-label="Histogram of point heights"></svg>
+    </details>
     <div id="connectivity" class="warn small" hidden></div>
     <button id="autoConnect" hidden>Auto-connect isolated places</button>
 
@@ -100,6 +114,11 @@
 </main>
 
 <footer id="status">Ready.</footer>
+<div id="view3d" hidden>
+  <div class="v3bar"><strong>3D</strong><span class="muted small">drag to orbit · wheel or pinch to zoom · double-click to reset · height band from Scan view applies</span><span class="spacer"></span><button id="reset3d">Reset view</button><button id="close3d">Close</button></div>
+  <canvas id="canvas3d"></canvas>
+  <div id="status3d" class="muted small"></div>
+</div>
 <script src="immersal.js"></script>
 <script src="app.js"></script>
 </body>
