@@ -480,8 +480,11 @@ private struct Stepper: View {
                 }
                 .font(.dsSubhead.weight(current ? .semibold : .regular))
                 .foregroundStyle(current ? DS.A.ink : (done ? DS.A.okText : DS.A.inkTertiary))
-                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 12)
                 .padding(.vertical, 8)
+                // The current step keeps its full label; the others share what is left.
+                .fixedSize(horizontal: current, vertical: false)
+                .frame(maxWidth: current ? nil : .infinity)
                 .background(current ? DS.A.card : .clear, in: Capsule())
                 .dsStroke(current ? DS.A.hairline : .clear, 1.5, radius: 22)
             }
