@@ -84,6 +84,9 @@ final class ARNavigationManager: NSObject, ARSessionDelegate {
     /// synchronously. Nil unless a measurement walk is running. Delete
     /// alongside `Probe/`.
     @ObservationIgnored var onProbeFrame: ((ARFrame, ARCamera.TrackingState) -> Void)?
+    /// Same frames for phone-via-Immersal positioning, kept separate from the
+    /// probe's hook so opening the measurement screen does not steal them.
+    @ObservationIgnored var onRawFrame: ((ARFrame, Bool) -> Void)?
 
     static let poiAnchorPrefix = "poi:"
 
@@ -288,6 +291,7 @@ final class ARNavigationManager: NSObject, ARSessionDelegate {
                                  featurePointCount: featurePointCount))
 
         onProbeFrame?(frame, frame.camera.trackingState)
+        onRawFrame?(frame, trackingReliable)
     }
 
     private func updateFPS(timestamp: TimeInterval) {

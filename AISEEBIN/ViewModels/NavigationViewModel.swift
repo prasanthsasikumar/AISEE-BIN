@@ -73,6 +73,9 @@ final class NavigationViewModel {
     let mapStore: MapStore
     let glasses: GlassesService
     let glassesPositioning: GlassesPositioning
+    /// Positions the phone in a map that has an Immersal alignment but no
+    /// ARKit world map (one drawn in the web editor on an Immersal scan).
+    let phoneLocalizer = PhoneImmersalLocalizer()
     @ObservationIgnored private let sync = MapSyncService()
     @ObservationIgnored private let thresholds: GuidanceThresholds
 
@@ -123,11 +126,24 @@ final class NavigationViewModel {
 
     var destinations: [NavigationPOI] { engine.destinations }
     var localizationStatus: LocalizationStatus {
-        positioningSource == .glasses ? glassesPositioning.localizationStatus : arManager.localizationStatus
+        if positioningSource == .glasses { return glassesPositioning.localizationStatus }
+        if phoneAnchoredByImmersal, !phoneLocalizer.isAnchored,
+           arManager.localizationStatus == .trackingReady || arManager.localizationStatus == .initializing {
+            return .relocalizing
+        }
+        return arManager.localizationStatus
     }
     /// The visitor's camera pose in the graph frame, whichever camera it came from.
     var currentTransform: simd_float4x4 {
-        positioningSource == .glasses ? glassesPositioning.cameraTransform : arManager.cameraTransform
+        if positioningSource == .glasses { return glassesPositioning.cameraTransform }
+        if phoneAnchoredByImmersal { return phoneLocalizer.toGraph(arManager.cameraTransform) ?? matrix_identity_float4x4 }
+        return arManager.cameraTransform
+    }
+    /// The phone cannot relocalize into a map that has no ARKit world map; when
+    /// that map carries an Immersal alignment, Immersal fixes anchor ARKit's
+    /// session frame to the graph instead.
+    var phoneAnchoredByImmersal: Bool {
+        baseMap.immersalAlignment != nil && !arManager.hasSavedWorldMap
     }
     var mapAlignment: ImmersalAlignment? { baseMap.immersalAlignment }
 
@@ -194,7 +210,16 @@ final class NavigationViewModel {
     // MARK: - Session lifecycle
 
     func startSession() {
-        arManager.onFrame = { [weak self] snapshot in self?.handle(snapshot) }
+        arManager.onFrame = { [weak self] snapshot in
+            guard let self else { return }
+            self.handle(self.anchored(snapshot))
+        }
+        arManager.onRawFrame = { [weak localizer = phoneLocalizer] frame, trackingNormal in
+            localizer?.consume(frame, trackingNormal: trackingNormal)
+        }
+        phoneLocalizer.onFirstFix = { [weak self] in
+            self?.guidance.speak("Found you.", interrupt: true)
+        }
         arManager.onPOIAnchorsChanged = { [weak self] positions in self?.applyAnchors(positions) }
         glassesPositioning.onPose = { [weak self] snapshot in self?.handle(snapshot) }
         glasses.onFrame = { [weak positioning = glassesPositioning] frame in positioning?.consume(frame) }
@@ -217,11 +242,25 @@ final class NavigationViewModel {
         case .phone:
             glassesPositioning.stop()
             glasses.keepStreaming = false
-            arManager.start(relocalize: true)
-            if arManager.isUsingSavedWorldMap {
-                guidance.speak("Relocalizing. Please look around slowly.", interrupt: true)
+            if let alignment = baseMap.immersalAlignment, alignment.pairCount == 0, arManager.hasSavedWorldMap {
+                // A map drawn in the editor never had a world map; one on disk
+                // is a leftover from an earlier map and would keep ARKit
+                // hunting for a room it is not in.
+                try? arManager.deleteSavedWorldMap()
+            }
+            if phoneAnchoredByImmersal {
+                arManager.start(relocalize: false)
+                phoneLocalizer.start(alignment: baseMap.immersalAlignment)
+                guidance.speak("Finding your position. Please look around slowly.", interrupt: true)
+            } else {
+                phoneLocalizer.stop()
+                arManager.start(relocalize: true)
+                if arManager.isUsingSavedWorldMap {
+                    guidance.speak("Relocalizing. Please look around slowly.", interrupt: true)
+                }
             }
         case .glasses:
+            phoneLocalizer.stop()
             arManager.pause()
             glassesPositioning.start(alignment: baseMap.immersalAlignment)
             glasses.keepStreaming = true
@@ -320,6 +359,11 @@ final class NavigationViewModel {
             })
         }
         syncProgress = 1
+        if remote.worldmapPath == nil, remote.graph.immersalAlignment != nil {
+            // Drawn on an Immersal scan: ARKit must start fresh and let Immersal
+            // anchor it, not hunt for the previous map's world map forever.
+            try arManager.deleteSavedWorldMap()
+        }
         try mapStore.saveMap(remote.graph)
         let record = LocalMapVersion(version: remote.version, source: remote.source,
                                      updatedAt: Date(), slug: remote.mapSlug)
@@ -333,6 +377,7 @@ final class NavigationViewModel {
         stopNavigation()
         arManager.pause()
         glassesPositioning.stop()
+        phoneLocalizer.stop()
     }
 
     /// Re-reads the saved map without restarting tracking: the probe screen
@@ -426,7 +471,7 @@ final class NavigationViewModel {
             localVersion = nil
             rebuildEngine()
         }
-        if positioningSource == .glasses {
+        if positioningSource == .glasses || phoneAnchoredByImmersal {
             startPositioning()
         } else {
             arManager.start(relocalize: !discardSavedMap)
@@ -586,6 +631,18 @@ final class NavigationViewModel {
     }
 
     // MARK: - Per-frame update
+
+    /// ARKit's snapshot carried into the graph frame when Immersal anchors the
+    /// phone; until the first fix the pose is meaningless, so it is unreliable.
+    private func anchored(_ snapshot: PoseSnapshot) -> PoseSnapshot {
+        guard positioningSource == .phone, phoneAnchoredByImmersal else { return snapshot }
+        guard let transform = phoneLocalizer.toGraph(snapshot.cameraTransform) else {
+            return PoseSnapshot(cameraTransform: snapshot.cameraTransform, timestamp: snapshot.timestamp,
+                                trackingReliable: false, featurePointCount: snapshot.featurePointCount)
+        }
+        return PoseSnapshot(cameraTransform: transform, timestamp: snapshot.timestamp,
+                            trackingReliable: snapshot.trackingReliable, featurePointCount: snapshot.featurePointCount)
+    }
 
     private func handle(_ snapshot: PoseSnapshot) {
         updateDebug(with: snapshot)
