@@ -44,13 +44,18 @@ enum MapSyncState: Equatable {
     case failed(String)
     case offlineSample
 
-    var label: String {
+    var label: String { label(mapName: nil) }
+
+    /// The badge text, naming the map when the caller knows it: "Kunal Resort v3"
+    /// says more than "Map v3" once there is more than one map to be on.
+    func label(mapName: String?) -> String {
+        let map = mapName.map { "\($0) " } ?? "Map "
         switch self {
         case .idle:                 return ""
         case .checking:             return "Checking server for map updates…"
-        case .upToDate(let v):      return "Map v\(v) (latest)"
-        case .downloading(let v):   return "Downloading map v\(v)…"
-        case .updated(let v):       return "Updated to map v\(v)"
+        case .upToDate(let v):      return "\(map)v\(v) (latest)"
+        case .downloading(let v):   return "Downloading \(map)v\(v)…"
+        case .updated(let v):       return "Updated to \(map)v\(v)"
         case .failed(let message):  return "Sync failed: \(message)"
         case .offlineSample:        return "No map on server yet, using bundled sample"
         }

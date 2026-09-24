@@ -51,7 +51,7 @@ struct StartListeningIntent: AppIntent {
 /// "Hey Siri, take me to the Restrooms in AISEE-BIN."
 struct NavigateToIntent: AppIntent {
     static var title: LocalizedStringResource = "Navigate to a destination"
-    static var description = IntentDescription("Starts hands-free guidance to a place in the greenhouse.")
+    static var description = IntentDescription("Starts hands-free guidance to a place in the current map.")
     static var openAppWhenRun = true
 
     @Parameter(title: "Destination")

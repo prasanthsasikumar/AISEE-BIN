@@ -114,7 +114,7 @@ struct ContentView: View {
                     tint: DS.N.warnText)
         default:
             SyncRow(icon: "arrow.down.to.line",
-                    text: viewModel.syncState.label,
+                    text: viewModel.syncState.label(mapName: viewModel.mapName),
                     tint: DS.N.inkTertiary)
         }
     }
@@ -146,8 +146,8 @@ struct ContentView: View {
         } else if isRelocalizing {
             HintPanel(icon: "arrow.trianglehead.2.clockwise.rotate.90",
                       text: viewModel.positioningSource == .glasses
-                          ? "Look around slowly so the glasses can recognise the greenhouse."
-                          : "Pan the phone slowly across the room so it can recognise the greenhouse.",
+                          ? "Look around slowly so the glasses can recognise \(viewModel.mapName)."
+                          : "Pan the phone slowly across the room so it can recognise \(viewModel.mapName).",
                       style: .warning)
         } else if let message = viewModel.statusMessage {
             HintPanel(icon: "info.circle", text: message, style: .neutral)
