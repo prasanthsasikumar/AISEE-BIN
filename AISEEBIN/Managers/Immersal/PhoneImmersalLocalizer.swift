@@ -75,6 +75,8 @@ final class PhoneImmersalLocalizer {
         claim.arm(generation: generation)
         running = true
         Self.logger.notice("started against maps \(alignment.mapIDs, privacy: .public)")
+        let token = ImmersalConfig.token
+        DiagnosticsLog.write("phone-immersal start maps=\(alignment.mapIDs) token=\(token.prefix(6))… \(ImmersalConfig.storedToken.isEmpty ? "built-in" : "typed") bundled=\(ImmersalConfig.hasBundledToken)")
     }
 
     func stop() {
@@ -82,6 +84,7 @@ final class PhoneImmersalLocalizer {
         running = false
         claim.disarm()
         Self.logger.notice("stopped after \(self.attempts) attempts, \(self.anchor.fixes) fixes")
+        DiagnosticsLog.write("phone-immersal stop attempts=\(attempts) fixes=\(anchor.fixes)")
     }
 
     /// ARKit delegate thread. Copies what the request needs out of the frame
@@ -92,6 +95,7 @@ final class PhoneImmersalLocalizer {
         else { return }
         guard let plane = ImmersalFrameEncoder.copyLuma(from: frame.capturedImage) else {
             claim.release()
+            DiagnosticsLog.write("phone-immersal frame: could not copy luma")
             return
         }
         let intrinsics = ImmersalFrameEncoder.scaledIntrinsics(frame.camera.intrinsics)
@@ -116,7 +120,14 @@ final class PhoneImmersalLocalizer {
                           generation: Int) async {
         defer { claim.release() }
         guard generation == self.generation, running, let alignment else { return }
-        guard let png else { lastError = "encode"; return }
+        guard let png else { lastError = "encode"; DiagnosticsLog.write("phone-immersal encode failed"); return }
+        // Keep a recent frame as sent, so it can be pulled off a tester's phone
+        // and run against Immersal by hand when nothing matches. The first few
+        // after a start and then one in twenty: enough to see, cheap on disk.
+        if attempts < 3 || attempts % 20 == 0 {
+            try? png.write(to: DiagnosticsLog.url.deletingLastPathComponent().appendingPathComponent("immersal-last.png"))
+            DiagnosticsLog.write(String(format: "phone-immersal frame fx=%.0f fy=%.0f ox=%.0f oy=%.0f png=%d B", intrinsics.fx, intrinsics.fy, intrinsics.ox, intrinsics.oy, png.count))
+        }
         let result = await ImmersalClient(token: token, mapIDs: alignment.mapIDs)
             .localize(pngData: png, fx: intrinsics.fx, fy: intrinsics.fy, ox: intrinsics.ox, oy: intrinsics.oy)
         guard generation == self.generation, running else { return }
@@ -132,6 +143,7 @@ final class PhoneImmersalLocalizer {
         lastLatencyMS = Int((result.latency * 1000).rounded())
         lastMapID = result.mapID
         Self.logger.notice("localize \(self.attempts): \(result.success ? "fix" : result.error, privacy: .public) map=\(result.mapID ?? -1) \(self.lastLatencyMS) ms")
+        DiagnosticsLog.write("phone-immersal localize \(attempts): \(result.success ? "fix" : result.error) map=\(result.mapID ?? -1) \(lastLatencyMS) ms \(result.requestBytes) B")
         guard result.success, let raw = result.pose, let poseInMap = ImmersalPose.cameraPoseInMap(raw) else {
             lastError = result.success ? "malformed pose" : result.error
             if ImmersalConfig.recoverFromRejectedToken(token, error: result.error) {

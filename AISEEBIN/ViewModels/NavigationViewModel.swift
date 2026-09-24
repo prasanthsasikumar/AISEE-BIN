@@ -265,6 +265,7 @@ final class NavigationViewModel {
                 // hunting for a room it is not in.
                 try? arManager.deleteSavedWorldMap()
             }
+            DiagnosticsLog.write("startPositioning phone map=\(baseMap.name) alignment=\(baseMap.immersalAlignment?.mapIDs ?? []) pairs=\(baseMap.immersalAlignment?.pairCount ?? -1) worldMap=\(arManager.hasSavedWorldMap) anchored=\(phoneAnchoredByImmersal)")
             if phoneAnchoredByImmersal {
                 arManager.start(relocalize: false)
                 phoneLocalizer.start(alignment: baseMap.immersalAlignment)

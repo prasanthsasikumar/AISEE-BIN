@@ -25,6 +25,7 @@
 		2C13C6CDB6F77BB0FC7CD442 /* AiSeePhotoCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3391E515B1906330F464B3A /* AiSeePhotoCapture.swift */; };
 		2DA74101C496D08548EFB967 /* ImmersalAnchorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 732C9DF79D60A7D5AD48EB6E /* ImmersalAnchorTests.swift */; };
 		2ECCD0AE96263AB05B9C6D78 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4EE4F65AADED8973A6CB5994 /* Assets.xcassets */; };
+		2FFDE7F8F85D76EEB248FD74 /* DiagnosticsLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43F2546231C38CF2AC02B574 /* DiagnosticsLog.swift */; };
 		34BD1D2E46A272EECCBA94BC /* PathfindingEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FEA60DAC23822F2F832ED26 /* PathfindingEngineTests.swift */; };
 		37F09F70666F696E32B6F55B /* GlassesPositioning.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97885123C8C5A05ACE0A19CD /* GlassesPositioning.swift */; };
 		3E0C45A2794BDE0BE5961D33 /* ImmersalAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 934CBA174987878635BCFEA4 /* ImmersalAnchor.swift */; };
@@ -159,6 +160,7 @@
 		395123273695F83CCD1FCC82 /* AppCommandBus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommandBus.swift; sourceTree = "<group>"; };
 		422D20AF3BC61E11863E9258 /* MapSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSyncService.swift; sourceTree = "<group>"; };
 		428A5744E4DC3A40A1F0BF37 /* NearbyQueryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyQueryTests.swift; sourceTree = "<group>"; };
+		43F2546231C38CF2AC02B574 /* DiagnosticsLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsLog.swift; sourceTree = "<group>"; };
 		44488FCAC2B5F4FE7DDF9669 /* AiSeeMicrophone.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeMicrophone.swift; sourceTree = "<group>"; };
 		4A3E9E698BB47484D5B90BE7 /* AISEEIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISEEIntents.swift; sourceTree = "<group>"; };
 		4EC5B2AE569FC940946C603A /* GuidancePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidancePolicy.swift; sourceTree = "<group>"; };
@@ -351,6 +353,7 @@
 		8A6B4D9921074725A38405B6 /* Immersal */ = {
 			isa = PBXGroup;
 			children = (
+				43F2546231C38CF2AC02B574 /* DiagnosticsLog.swift */,
 				934CBA174987878635BCFEA4 /* ImmersalAnchor.swift */,
 				6F0B7D19FAD5C3C4FF953A24 /* ImmersalClient.swift */,
 				BA86CE5678D12689FADC8D83 /* ImmersalConfig.swift */,
@@ -566,6 +569,7 @@
 				EAED3D7562D130E0A729E12E /* CommandParser.swift in Sources */,
 				58BAFE9E68010A289EC9A83B /* ContentView.swift in Sources */,
 				9690AF9CF20D2C2F02F70BC6 /* DesignSystem.swift in Sources */,
+				2FFDE7F8F85D76EEB248FD74 /* DiagnosticsLog.swift in Sources */,
 				7A4E680AF61823BF493BB8F1 /* FixGate.swift in Sources */,
 				B21D44B250BDA53420770296 /* FocalCalibration.swift in Sources */,
 				B0FE9A66912963DAC418682E /* FocalCalibrationRunner.swift in Sources */,
