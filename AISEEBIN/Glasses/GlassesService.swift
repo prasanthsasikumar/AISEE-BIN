@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import NetworkExtension
 import Observation
 import OSLog
 import UIKit
@@ -210,9 +211,43 @@ final class GlassesService {
 
     // MARK: - Live stream
 
+    /// Tries a few times. Each attempt first forgets the Wi-Fi configurations
+    /// this app registered: iOS only asks to join a network, and only really
+    /// switches to it, when the configuration is new. With a stale one on file
+    /// the join "succeeds" silently while the phone stays on the hotel Wi-Fi,
+    /// and the stream then fails against the wrong network
+    /// (`HotspotConnection.Failure.serverError`).
     func startStreaming() async throws {
         guard !isStreaming else { return }
         lastStreamError = nil
+        var lastError: Error?
+        for attempt in 1...3 {
+            await forgetHotspotConfigurations()
+            do {
+                try await startStreamingOnce()
+                return
+            } catch {
+                lastError = error
+                append("livestream: attempt \(attempt) failed: \(error.localizedDescription)")
+                if attempt < 3 { try? await Task.sleep(for: .seconds(2)) }
+            }
+        }
+        throw lastError ?? AiSeeError.streamUnavailable
+    }
+
+    /// Drops every Wi-Fi configuration this app has registered, so the next
+    /// join is a fresh one. Only our own configurations are visible or removable.
+    private func forgetHotspotConfigurations() async {
+        let ssids = await withCheckedContinuation { continuation in
+            NEHotspotConfigurationManager.shared.getConfiguredSSIDs { continuation.resume(returning: $0) }
+        }
+        guard !ssids.isEmpty else { return }
+        for ssid in ssids { NEHotspotConfigurationManager.shared.removeConfiguration(forSSID: ssid) }
+        append("livestream: forgot Wi-Fi configuration for \(ssids.joined(separator: ", "))")
+        try? await Task.sleep(for: .milliseconds(300))
+    }
+
+    private func startStreamingOnce() async throws {
         try await coordinator.startLiveStream(
             onFrame: { [weak self] frame in self?.receive(frame) },
             onError: { [weak self] text in
@@ -295,6 +330,7 @@ final class GlassesService {
     private static let logger = Logger(subsystem: "com.flowsxr.aiseebin", category: "glasses")
 
     private func append(_ line: String) {
+        DiagnosticsLog.write("glasses: \(line)")
         Self.logger.notice("\(line, privacy: .public)")
         log.append(line)
         if log.count > 60 { log.removeFirst(log.count - 60) }
