@@ -220,7 +220,7 @@ struct GlassesView: View {
 
     private var calibrationBlockedReason: String? {
         if !glasses.isStreaming { return "Turn on Live video above first." }
-        if !ImmersalConfig.isConfigured { return ImmersalConfig.missingCredentialsHint }
+        if ImmersalConfig.token.isEmpty || ImmersalConfig.mapIDs(for: viewModel.mapAlignment).isEmpty { return ImmersalConfig.missingCredentialsHint }
         return nil
     }
 
@@ -233,7 +233,7 @@ struct GlassesView: View {
             guard let png else { return nil }
             return (png, copy.width, copy.height)
         }, localize: { png, k in
-            await ImmersalClient(token: ImmersalConfig.token, mapIDs: ImmersalConfig.mapIDs)
+            await ImmersalClient(token: ImmersalConfig.token, mapIDs: ImmersalConfig.mapIDs(for: viewModel.mapAlignment))
                 .localize(pngData: png, fx: k.fx, fy: k.fy, ox: k.ox, oy: k.oy)
         })
         Task {

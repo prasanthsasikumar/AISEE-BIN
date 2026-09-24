@@ -96,7 +96,7 @@ final class GlassesPositioning {
     @ObservationIgnored private var extrapolator = PoseExtrapolator()
     @ObservationIgnored private var ticker: Task<Void, Never>?
     @ObservationIgnored private let pedometer: WalkedDistanceSource
-    @ObservationIgnored private let localize: Localize
+    @ObservationIgnored private var localize: Localize
     @ObservationIgnored private var running = false
     @ObservationIgnored private var generation = 0
 
@@ -133,11 +133,19 @@ final class GlassesPositioning {
 
     init(pedometer: WalkedDistanceSource = PedometerDistance(), localize: Localize? = nil) {
         self.pedometer = pedometer
-        self.localize = localize ?? { png, k in
-            await ImmersalClient(token: ImmersalConfig.token, mapIDs: ImmersalConfig.mapIDs)
+        self.usesDefaultLocalizer = localize == nil
+        self.localize = localize ?? Self.cloudLocalizer(mapIDs: ImmersalConfig.mapIDs)
+    }
+
+    /// The REST localizer against `mapIDs`, rebuilt per `start` so the ids are
+    /// the loaded map's own rather than whatever Settings holds.
+    private static func cloudLocalizer(mapIDs: [Int]) -> Localize {
+        { png, k in
+            await ImmersalClient(token: ImmersalConfig.token, mapIDs: mapIDs)
                 .localize(pngData: png, fx: k.fx, fy: k.fy, ox: k.ox, oy: k.oy)
         }
     }
+    @ObservationIgnored private let usesDefaultLocalizer: Bool
 
     // MARK: - Lifecycle
 
@@ -155,10 +163,13 @@ final class GlassesPositioning {
             localizationStatus = .limited(reason: "Map not aligned")
             return
         }
-        guard ImmersalConfig.isConfigured else {
-            localizationStatus = .limited(reason: "No Immersal token")
+        let mapIDs = ImmersalConfig.mapIDs(for: alignment)
+        guard !ImmersalConfig.token.isEmpty, !mapIDs.isEmpty else {
+            localizationStatus = .limited(reason: ImmersalConfig.token.isEmpty ? "No Immersal token" : "No Immersal map ids")
             return
         }
+        if usesDefaultLocalizer { localize = Self.cloudLocalizer(mapIDs: mapIDs) }
+        DiagnosticsLog.write("glasses-immersal start maps=\(mapIDs) token=\(ImmersalConfig.token.prefix(6))…")
         running = true
         claim.arm(generation: generation)
         pedometer.start()

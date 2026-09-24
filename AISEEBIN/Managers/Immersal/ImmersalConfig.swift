@@ -67,6 +67,15 @@ enum ImmersalConfig {
 
     static var isConfigured: Bool { !token.isEmpty && !mapIDs.isEmpty }
 
+    /// The map ids a localizer should use: the loaded map's own, when it has
+    /// an Immersal alignment, else what was typed in Settings. The typed ids
+    /// are for the probe and for calibrating before any map is aligned; once
+    /// a map names its Immersal map, that is the only sensible target.
+    static func mapIDs(for alignment: ImmersalAlignment?) -> [Int] {
+        if let ids = alignment?.mapIDs, !ids.isEmpty { return ids }
+        return mapIDs
+    }
+
     /// Immersal has just refused `token`. When that was a token typed on this
     /// device and the build carries its own, the typed one is stale — from a
     /// tester's old account, or the probe days — so drop it and let the built-in
