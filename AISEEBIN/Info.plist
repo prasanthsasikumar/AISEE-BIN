@@ -19,7 +19,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>0.1.0</string>
 	<key>CFBundleVersion</key>
-	<string>7</string>
+	<string>8</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>ImmersalDefaultToken</key>
@@ -28,8 +28,14 @@
 	<string>AISEE-BIN connects to your AiSee glasses over Bluetooth so their camera and button can guide you.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>AISEE-BIN uses the camera to track your position inside the greenhouse and guide you between exhibits.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>AISEE-BIN does not read your contacts. This permission text is required because the AiSee glasses’ audio library can announce caller names; the app never asks for it.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>AISEE-BIN receives the glasses’ live video over their local Wi-Fi hotspot.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>AISEE-BIN does not use your location. This permission text is required because the AiSee glasses’ audio library can use location; the app never asks for it.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>AISEE-BIN does not use your location. This permission text is required because the AiSee glasses’ audio library can use location; the app never asks for it.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>AISEE-BIN listens for spoken commands such as "take me to the Orchid Display" when you press the talk button.</string>
 	<key>NSMotionUsageDescription</key>
