@@ -120,19 +120,24 @@ final class PhoneImmersalLocalizer {
         let result = await ImmersalClient(token: token, mapIDs: alignment.mapIDs)
             .localize(pngData: png, fx: intrinsics.fx, fy: intrinsics.fy, ox: intrinsics.ox, oy: intrinsics.oy)
         guard generation == self.generation, running else { return }
-        apply(result, sessionPose: sessionPose, capturedAt: capturedAt, alignment: alignment)
+        apply(result, sessionPose: sessionPose, capturedAt: capturedAt, alignment: alignment, token: token)
     }
 
     private func apply(_ result: ImmersalLocalizeResult,
                        sessionPose: simd_float4x4,
                        capturedAt: TimeInterval,
-                       alignment: ImmersalAlignment) {
+                       alignment: ImmersalAlignment,
+                       token: String) {
         attempts += 1
         lastLatencyMS = Int((result.latency * 1000).rounded())
         lastMapID = result.mapID
         Self.logger.notice("localize \(self.attempts): \(result.success ? "fix" : result.error, privacy: .public) map=\(result.mapID ?? -1) \(self.lastLatencyMS) ms")
         guard result.success, let raw = result.pose, let poseInMap = ImmersalPose.cameraPoseInMap(raw) else {
             lastError = result.success ? "malformed pose" : result.error
+            if ImmersalConfig.recoverFromRejectedToken(token, error: result.error) {
+                lastError = "\(result.error) · typed token dropped, retrying with the built-in one"
+                Self.logger.notice("token rejected (\(result.error, privacy: .public)); reverted to the built-in token")
+            }
             return
         }
         let wasAnchored = anchor.isAnchored

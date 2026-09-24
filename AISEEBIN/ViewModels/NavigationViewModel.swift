@@ -144,6 +144,18 @@ final class NavigationViewModel {
         if phoneAnchoredByImmersal { return phoneLocalizer.toGraph(arManager.cameraTransform) ?? matrix_identity_float4x4 }
         return arManager.cameraTransform
     }
+    /// One line for the screen while Immersal is still finding the phone, so a
+    /// tester can tell "no network" from "no match" from "wrong map" on the spot.
+    var phoneImmersalSummary: String? {
+        guard positioningSource == .phone, phoneAnchoredByImmersal else { return nil }
+        let ids = (baseMap.immersalAlignment?.mapIDs ?? []).map(String.init).joined(separator: ",")
+        if ImmersalConfig.token.isEmpty { return "Immersal: no token set (Settings) · map \(ids)" }
+        let loc = phoneLocalizer
+        if !loc.running { return "Immersal: not running · map \(ids)" }
+        let last = loc.lastError ?? (loc.fixes > 0 ? "fix" : (loc.attempts == 0 ? "waiting for ARKit tracking" : "no answer"))
+        return "Immersal map \(ids) · \(loc.fixes) fixes / \(loc.attempts) tries · last: \(last) · \(loc.lastLatencyMS) ms"
+    }
+
     /// The phone cannot relocalize into a map that has no ARKit world map; when
     /// that map carries an Immersal alignment, Immersal fixes anchor ARKit's
     /// session frame to the graph instead.
@@ -762,9 +774,11 @@ final class NavigationViewModel {
             debug.worldMapping = "immersal"
         } else {
             debug.fps = arManager.framesPerSecond
-            debug.trackingState = arManager.trackingStateDescription
+            debug.trackingState = phoneAnchoredByImmersal
+                ? "\(arManager.trackingStateDescription) · immersal \(phoneLocalizer.fixes)/\(phoneLocalizer.attempts)"
+                : arManager.trackingStateDescription
             debug.featurePoints = snapshot.featurePointCount
-            debug.worldMapping = arManager.worldMappingStatus.label
+            debug.worldMapping = phoneAnchoredByImmersal ? (phoneLocalizer.lastError ?? "anchored") : arManager.worldMappingStatus.label
         }
         debug.position = NavigationGeometry.planarPosition(of: snapshot.cameraTransform)
         debug.headingDegrees = NavigationGeometry.heading(of: snapshot.cameraTransform) * 180 / .pi

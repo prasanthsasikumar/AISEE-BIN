@@ -67,6 +67,19 @@ enum ImmersalConfig {
 
     static var isConfigured: Bool { !token.isEmpty && !mapIDs.isEmpty }
 
+    /// Immersal has just refused `token`. When that was a token typed on this
+    /// device and the build carries its own, the typed one is stale — from a
+    /// tester's old account, or the probe days — so drop it and let the built-in
+    /// token take over on the next request. Returns whether anything changed.
+    @discardableResult
+    static func recoverFromRejectedToken(_ rejected: String, error: String) -> Bool {
+        guard error == "auth" || error == "map count",
+              let bundled = bundledToken,
+              !storedToken.isEmpty, rejected != bundled else { return false }
+        token = ""
+        return true
+    }
+
     /// What is still missing, worded for the screen that asks for it.
     static var missingCredentialsHint: String {
         hasBundledToken ? "Enter the Immersal map ids below." : "Enter the Immersal token and map ids below."

@@ -237,6 +237,9 @@ final class GlassesPositioning {
         guard result.success, let raw = result.pose,
               let poseInMap = ImmersalPose.cameraPoseInMap(raw) else {
             lastError = result.success ? "malformed pose" : result.error
+            if ImmersalConfig.recoverFromRejectedToken(ImmersalConfig.token, error: result.error) {
+                lastError = "\(result.error) · typed token dropped, retrying with the built-in one"
+            }
             return
         }
         guard let alignment else { return }

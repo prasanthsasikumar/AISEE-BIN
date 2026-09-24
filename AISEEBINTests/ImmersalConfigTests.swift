@@ -35,3 +35,23 @@ final class ImmersalConfigTests: XCTestCase {
         XCTAssertEqual(ImmersalConfig.resolveToken(stored: " abc \n", bundled: nil), "abc")
     }
 }
+
+/// A stale typed token must not lock a tester out of a build that carries its own.
+final class ImmersalConfigRecoveryTests: XCTestCase {
+    private let key = "probe.immersal.token"
+    override func tearDown() { UserDefaults.standard.removeObject(forKey: key); super.tearDown() }
+
+    func testRecoveryDropsATypedTokenOnlyWhenImmersalRejectedItAndABuiltInExists() {
+        UserDefaults.standard.set("old-token", forKey: key)
+        // Without a bundled token there is nothing to fall back to.
+        if ImmersalConfig.bundledToken == nil {
+            XCTAssertFalse(ImmersalConfig.recoverFromRejectedToken("old-token", error: "map count"))
+            XCTAssertEqual(ImmersalConfig.storedToken, "old-token")
+        } else {
+            XCTAssertFalse(ImmersalConfig.recoverFromRejectedToken("old-token", error: "no match"))
+            XCTAssertEqual(ImmersalConfig.storedToken, "old-token")
+            XCTAssertTrue(ImmersalConfig.recoverFromRejectedToken("old-token", error: "map count"))
+            XCTAssertEqual(ImmersalConfig.storedToken, "")
+        }
+    }
+}

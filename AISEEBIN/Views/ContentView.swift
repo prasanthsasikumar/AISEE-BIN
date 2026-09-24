@@ -143,6 +143,10 @@ struct ContentView: View {
             TranscriptPanel(transcript: viewModel.recognizer.transcript)
         } else if viewModel.isOffRoute, let known = viewModel.lastKnownDescription {
             HintPanel(icon: "mappin.and.ellipse", text: "Last known: \(known).", style: .neutral)
+        } else if isRelocalizing, let summary = viewModel.phoneImmersalSummary {
+            HintPanel(icon: "arrow.trianglehead.2.clockwise.rotate.90",
+                      text: "Finding your position in \(viewModel.mapName). Point the phone at the room and move slowly.\n\(summary)",
+                      style: .warning)
         } else if isRelocalizing {
             HintPanel(icon: "arrow.trianglehead.2.clockwise.rotate.90",
                       text: viewModel.positioningSource == .glasses
