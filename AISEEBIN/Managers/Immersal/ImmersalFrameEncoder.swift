@@ -125,6 +125,84 @@ enum ImmersalFrameEncoder {
         return (png, w, h)
     }
 
+    // MARK: - Packed gray frames (what the localizers consume)
+
+    /// `plane` reduced by `factor`, with the row padding dropped. Factor 1 is
+    /// a row-by-row copy; anything larger is a CoreGraphics resample.
+    static func packedLuma(from plane: LumaPlane, factor: Int = downscale) -> GrayFrame? {
+        let f = max(1, factor)
+        if f == 1 {
+            if plane.rowBytes == plane.width {
+                return GrayFrame(pixels: plane.bytes, width: plane.width, height: plane.height)
+            }
+            var packed = Data(capacity: plane.width * plane.height)
+            for row in 0..<plane.height {
+                let start = row * plane.rowBytes
+                packed.append(plane.bytes.subdata(in: start..<(start + plane.width)))
+            }
+            return GrayFrame(pixels: packed, width: plane.width, height: plane.height)
+        }
+        guard let source = cgImage(from: plane) else { return nil }
+        return gray(drawing: source, targetWidth: plane.width / f, targetHeight: plane.height / f, interpolate: true)
+    }
+
+    /// `image` reduced to `targetWidth` pixels wide (aspect kept) as gray pixels.
+    static func gray(from image: BGRAImage, targetWidth: Int) -> GrayFrame? {
+        guard let source = cgImage(from: image) else { return nil }
+        let w = min(max(1, targetWidth), image.width)
+        let h = max(1, image.height * w / image.width)
+        return gray(drawing: source, targetWidth: w, targetHeight: h, interpolate: w < image.width)
+    }
+
+    /// 8-bit grayscale PNG of a packed frame, for the cloud localizer and the
+    /// diagnostics sample files.
+    static func png(from frame: GrayFrame) -> Data? {
+        let gray = CGColorSpaceCreateDeviceGray()
+        guard let provider = CGDataProvider(data: frame.pixels as CFData),
+              let image = CGImage(width: frame.width, height: frame.height,
+                                  bitsPerComponent: 8, bitsPerPixel: 8,
+                                  bytesPerRow: frame.width, space: gray,
+                                  bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+                                  provider: provider, decode: nil,
+                                  shouldInterpolate: false, intent: .defaultIntent)
+        else { return nil }
+        return UIImage(cgImage: image).pngData()
+    }
+
+    /// Draws `source` into a gray context of the target size and returns the
+    /// context's pixels, packed. Drawing into a gray context is also what
+    /// converts colour to luma.
+    private static func gray(drawing source: CGImage, targetWidth w: Int, targetHeight h: Int,
+                             interpolate: Bool) -> GrayFrame? {
+        let w = max(1, w), h = max(1, h)
+        let gray = CGColorSpaceCreateDeviceGray()
+        guard let context = CGContext(data: nil, width: w, height: h,
+                                      bitsPerComponent: 8, bytesPerRow: w,
+                                      space: gray, bitmapInfo: CGImageAlphaInfo.none.rawValue),
+              let base = context.data
+        else { return nil }
+        context.interpolationQuality = interpolate ? .high : .none
+        context.draw(source, in: CGRect(x: 0, y: 0, width: w, height: h))
+        let rowBytes = context.bytesPerRow
+        if rowBytes == w {
+            return GrayFrame(pixels: Data(bytes: base, count: w * h), width: w, height: h)
+        }
+        var packed = Data(capacity: w * h)
+        for row in 0..<h { packed.append(Data(bytes: base + row * rowBytes, count: w)) }
+        return GrayFrame(pixels: packed, width: w, height: h)
+    }
+
+    private static func cgImage(from plane: LumaPlane) -> CGImage? {
+        let gray = CGColorSpaceCreateDeviceGray()
+        guard let provider = CGDataProvider(data: plane.bytes as CFData) else { return nil }
+        return CGImage(width: plane.width, height: plane.height,
+                       bitsPerComponent: 8, bitsPerPixel: 8,
+                       bytesPerRow: plane.rowBytes, space: gray,
+                       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+                       provider: provider, decode: nil,
+                       shouldInterpolate: false, intent: .defaultIntent)
+    }
+
     private static func cgImage(from image: BGRAImage) -> CGImage? {
         let rgb = CGColorSpaceCreateDeviceRGB()
         let info = CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Little.rawValue
