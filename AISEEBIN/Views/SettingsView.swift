@@ -66,7 +66,7 @@ struct SettingsView: View {
             Button(mapDownloadState ?? "Download maps for offline use") {
                 downloadMaps()
             }
-            .disabled(mapDownloadState != nil || ImmersalConfig.token.isEmpty || mapIDsText.immersalMapIDs.isEmpty)
+            .disabled(mapDownloadState != nil || ImmersalConfig.token.isEmpty || offlineMapIDs.isEmpty)
             if let mapDownloadError {
                 Text(mapDownloadError).font(.footnote).foregroundStyle(.red)
             }
@@ -87,13 +87,16 @@ struct SettingsView: View {
         }
     }
 
+    /// The maps positioning actually uses: the loaded map's own, else the typed ids.
+    private var offlineMapIDs: [Int] { ImmersalConfig.mapIDs(for: viewModel.mapAlignment) }
+
     private func refreshCachedMaps() {
         let cache = ImmersalMapCache()
-        cachedMapIDs = mapIDsText.immersalMapIDs.filter { cache.contains($0) }
+        cachedMapIDs = offlineMapIDs.filter { cache.contains($0) }
     }
 
     private func downloadMaps() {
-        let ids = mapIDsText.immersalMapIDs
+        let ids = offlineMapIDs
         let token = ImmersalConfig.token
         mapDownloadState = "Downloading…"
         mapDownloadError = nil

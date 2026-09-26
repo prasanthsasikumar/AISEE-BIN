@@ -281,6 +281,9 @@ final class NavigationViewModel {
                 if arManager.isUsingSavedWorldMap {
                     guidance.speak("Relocalizing. Please look around slowly.", interrupt: true)
                 }
+                // ARKit positions the phone here, but the glasses would need
+                // this map's Immersal binaries: cache them while online.
+                fetchImmersalMapsIfMissing(restart: false)
             }
         case .glasses:
             phoneLocalizer.stop()
