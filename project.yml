@@ -18,7 +18,12 @@ settings:
     # are gated to iphoneos and the frameworks are excluded from simulator builds,
     # so the simulator and the test target compile against the kit's #else stubs.
     "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(inherited) $(SRCROOT)/Vendor/RTK"
-    "SWIFT_INCLUDE_PATHS[sdk=iphoneos*]": "$(inherited) $(SRCROOT)/Vendor/RTK"
+    "SWIFT_INCLUDE_PATHS[sdk=iphoneos*]": "$(inherited) $(SRCROOT)/Vendor/RTK $(SRCROOT)/Vendor/Immersal"
+    # Immersal's native plugin (Vendor/Immersal) is a device-only static
+    # library; the simulator compiles ImmersalNativeStubs.c instead.
+    "SWIFT_INCLUDE_PATHS[sdk=iphonesimulator*]": "$(inherited) $(SRCROOT)/Vendor/Immersal"
+    "LIBRARY_SEARCH_PATHS[sdk=iphoneos*]": "$(inherited) $(SRCROOT)/Vendor/Immersal"
+    "OTHER_LDFLAGS[sdk=iphoneos*]": "$(inherited) -lPosePlugin -lc++"
     "EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]":
       - RTKAIDeviceConnection.framework
       - RTKAudioConnectSDK.framework
@@ -36,6 +41,11 @@ targets:
     sources:
       - path: AISEEBIN
         excludes: ["Glasses/AiSeeGlassKit/README.md"]
+      - path: Vendor/Immersal/ImmersalNativeStubs.c
+    preBuildScripts:
+      - name: Fetch Immersal plugin
+        script: '"$SRCROOT/Vendor/Immersal/fetch.sh"'
+        basedOnDependencyAnalysis: false
     entitlements:
       path: AISEEBIN/AISEEBIN.entitlements
       properties:
@@ -70,6 +80,7 @@ targets:
         # Must live on the target: a project-level value loses to Xcode's target default of 1,2,
         # and an iPad-capable app is rejected (90474) for being portrait-only.
         TARGETED_DEVICE_FAMILY: "1"
+        "EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]": ImmersalNativeStubs.c
   AISEEBINTests:
     type: bundle.unit-test
     platform: iOS

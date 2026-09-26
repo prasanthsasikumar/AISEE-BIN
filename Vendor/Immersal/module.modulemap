@@ -1,0 +1,4 @@
+module PosePlugin {
+    header "PosePlugin.h"
+    export *
+}

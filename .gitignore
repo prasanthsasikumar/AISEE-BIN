@@ -5,3 +5,4 @@ DerivedData/
 build/
 *.moved-aside
 .DS_Store
+Vendor/Immersal/libPosePlugin.a
