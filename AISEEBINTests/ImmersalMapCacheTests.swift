@@ -52,8 +52,9 @@ final class ImmersalMapCacheTests: XCTestCase {
         XCTAssertTrue(cache.contains(5))
         XCTAssertTrue(cache.contains(6))
         XCTAssertEqual(cache.data(for: 5)?.count, 2048)
+        // Immersal answers "not found" unless `token` comes before `id`.
         let queries = TestURLStub.requests.map { $0.query ?? "" }.sorted()
-        XCTAssertEqual(queries, ["id=5&token=tok", "id=6&token=tok"])
+        XCTAssertEqual(queries, ["token=tok&id=5", "token=tok&id=6"])
         XCTAssertTrue(TestURLStub.requests.allSatisfy { $0.path == "/map" })
     }
 

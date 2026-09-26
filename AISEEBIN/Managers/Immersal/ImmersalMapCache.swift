@@ -51,8 +51,9 @@ struct ImmersalMapCache {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         for (index, id) in ids.enumerated() {
             var components = URLComponents(url: Self.endpoint, resolvingAgainstBaseURL: false)!
-            components.queryItems = [URLQueryItem(name: "id", value: "\(id)"),
-                                     URLQueryItem(name: "token", value: token)]
+            // Order matters to Immersal: `id` before `token` answers "not found".
+            components.queryItems = [URLQueryItem(name: "token", value: token),
+                                     URLQueryItem(name: "id", value: "\(id)")]
             var request = URLRequest(url: components.url!)
             request.timeoutInterval = 120
             let (data, response) = try await session.data(for: request)
