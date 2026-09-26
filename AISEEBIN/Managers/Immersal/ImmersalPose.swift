@@ -9,7 +9,7 @@ import simd
 /// numbers and the interpretation happens in post-processing, where all four
 /// candidate conventions can be tried against the data. See
 /// `ImmersalPoseConvention`.
-struct ImmersalRawPose: Equatable {
+struct ImmersalRawPose: Equatable, Sendable {
     /// Position in map space, metres.
     var px: Float
     var py: Float

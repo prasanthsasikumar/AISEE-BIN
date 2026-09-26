@@ -1,7 +1,7 @@
 import Foundation
 
 /// One `/localizeb64` round trip.
-struct ImmersalLocalizeResult {
+struct ImmersalLocalizeResult: Sendable {
     var success: Bool
     /// `"none"` on success; otherwise Immersal's own code — `auth`, `query`,
     /// `map count`, `image` — or a transport description.
