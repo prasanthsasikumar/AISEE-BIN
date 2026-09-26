@@ -6,10 +6,12 @@ import Foundation
 final class TestURLStub: URLProtocol {
     nonisolated(unsafe) static var stub: (status: Int, body: String)?
     nonisolated(unsafe) static var data: (status: Int, body: Data)?
+    /// Sent as the response's Content-Type when set.
+    nonisolated(unsafe) static var contentType: String?
     /// Every URL requested, for asserting on query strings.
     nonisolated(unsafe) static var requests: [URL] = []
 
-    static func reset() { stub = nil; data = nil; requests = [] }
+    static func reset() { stub = nil; data = nil; contentType = nil; requests = [] }
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -24,8 +26,9 @@ final class TestURLStub: URLProtocol {
             client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
             return
         }
+        let headers = Self.contentType.map { ["Content-Type": $0] }
         let response = HTTPURLResponse(url: request.url!, statusCode: answer.status,
-                                       httpVersion: "HTTP/1.1", headerFields: nil)!
+                                       httpVersion: "HTTP/1.1", headerFields: headers)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: answer.body)
         client?.urlProtocolDidFinishLoading(self)

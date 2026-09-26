@@ -17,6 +17,9 @@ struct ImmersalMapCache {
     /// times, HTTP 200. A real map is never this small.
     static let minimumMapBytes = 1024
 
+    /// Map files are LZMA streams: first byte 0x5d (properties lc=3, lp=0, pb=2).
+    static let lzmaMagic: UInt8 = 0x5d
+
     let directory: URL
 
     init(directory: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -65,10 +68,11 @@ struct ImmersalMapCache {
                 throw Failure(message: "map \(id): \(reason ?? "empty response")")
             }
             // A captive portal or proxy page is a 200 too, and well over 1 KB.
-            let type = (http?.value(forHTTPHeaderField: "Content-Type") ?? "").lowercased()
-            let first = data.first ?? 0
-            if type.hasPrefix("text/") || type.hasPrefix("application/json") || first == UInt8(ascii: "<") || first == UInt8(ascii: "{") {
-                throw Failure(message: "map \(id): not a map (\(type.isEmpty ? "starts with '\(Character(UnicodeScalar(first)))'" : type))")
+            // Immersal serves maps as text/plain, so the header says nothing;
+            // the LZMA magic byte every map file starts with does.
+            guard data.first == Self.lzmaMagic else {
+                let type = (http?.value(forHTTPHeaderField: "Content-Type") ?? "").lowercased()
+                throw Failure(message: "map \(id): not a map (\(type.isEmpty ? "no content type" : type))")
             }
             try data.write(to: url(for: id), options: [.atomic])
             let fraction = Double(index + 1) / Double(ids.count)

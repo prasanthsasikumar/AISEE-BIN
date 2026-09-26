@@ -69,6 +69,25 @@ final class ImmersalMapCacheTests: XCTestCase {
         XCTAssertFalse(cache.contains(5))
     }
 
+    /// Immersal serves map files as text/plain; the LZMA magic byte is what marks a map.
+    func testFetchAcceptsAMapServedAsTextPlain() async throws {
+        TestURLStub.contentType = "text/plain"
+        TestURLStub.data = (200, Data([0x5d, 0x00, 0x00, 0x04, 0x00]) + Data(repeating: 7, count: 4096))
+        try await cache.fetch([5], token: "tok", session: session())
+        XCTAssertTrue(cache.contains(5))
+    }
+
+    func testFetchRejectsABodyWithoutTheLZMAMagic() async {
+        TestURLStub.data = (200, Data(repeating: 0x41, count: 4096))
+        do {
+            try await cache.fetch([5], token: "tok", session: session())
+            XCTFail("expected a throw")
+        } catch {
+            XCTAssertTrue("\(error)".contains("not a map"), "\(error)")
+        }
+        XCTAssertFalse(cache.contains(5))
+    }
+
     /// A captive portal or proxy answers 200 with an HTML page, easily over 1 KB.
     func testFetchRejectsAnHTMLPageAndWritesNothing() async {
         let page = "<!DOCTYPE html><html><body>" + String(repeating: "Sign in to the network. ", count: 100) + "</body></html>"
