@@ -26,10 +26,10 @@ final class FocalCalibrationRunner {
     @ObservationIgnored private var task: Task<Void, Never>?
 
     /// - Parameters:
-    ///   - nextFrame: the latest glasses frame as a grayscale PNG with its size,
-    ///     or `nil` when none is available.
-    ///   - localize: one `/localizeb64` round trip.
-    func run(nextFrame: @escaping @MainActor () async -> (png: Data, width: Int, height: Int)?,
+    ///   - nextFrame: the latest glasses frame as packed gray pixels, or `nil`
+    ///     when none is available.
+    ///   - localize: one Immersal localization, on the phone or in the cloud.
+    func run(nextFrame: @escaping @MainActor () async -> GrayFrame?,
              localize: @escaping GlassesPositioning.Localize) {
         guard task == nil else { return }
         samples = []
@@ -44,7 +44,7 @@ final class FocalCalibrationRunner {
                     guard !Task.isCancelled else { self?.state = .idle; return }
                     self?.state = .running(round: round, candidate: index + 1)
                     let camera = GlassesCamera(focalPx: focal)
-                    let result = await localize(frame.png, camera.intrinsics(width: frame.width, height: frame.height))
+                    let result = await localize(frame, camera.intrinsics(width: frame.width, height: frame.height))
                     if ImmersalClient.isTransportFailure(result.error) {
                         self?.state = .failed(result.error)
                         return

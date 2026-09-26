@@ -7,7 +7,8 @@ import simd
 /// world map: an imported map, drawn in the web editor on Immersal's cloud.
 ///
 /// Consumes ARKit frames. Roughly once a second, while ARKit tracking is
-/// normal, one frame goes to `/localizeb64` with ARKit's own intrinsics; the
+/// normal, one frame goes to the Immersal localizer (the native plugin when
+/// the map is cached, else `/localizeb64`) with ARKit's own intrinsics; the
 /// answer, carried into the graph frame by the map's alignment, is paired with
 /// ARKit's pose for that frame and handed to `ImmersalAnchor`. Between fixes
 /// every ARKit frame is mapped through the anchor, so guidance runs on smooth
@@ -27,11 +28,14 @@ final class PhoneImmersalLocalizer {
     private(set) var lastMapID: Int?
     private(set) var lastFixAt: TimeInterval?
     private(set) var running = false
+    /// Where fixes are computed this session: "on device" or "cloud".
+    private(set) var localizerName = ""
 
     /// Fired once per `start`, on the first accepted fix.
     @ObservationIgnored var onFirstFix: (() -> Void)?
 
     @ObservationIgnored private var alignment: ImmersalAlignment?
+    @ObservationIgnored private var localizer: (any ImmersalLocalizer)?
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private let claim = Claim()
 
@@ -77,6 +81,9 @@ final class PhoneImmersalLocalizer {
         Self.logger.notice("started against maps \(alignment.mapIDs, privacy: .public)")
         let token = ImmersalConfig.token
         DiagnosticsLog.write("phone-immersal start maps=\(alignment.mapIDs) token=\(token.prefix(6))… \(ImmersalConfig.storedToken.isEmpty ? "built-in" : "typed") bundled=\(ImmersalConfig.hasBundledToken)")
+        let choice = ImmersalLocalizerFactory.make(mapIDs: alignment.mapIDs, token: token, cache: ImmersalMapCache())
+        localizer = choice.localizer
+        localizerName = choice.localizer.name
     }
 
     func stop() {
@@ -103,33 +110,32 @@ final class PhoneImmersalLocalizer {
         let capturedAt = frame.timestamp
         let token = ImmersalConfig.token
         Task { [weak self] in
-            let png = await Task.detached(priority: .userInitiated) {
-                ImmersalFrameEncoder.grayscalePNG(from: plane)
+            let frame = await Task.detached(priority: .userInitiated) {
+                ImmersalFrameEncoder.packedLuma(from: plane)
             }.value
             guard let self else { return }
-            await self.localize(png, intrinsics: intrinsics, sessionPose: sessionPose,
+            await self.localize(frame, intrinsics: intrinsics, sessionPose: sessionPose,
                                 capturedAt: capturedAt, token: token, generation: generation)
         }
     }
 
-    private func localize(_ png: Data?,
-                          intrinsics: (fx: Float, fy: Float, ox: Float, oy: Float),
+    private func localize(_ frame: GrayFrame?,
+                          intrinsics: CameraIntrinsics,
                           sessionPose: simd_float4x4,
                           capturedAt: TimeInterval,
                           token: String,
                           generation: Int) async {
         defer { claim.release() }
-        guard generation == self.generation, running, let alignment else { return }
-        guard let png else { lastError = "encode"; DiagnosticsLog.write("phone-immersal encode failed"); return }
+        guard generation == self.generation, running, let alignment, let localizer else { return }
+        guard let frame else { lastError = "encode"; DiagnosticsLog.write("phone-immersal encode failed"); return }
         // Keep a recent frame as sent, so it can be pulled off a tester's phone
         // and run against Immersal by hand when nothing matches. The first few
         // after a start and then one in twenty: enough to see, cheap on disk.
-        if attempts < 3 || attempts % 20 == 0 {
+        if attempts < 3 || attempts % 20 == 0, let png = ImmersalFrameEncoder.png(from: frame) {
             try? png.write(to: DiagnosticsLog.url.deletingLastPathComponent().appendingPathComponent("immersal-last.png"))
-            DiagnosticsLog.write(String(format: "phone-immersal frame fx=%.0f fy=%.0f ox=%.0f oy=%.0f png=%d B", intrinsics.fx, intrinsics.fy, intrinsics.ox, intrinsics.oy, png.count))
+            DiagnosticsLog.write(String(format: "phone-immersal frame %dx%d fx=%.0f fy=%.0f ox=%.0f oy=%.0f via %@", frame.width, frame.height, intrinsics.fx, intrinsics.fy, intrinsics.ox, intrinsics.oy, localizer.name))
         }
-        let result = await ImmersalClient(token: token, mapIDs: alignment.mapIDs)
-            .localize(pngData: png, fx: intrinsics.fx, fy: intrinsics.fy, ox: intrinsics.ox, oy: intrinsics.oy)
+        let result = await localizer.localize(frame, intrinsics: intrinsics)
         guard generation == self.generation, running else { return }
         apply(result, sessionPose: sessionPose, capturedAt: capturedAt, alignment: alignment, token: token)
     }

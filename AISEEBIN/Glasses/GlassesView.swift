@@ -226,15 +226,14 @@ struct GlassesView: View {
 
     private func runCalibration() {
         let service = glasses
+        let localizer = ImmersalLocalizerFactory.make(mapIDs: ImmersalConfig.mapIDs(for: viewModel.mapAlignment),
+                                                      token: ImmersalConfig.token, cache: ImmersalMapCache()).localizer
         calibration.run(nextFrame: {
             guard let buffer = service.latestFrame()?.pixelBuffer,
                   let copy = ImmersalFrameEncoder.copyBGRA(from: buffer) else { return nil }
-            let png = await Task.detached { ImmersalFrameEncoder.grayscalePNG(from: copy, factor: 1) }.value
-            guard let png else { return nil }
-            return (png, copy.width, copy.height)
-        }, localize: { png, k in
-            await ImmersalClient(token: ImmersalConfig.token, mapIDs: ImmersalConfig.mapIDs(for: viewModel.mapAlignment))
-                .localize(pngData: png, fx: k.fx, fy: k.fy, ox: k.ox, oy: k.oy)
+            return await Task.detached { ImmersalFrameEncoder.gray(from: copy, targetWidth: copy.width) }.value
+        }, localize: { frame, k in
+            await localizer.localize(frame, intrinsics: k)
         })
         Task {
             // Adopt the result once the runner saves it. The runner flips to

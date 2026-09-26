@@ -48,8 +48,9 @@ final class PedometerDistance: WalkedDistanceSource, @unchecked Sendable {
 /// dead reckoning in between.
 ///
 /// Per decoded frame, at most every `minimumInterval` and never with a request
-/// already in flight: copy the pixels, encode a grayscale PNG off-thread, ask
-/// Immersal. A successful fix becomes an ARKit-convention camera pose, is
+/// already in flight: copy the pixels, reduce them to gray off-thread, ask
+/// the Immersal localizer (the native plugin when the map is cached, else the
+/// cloud). A successful fix becomes an ARKit-convention camera pose, is
 /// carried into the graph frame by the map's `ImmersalAlignment`, and must
 /// pass `FixGate` before it re-anchors the `PoseExtrapolator`. A steady ticker
 /// then emits snapshots from the extrapolator so guidance runs at a fixed
@@ -60,14 +61,14 @@ final class GlassesPositioning {
 
     /// Immersal answers in about a second; sending faster only queues.
     nonisolated static let minimumInterval: TimeInterval = 0.5
-    /// Frames are sent at this width. 960 keeps the field of view and halves
+    /// Frames are localized at this width. 960 keeps the field of view and halves
     /// the PNG against the native 1280, and the phone probe localized fine at
     /// 960 wide. Intrinsics are derived from the sent size, so this is safe to tune.
     nonisolated static let sentFrameWidth = 960
     /// Cadence of the snapshots between fixes. ARKit gives 60; guidance needs far fewer.
     static let tickInterval: TimeInterval = 0.2
 
-    typealias Localize = @Sendable (_ png: Data, _ intrinsics: (fx: Float, fy: Float, ox: Float, oy: Float))
+    typealias Localize = @Sendable (_ frame: GrayFrame, _ intrinsics: CameraIntrinsics)
         async -> ImmersalLocalizeResult
 
     // MARK: Observable state
@@ -83,6 +84,8 @@ final class GlassesPositioning {
     private(set) var walkedMetres: Float = 0
     private(set) var secondsSinceFix: TimeInterval?
     private(set) var frameSize: (width: Int, height: Int)?
+    /// Where fixes are computed this session: "on device" or "cloud".
+    private(set) var localizerName = ""
 
     var camera = GlassesCamera.load()
 
@@ -134,16 +137,19 @@ final class GlassesPositioning {
     init(pedometer: WalkedDistanceSource = PedometerDistance(), localize: Localize? = nil) {
         self.pedometer = pedometer
         self.usesDefaultLocalizer = localize == nil
-        self.localize = localize ?? Self.cloudLocalizer(mapIDs: ImmersalConfig.mapIDs)
+        self.localize = localize ?? { _, _ in
+            ImmersalLocalizeResult(success: false, error: "not started", mapID: nil, pose: nil, latency: 0, requestBytes: 0)
+        }
+        self.localizerName = localize == nil ? "" : "injected"
     }
 
-    /// The REST localizer against `mapIDs`, rebuilt per `start` so the ids are
-    /// the loaded map's own rather than whatever Settings holds.
-    private static func cloudLocalizer(mapIDs: [Int]) -> Localize {
-        { png, k in
-            await ImmersalClient(token: ImmersalConfig.token, mapIDs: mapIDs)
-                .localize(pngData: png, fx: k.fx, fy: k.fy, ox: k.ox, oy: k.oy)
-        }
+    /// The localizer for `mapIDs`, chosen per `start` so the ids are the
+    /// loaded map's own rather than whatever Settings holds, and so a map
+    /// cached since the last start is picked up.
+    private static func defaultLocalizer(mapIDs: [Int]) -> (Localize, String) {
+        let choice = ImmersalLocalizerFactory.make(mapIDs: mapIDs, token: ImmersalConfig.token, cache: ImmersalMapCache())
+        let localizer = choice.localizer
+        return ({ frame, k in await localizer.localize(frame, intrinsics: k) }, localizer.name)
     }
     @ObservationIgnored private let usesDefaultLocalizer: Bool
 
@@ -168,7 +174,7 @@ final class GlassesPositioning {
             localizationStatus = .limited(reason: ImmersalConfig.token.isEmpty ? "No Immersal token" : "No Immersal map ids")
             return
         }
-        if usesDefaultLocalizer { localize = Self.cloudLocalizer(mapIDs: mapIDs) }
+        if usesDefaultLocalizer { (localize, localizerName) = Self.defaultLocalizer(mapIDs: mapIDs) }
         DiagnosticsLog.write("glasses-immersal start maps=\(mapIDs) token=\(ImmersalConfig.token.prefix(6))…")
         running = true
         claim.arm(generation: generation)
@@ -215,27 +221,27 @@ final class GlassesPositioning {
         let walkedAtCapture = pedometer.walkedMetres
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
-            let encoded = ImmersalFrameEncoder.grayscalePNG(from: image, targetWidth: Self.sentFrameWidth)
-            await self.localizeCopied(encoded, capturedAt: now, walkedAtCapture: walkedAtCapture,
+            let frame = ImmersalFrameEncoder.gray(from: image, targetWidth: Self.sentFrameWidth)
+            await self.localizeCopied(frame, capturedAt: now, walkedAtCapture: walkedAtCapture,
                                       generation: generation)
         }
     }
 
-    private func localizeCopied(_ encoded: (png: Data, width: Int, height: Int)?,
+    private func localizeCopied(_ frame: GrayFrame?,
                                 capturedAt: TimeInterval, walkedAtCapture: Float, generation: Int) async {
         defer { claim.release() }
         guard running, generation == self.generation else { return }
-        guard let encoded else {
+        guard let frame else {
             lastError = "encode"
             return
         }
-        frameSize = (encoded.width, encoded.height)
+        frameSize = (frame.width, frame.height)
         // A sample of what the glasses send, for pulling off a tester's phone.
-        if attempts < 3 || attempts % 20 == 0 {
-            try? encoded.png.write(to: DiagnosticsLog.url.deletingLastPathComponent().appendingPathComponent("immersal-glasses-last.png"))
+        if attempts < 3 || attempts % 20 == 0, let png = ImmersalFrameEncoder.png(from: frame) {
+            try? png.write(to: DiagnosticsLog.url.deletingLastPathComponent().appendingPathComponent("immersal-glasses-last.png"))
         }
-        let intrinsics = camera.intrinsics(width: encoded.width, height: encoded.height)
-        let result = await localize(encoded.png, intrinsics)
+        let intrinsics = camera.intrinsics(width: frame.width, height: frame.height)
+        let result = await localize(frame, intrinsics)
         guard running, generation == self.generation else { return }
         apply(result, capturedAt: capturedAt, walkedAtCapture: walkedAtCapture)
     }
