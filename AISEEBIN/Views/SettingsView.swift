@@ -14,6 +14,9 @@ struct SettingsView: View {
     @State private var mapIDsText = ImmersalConfig.mapIDsText
     @State private var showingGlasses = false
     @State private var showingProbe = false
+    @State private var cachedMapIDs: [Int] = []
+    @State private var mapDownloadState: String?
+    @State private var mapDownloadError: String?
 
     var body: some View {
         NavigationStack {
@@ -26,7 +29,8 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .onChange(of: token) { _, value in ImmersalConfig.token = value }
-            .onChange(of: mapIDsText) { _, value in ImmersalConfig.mapIDsText = value }
+            .onChange(of: mapIDsText) { _, value in ImmersalConfig.mapIDsText = value; refreshCachedMaps() }
+            .onAppear { refreshCachedMaps() }
         }
         .sheet(isPresented: $showingGlasses) {
             GlassesView(viewModel: viewModel)
@@ -57,6 +61,15 @@ struct SettingsView: View {
                     .autocorrectionDisabled()
                     .lineLimit(2...3)
             }
+            LabeledContent("Cached on this phone",
+                           value: cachedMapIDs.isEmpty ? "none" : cachedMapIDs.map(String.init).joined(separator: ", "))
+            Button(mapDownloadState ?? "Download maps for offline use") {
+                downloadMaps()
+            }
+            .disabled(mapDownloadState != nil || ImmersalConfig.token.isEmpty || mapIDsText.immersalMapIDs.isEmpty)
+            if let mapDownloadError {
+                Text(mapDownloadError).font(.footnote).foregroundStyle(.red)
+            }
             if ImmersalConfig.hasBundledToken || !ImmersalConfig.defaultMapIDsText.isEmpty {
                 Button("Reset to this build's defaults") {
                     ImmersalConfig.token = ""
@@ -69,8 +82,29 @@ struct SettingsView: View {
             Text("Immersal")
         } footer: {
             Text(ImmersalConfig.hasBundledToken
-                 ? "Filled in by this build; edit only to try another account or map. Map ids come from the Immersal Mapper app once a scan finishes constructing. Stored on this device only."
-                 : "Map ids come from the Immersal Mapper app once a scan finishes constructing. Stored on this device only.")
+                 ? "Filled in by this build; edit only to try another account or map. Map ids come from the Immersal Mapper app once a scan finishes constructing. Stored on this device only. A map cached on this phone is localized on the phone, with no network."
+                 : "Map ids come from the Immersal Mapper app once a scan finishes constructing. Stored on this device only. A map cached on this phone is localized on the phone, with no network.")
+        }
+    }
+
+    private func refreshCachedMaps() {
+        let cache = ImmersalMapCache()
+        cachedMapIDs = mapIDsText.immersalMapIDs.filter { cache.contains($0) }
+    }
+
+    private func downloadMaps() {
+        let ids = mapIDsText.immersalMapIDs
+        let token = ImmersalConfig.token
+        mapDownloadState = "Downloading…"
+        mapDownloadError = nil
+        Task {
+            do {
+                try await ImmersalMapCache().fetch(ids, token: token)
+            } catch {
+                mapDownloadError = "Download failed: \(error.localizedDescription)"
+            }
+            mapDownloadState = nil
+            refreshCachedMaps()
         }
     }
 

@@ -82,6 +82,10 @@ final class NavigationViewModel {
     /// ARKit world map (one drawn in the web editor on an Immersal scan).
     let phoneLocalizer = PhoneImmersalLocalizer()
     @ObservationIgnored private let sync = MapSyncService()
+    /// Immersal map binaries for on-device localization.
+    @ObservationIgnored private let immersalCache = ImmersalMapCache()
+    /// For the status screens: "on device", "downloading 1 map", "no token", "cloud (…)".
+    private(set) var immersalCacheState: String?
     @ObservationIgnored private let thresholds: GuidanceThresholds
 
     /// Rebuilt whenever the map or its anchors change.
@@ -271,6 +275,7 @@ final class NavigationViewModel {
                 arManager.start(relocalize: false)
                 phoneLocalizer.start(alignment: baseMap.immersalAlignment)
                 guidance.speak("Finding your position. Please look around slowly.", interrupt: true)
+                fetchImmersalMapsIfMissing(restart: true)
             } else {
                 phoneLocalizer.stop()
                 arManager.start(relocalize: true)
@@ -283,6 +288,7 @@ final class NavigationViewModel {
             arManager.pause()
             glassesPositioning.start(alignment: baseMap.immersalAlignment)
             glasses.keepStreaming = true
+            fetchImmersalMapsIfMissing(restart: true)
             Task { [glasses, guidance] in
                 do {
                     try await glasses.startStreaming()
@@ -389,7 +395,43 @@ final class NavigationViewModel {
         try mapStore.saveVersion(record)
         localVersion = record
         arManager.noteWorldMapReplaced()
+        await ensureImmersalMaps(for: remote.graph, restart: false)
         reloadMapAndRestart()
+    }
+
+    // MARK: - Immersal map cache
+
+    /// Starts a download of whatever map binaries the current map names and
+    /// this phone lacks, so positioning can move from the cloud to the phone.
+    /// Nothing happens when they are all cached, so a start never restarts itself.
+    private func fetchImmersalMapsIfMissing(restart: Bool) {
+        guard let ids = baseMap.immersalAlignment?.mapIDs, !ids.isEmpty else { return }
+        guard !immersalCache.missing(from: ids).isEmpty else { immersalCacheState = "on device"; return }
+        let map = baseMap
+        Task { await ensureImmersalMaps(for: map, restart: restart) }
+    }
+
+    /// Downloads the map binaries `map`'s alignment names, so the next start
+    /// localizes on the phone. Best effort: a failure leaves the cloud path,
+    /// and the state string says why. With `restart`, a successful download
+    /// restarts positioning so the running session upgrades without help.
+    func ensureImmersalMaps(for map: NavigationMap, restart: Bool) async {
+        guard let ids = map.immersalAlignment?.mapIDs, !ids.isEmpty else { return }
+        let missing = immersalCache.missing(from: ids)
+        guard !missing.isEmpty else { immersalCacheState = "on device"; return }
+        let token = ImmersalConfig.token
+        guard !token.isEmpty else { immersalCacheState = "no token"; return }
+        immersalCacheState = "downloading \(missing.count) map\(missing.count == 1 ? "" : "s")"
+        do {
+            try await immersalCache.fetch(missing, token: token)
+            immersalCache.prune(keeping: ids)
+            immersalCacheState = "on device"
+            DiagnosticsLog.write("immersal maps cached: \(ids)")
+            if restart, baseMap.immersalAlignment?.mapIDs == ids { startPositioning() }
+        } catch {
+            immersalCacheState = "cloud (\(error.localizedDescription))"
+            DiagnosticsLog.write("immersal map fetch failed: \(error.localizedDescription)")
+        }
     }
 
     func stopSession() {
@@ -771,13 +813,13 @@ final class NavigationViewModel {
         guard showDebug else { return }
         if positioningSource == .glasses {
             debug.fps = Double(glasses.framesPerSecond)
-            debug.trackingState = "glasses \(glassesPositioning.fixes)/\(glassesPositioning.attempts) fixes"
+            debug.trackingState = "glasses \(glassesPositioning.fixes)/\(glassesPositioning.attempts) fixes \(glassesPositioning.localizerName)"
             debug.featurePoints = 0
             debug.worldMapping = "immersal"
         } else {
             debug.fps = arManager.framesPerSecond
             debug.trackingState = phoneAnchoredByImmersal
-                ? "\(arManager.trackingStateDescription) · immersal \(phoneLocalizer.fixes)/\(phoneLocalizer.attempts)"
+                ? "\(arManager.trackingStateDescription) · immersal \(phoneLocalizer.localizerName) \(phoneLocalizer.fixes)/\(phoneLocalizer.attempts)"
                 : arManager.trackingStateDescription
             debug.featurePoints = snapshot.featurePointCount
             debug.worldMapping = phoneAnchoredByImmersal ? (phoneLocalizer.lastError ?? "anchored") : arManager.worldMappingStatus.label

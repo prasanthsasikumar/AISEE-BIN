@@ -142,6 +142,7 @@ struct GlassesView: View {
             if viewModel.positioningSource == .glasses {
                 LabeledContent("Status", value: positioning.localizationStatus.label)
                 LabeledContent("Fixes", value: "\(positioning.fixes) / \(positioning.attempts)")
+                LabeledContent("Localizer", value: positioning.localizerName.isEmpty ? "—" : positioning.localizerName)
                 if positioning.rejectedFixes > 0 {
                     LabeledContent("Rejected", value: "\(positioning.rejectedFixes)")
                 }
