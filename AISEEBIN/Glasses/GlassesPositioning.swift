@@ -143,13 +143,23 @@ final class GlassesPositioning {
         self.localizerName = localize == nil ? "" : "injected"
     }
 
-    /// The localizer for `mapIDs`, chosen per `start` so the ids are the
-    /// loaded map's own rather than whatever Settings holds, and so a map
-    /// cached since the last start is picked up.
-    private static func defaultLocalizer(mapIDs: [Int]) -> (Localize, String) {
-        let choice = ImmersalLocalizerFactory.make(mapIDs: mapIDs, token: ImmersalConfig.token, cache: ImmersalMapCache())
-        let localizer = choice.localizer
-        return ({ frame, k in await localizer.localize(frame, intrinsics: k) }, localizer.name)
+    /// Chooses the localizer again for the running session, off the main
+    /// actor, without touching the extrapolator, the gate or the counters:
+    /// called at start, and again when a map binary lands so a cloud session
+    /// moves on-device. The ids are the loaded map's own rather than whatever
+    /// Settings holds. A localizer injected at init is left alone.
+    func reselectLocalizer() {
+        guard running, usesDefaultLocalizer else { return }
+        let generation = self.generation
+        let mapIDs = ImmersalConfig.mapIDs(for: alignment)
+        let token = ImmersalConfig.token
+        Task { [weak self] in
+            let choice = await ImmersalLocalizerFactory.select(mapIDs: mapIDs, token: token, cache: ImmersalMapCache())
+            guard let self, self.running, generation == self.generation else { return }
+            let localizer = choice.localizer
+            self.localize = { frame, k in await localizer.localize(frame, intrinsics: k) }
+            self.localizerName = localizer.name
+        }
     }
     @ObservationIgnored private let usesDefaultLocalizer: Bool
 
@@ -174,12 +184,18 @@ final class GlassesPositioning {
             localizationStatus = .limited(reason: ImmersalConfig.token.isEmpty ? "No Immersal token" : "No Immersal map ids")
             return
         }
-        if usesDefaultLocalizer { (localize, localizerName) = Self.defaultLocalizer(mapIDs: mapIDs) }
+        if usesDefaultLocalizer {
+            localizerName = ""
+            localize = { _, _ in
+                ImmersalLocalizeResult(success: false, error: "choosing localizer", mapID: nil, pose: nil, latency: 0, requestBytes: 0)
+            }
+        }
         DiagnosticsLog.write("glasses-immersal start maps=\(mapIDs) token=\(ImmersalConfig.token.prefix(6))…")
         running = true
         claim.arm(generation: generation)
         pedometer.start()
         localizationStatus = .relocalizing
+        reselectLocalizer()
         let interval = Self.tickInterval
         ticker = Task { [weak self] in
             while !Task.isCancelled {
@@ -237,8 +253,11 @@ final class GlassesPositioning {
         }
         frameSize = (frame.width, frame.height)
         // A sample of what the glasses send, for pulling off a tester's phone.
-        if attempts < 3 || attempts % 20 == 0, let png = ImmersalFrameEncoder.png(from: frame) {
-            try? png.write(to: DiagnosticsLog.url.deletingLastPathComponent().appendingPathComponent("immersal-glasses-last.png"))
+        if attempts < 3 || attempts % 20 == 0 {
+            Task.detached(priority: .utility) {
+                guard let png = ImmersalFrameEncoder.png(from: frame) else { return }
+                try? png.write(to: DiagnosticsLog.url.deletingLastPathComponent().appendingPathComponent("immersal-glasses-last.png"))
+            }
         }
         let intrinsics = camera.intrinsics(width: frame.width, height: frame.height)
         let result = await localize(frame, intrinsics)

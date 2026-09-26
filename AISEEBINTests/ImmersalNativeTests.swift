@@ -45,10 +45,17 @@ final class ImmersalNativeTests: XCTestCase {
         let frame = GrayFrame(pixels: Data(count: 4), width: 2, height: 2)
         let result = native.localize(frame, intrinsics: (1, 1, 1, 1))
         XCTAssertFalse(result.success)
-        XCTAssertEqual(result.error, "no match")
+        XCTAssertEqual(result.error, "no maps loaded")
         XCTAssertNil(result.mapID)
         XCTAssertNil(result.pose)
         XCTAssertEqual(result.requestBytes, 4)
+    }
+
+    func testLocalizeWithNoMapsLoadedSaysSoWithoutCallingThePlugin() {
+        let native = ImmersalNative()
+        let result = native.localize(GrayFrame(pixels: Data(count: 4), width: 2, height: 2), intrinsics: (1, 1, 1, 1))
+        XCTAssertEqual(result.error, "no maps loaded")
+        XCTAssertFalse(result.success)
     }
 
     func testNativeLocalizerIsNamedOnDevice() async {
@@ -56,7 +63,7 @@ final class ImmersalNativeTests: XCTestCase {
         XCTAssertEqual(localizer.name, "on device")
         let result = await localizer.localize(GrayFrame(pixels: Data(count: 1), width: 1, height: 1),
                                               intrinsics: (1, 1, 0, 0))
-        XCTAssertEqual(result.error, "no match")
+        XCTAssertEqual(result.error, "no maps loaded")
     }
 
     func testCloudLocalizerIsNamedCloudAndReportsTransportFailure() async {

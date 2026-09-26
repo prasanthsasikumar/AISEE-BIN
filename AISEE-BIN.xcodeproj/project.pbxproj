@@ -7,10 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		014C3C7812EFDEBBCEEEF9F5 /* LocalizerReselectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E556DF97F5DF1F731E0006F7 /* LocalizerReselectionTests.swift */; };
 		0246AAC65D540A1F0769FE4F /* RTKAIDeviceConnection.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8D57E8988C3B58C97A2D8807 /* RTKAIDeviceConnection.framework */; };
 		0350E3E61F21F3D1356A8F91 /* RTKAudioConnectSDK.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B5CD47A0E9D56274EC4F805D /* RTKAudioConnectSDK.framework */; };
 		045107E9B6075E1C2D509F9A /* RTKAudioStreaming.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F0189CC38F649B3DDBC7969A /* RTKAudioStreaming.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		07304DF33200BE3D6DBD045C /* ProbeLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70152EF34D9E97DF4C741CE6 /* ProbeLog.swift */; };
+		083AC06FF3A59C32C8696908 /* ImmersalMapDownloaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9623757E38AE453BB0634565 /* ImmersalMapDownloaderTests.swift */; };
 		0AC40621190D37E75E5272C0 /* ImmersalClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7700AECDC1CD6FBBF36B051 /* ImmersalClientTests.swift */; };
 		0B2D93C841CC573645839CDA /* libavcodec.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 1EAD988B72E7456254EEF8B4 /* libavcodec.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		0EE6055044BCBF9DBC3086E4 /* AiSeeMicrophone.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44488FCAC2B5F4FE7DDF9669 /* AiSeeMicrophone.swift */; };
@@ -97,6 +99,7 @@
 		CD305969C1791AC8EA3A7271 /* RTKAudioConnectSDK.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = B5CD47A0E9D56274EC4F805D /* RTKAudioConnectSDK.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		D12B52E1385E154EE6DD18DC /* ProbeSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F7839F7B8A1E5CAA24193C /* ProbeSession.swift */; };
 		D27E4537E96FB437616B1812 /* ProbeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6623A7D62AEA4A6BA847D15B /* ProbeView.swift */; };
+		D300C0182CC65DA51EC02D42 /* ImmersalMapDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F95ED4DD35644F26C28B1B /* ImmersalMapDownloader.swift */; };
 		D50AEBB7E738E97E25AC36EB /* MapDownloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 061A49BCDCE064003CC9EA08 /* MapDownloadTests.swift */; };
 		D5592305F87F7B1BA93F5D58 /* ImmersalFrameEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6340FE7FAD58CB04A34098E3 /* ImmersalFrameEncoder.swift */; };
 		D5937AE6312E3093E63D5D7B /* AISEEBINApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6158B2EB890DD39BA2A443E5 /* AISEEBINApp.swift */; };
@@ -215,6 +218,7 @@
 		922A716A95F7EFF263EC528F /* ProximityAnnouncerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximityAnnouncerTests.swift; sourceTree = "<group>"; };
 		934CBA174987878635BCFEA4 /* ImmersalAnchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalAnchor.swift; sourceTree = "<group>"; };
 		951CA1D1E422039CA70250F6 /* TestURLStub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestURLStub.swift; sourceTree = "<group>"; };
+		9623757E38AE453BB0634565 /* ImmersalMapDownloaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalMapDownloaderTests.swift; sourceTree = "<group>"; };
 		9660A13D46A344C5212F2D9E /* ImmersalNativeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalNativeTests.swift; sourceTree = "<group>"; };
 		97885123C8C5A05ACE0A19CD /* GlassesPositioning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesPositioning.swift; sourceTree = "<group>"; };
 		9E461935A18A769445C62D21 /* RTKLEFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RTKLEFoundation.framework; path = Vendor/RTK/RTKLEFoundation.framework; sourceTree = "<group>"; };
@@ -254,8 +258,10 @@
 		DDB9021F1A22A773A3BA02C8 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		E35653D3A720A5BAFB9DBF6C /* libavutil.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = libavutil.framework; path = Vendor/RTK/libavutil.framework; sourceTree = "<group>"; };
 		E45842AD38368B637A1DCAEC /* FixGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixGate.swift; sourceTree = "<group>"; };
+		E556DF97F5DF1F731E0006F7 /* LocalizerReselectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizerReselectionTests.swift; sourceTree = "<group>"; };
 		ED0A9F795D184C9FCE140CBA /* AiSeeDeviceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeDeviceCoordinator.swift; sourceTree = "<group>"; };
 		F0189CC38F649B3DDBC7969A /* RTKAudioStreaming.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RTKAudioStreaming.framework; path = Vendor/RTK/RTKAudioStreaming.framework; sourceTree = "<group>"; };
+		F1F95ED4DD35644F26C28B1B /* ImmersalMapDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalMapDownloader.swift; sourceTree = "<group>"; };
 		F237A6DFAC3FB676EB0856AF /* AuthoringView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthoringView.swift; sourceTree = "<group>"; };
 		F40B2897550EAA469F0CED87 /* MapStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapStore.swift; sourceTree = "<group>"; };
 		F60DE300013D590E27A22BD6 /* RouteTrackerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteTrackerTests.swift; sourceTree = "<group>"; };
@@ -395,6 +401,7 @@
 				8AD8F58EF49D375AAA26FDB0 /* ImmersalLocalizer.swift */,
 				DC897795AEE21F090FAF5F8B /* ImmersalLocalizerFactory.swift */,
 				FE5450BDEB27A6C3E6CE1565 /* ImmersalMapCache.swift */,
+				F1F95ED4DD35644F26C28B1B /* ImmersalMapDownloader.swift */,
 				0E265AF3FD2E64C33B94F472 /* ImmersalMappingClient.swift */,
 				BDADC1F553BEA6EB01677E44 /* ImmersalNative.swift */,
 				0EC5350A5C237B133D347EF3 /* ImmersalPose.swift */,
@@ -457,7 +464,9 @@
 				56DDEA53927268D0EC20BE7A /* ImmersalFrameEncoderTests.swift */,
 				A26AD48F3AE21178241BDF54 /* ImmersalLocalizerFactoryTests.swift */,
 				B5B9DCE8EC93EFD960A3F301 /* ImmersalMapCacheTests.swift */,
+				9623757E38AE453BB0634565 /* ImmersalMapDownloaderTests.swift */,
 				9660A13D46A344C5212F2D9E /* ImmersalNativeTests.swift */,
+				E556DF97F5DF1F731E0006F7 /* LocalizerReselectionTests.swift */,
 				A3CD1B51F70D82DD4ADB2E6C /* LocationDescriberTests.swift */,
 				6B82DC7FA8B4B13387732993 /* MapAuthoringSessionTests.swift */,
 				061A49BCDCE064003CC9EA08 /* MapDownloadTests.swift */,
@@ -677,6 +686,7 @@
 				423411B63A63ABA1DDA4F486 /* ImmersalLocalizer.swift in Sources */,
 				C68FE9D7EC5301E27EC4C929 /* ImmersalLocalizerFactory.swift in Sources */,
 				FB1A8BEF56BBA54D8E67BA7F /* ImmersalMapCache.swift in Sources */,
+				D300C0182CC65DA51EC02D42 /* ImmersalMapDownloader.swift in Sources */,
 				E35AB644E0F5B448C89EFB49 /* ImmersalMappingClient.swift in Sources */,
 				2FCA36329F4363C831195533 /* ImmersalNative.swift in Sources */,
 				13ED2CCD4EE8FB197C95583D /* ImmersalNativeStubs.c in Sources */,
@@ -724,7 +734,9 @@
 				2C8E8E46C19F9BA2DEBA7246 /* ImmersalFrameEncoderTests.swift in Sources */,
 				9127EA5E2B027F932CA1F0DB /* ImmersalLocalizerFactoryTests.swift in Sources */,
 				E07E843F3F4873912D88FF02 /* ImmersalMapCacheTests.swift in Sources */,
+				083AC06FF3A59C32C8696908 /* ImmersalMapDownloaderTests.swift in Sources */,
 				9C26A372607284A28577BFAD /* ImmersalNativeTests.swift in Sources */,
+				014C3C7812EFDEBBCEEEF9F5 /* LocalizerReselectionTests.swift in Sources */,
 				8A8FACA8783B9D9F847CDDB3 /* LocationDescriberTests.swift in Sources */,
 				F4FBCD068C88F0C8144F19D6 /* MapAuthoringSessionTests.swift in Sources */,
 				D50AEBB7E738E97E25AC36EB /* MapDownloadTests.swift in Sources */,

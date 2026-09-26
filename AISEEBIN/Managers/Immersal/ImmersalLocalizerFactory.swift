@@ -6,9 +6,17 @@ import Foundation
 /// it stop offline" is the first field question.
 enum ImmersalLocalizerFactory {
 
-    struct Choice {
+    struct Choice: Sendable {
         let localizer: any ImmersalLocalizer
         let reason: String
+    }
+
+    /// `make`, off the main actor: loading a map decompresses and indexes it,
+    /// hundreds of milliseconds on a phone, and waits for any solve in flight.
+    static func select(mapIDs: [Int], token: String, cache: ImmersalMapCache) async -> Choice {
+        await Task.detached(priority: .userInitiated) {
+            make(mapIDs: mapIDs, token: token, cache: cache)
+        }.value
     }
 
     static func make(mapIDs: [Int], token: String, cache: ImmersalMapCache,

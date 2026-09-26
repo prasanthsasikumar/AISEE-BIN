@@ -68,6 +68,19 @@ final class ImmersalMapCacheTests: XCTestCase {
         XCTAssertFalse(cache.contains(5))
     }
 
+    /// A captive portal or proxy answers 200 with an HTML page, easily over 1 KB.
+    func testFetchRejectsAnHTMLPageAndWritesNothing() async {
+        let page = "<!DOCTYPE html><html><body>" + String(repeating: "Sign in to the network. ", count: 100) + "</body></html>"
+        TestURLStub.data = (200, Data(page.utf8))
+        do {
+            try await cache.fetch([5], token: "tok", session: session())
+            XCTFail("expected a throw")
+        } catch {
+            XCTAssertTrue("\(error)".contains("not a map"), "\(error)")
+        }
+        XCTAssertFalse(cache.contains(5))
+    }
+
     func testFetchRejectsHTTPErrorAndWritesNothing() async {
         TestURLStub.data = (404, Data(repeating: 1, count: 5000))
         do {

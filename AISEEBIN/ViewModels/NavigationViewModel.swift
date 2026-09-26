@@ -82,10 +82,9 @@ final class NavigationViewModel {
     /// ARKit world map (one drawn in the web editor on an Immersal scan).
     let phoneLocalizer = PhoneImmersalLocalizer()
     @ObservationIgnored private let sync = MapSyncService()
-    /// Immersal map binaries for on-device localization.
-    @ObservationIgnored private let immersalCache = ImmersalMapCache()
-    /// For the status screens: "on device", "downloading 1 map", "no token", "cloud (…)".
-    private(set) var immersalCacheState: String?
+    /// Immersal map binaries for on-device localization; `immersalMaps.state`
+    /// says why a session is on the cloud.
+    let immersalMaps = ImmersalMapDownloader()
     @ObservationIgnored private let thresholds: GuidanceThresholds
 
     /// Rebuilt whenever the map or its anchors change.
@@ -395,7 +394,7 @@ final class NavigationViewModel {
         try mapStore.saveVersion(record)
         localVersion = record
         arManager.noteWorldMapReplaced()
-        await ensureImmersalMaps(for: remote.graph, restart: false)
+        await ensureImmersalMaps(for: remote.graph)
         reloadMapAndRestart()
     }
 
@@ -403,35 +402,32 @@ final class NavigationViewModel {
 
     /// Starts a download of whatever map binaries the current map names and
     /// this phone lacks, so positioning can move from the cloud to the phone.
-    /// Nothing happens when they are all cached, so a start never restarts itself.
+    /// When they land, the running localizer is swapped in place — never the
+    /// ARKit session, the anchor or the spoken prompt — and only if the app
+    /// is still navigating the same map from the same camera.
     private func fetchImmersalMapsIfMissing(restart: Bool) {
         guard let ids = baseMap.immersalAlignment?.mapIDs, !ids.isEmpty else { return }
-        guard !immersalCache.missing(from: ids).isEmpty else { immersalCacheState = "on device"; return }
-        let map = baseMap
-        Task { await ensureImmersalMaps(for: map, restart: restart) }
+        guard !immersalMaps.cache.missing(from: ids).isEmpty else { return }
+        let source = positioningSource
+        Task { [weak self] in
+            guard let self else { return }
+            let downloaded = await self.ensureImmersalMaps(for: self.baseMap)
+            guard downloaded, restart, self.mode == .navigation, self.positioningSource == source,
+                  self.baseMap.immersalAlignment?.mapIDs == ids else { return }
+            switch source {
+            case .phone:   self.phoneLocalizer.reselectLocalizer()
+            case .glasses: self.glassesPositioning.reselectLocalizer()
+            }
+        }
     }
 
-    /// Downloads the map binaries `map`'s alignment names, so the next start
-    /// localizes on the phone. Best effort: a failure leaves the cloud path,
-    /// and the state string says why. With `restart`, a successful download
-    /// restarts positioning so the running session upgrades without help.
-    func ensureImmersalMaps(for map: NavigationMap, restart: Bool) async {
-        guard let ids = map.immersalAlignment?.mapIDs, !ids.isEmpty else { return }
-        let missing = immersalCache.missing(from: ids)
-        guard !missing.isEmpty else { immersalCacheState = "on device"; return }
-        let token = ImmersalConfig.token
-        guard !token.isEmpty else { immersalCacheState = "no token"; return }
-        immersalCacheState = "downloading \(missing.count) map\(missing.count == 1 ? "" : "s")"
-        do {
-            try await immersalCache.fetch(missing, token: token)
-            immersalCache.prune(keeping: ids)
-            immersalCacheState = "on device"
-            DiagnosticsLog.write("immersal maps cached: \(ids)")
-            if restart, baseMap.immersalAlignment?.mapIDs == ids { startPositioning() }
-        } catch {
-            immersalCacheState = "cloud (\(error.localizedDescription))"
-            DiagnosticsLog.write("immersal map fetch failed: \(error.localizedDescription)")
-        }
+    /// Downloads the map binaries `map`'s alignment names, once per launch.
+    /// Returns whether they are all cached now; a failure leaves the cloud
+    /// path and `immersalMaps.state` says why.
+    @discardableResult
+    func ensureImmersalMaps(for map: NavigationMap) async -> Bool {
+        guard let ids = map.immersalAlignment?.mapIDs, !ids.isEmpty else { return false }
+        return await immersalMaps.ensure(ids: ids, token: ImmersalConfig.token)
     }
 
     func stopSession() {

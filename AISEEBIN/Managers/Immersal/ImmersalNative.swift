@@ -73,26 +73,31 @@ final class ImmersalNative: @unchecked Sendable {
     /// Localizes one packed gray frame against every loaded map. Blocking.
     func localize(_ frame: GrayFrame, intrinsics: CameraIntrinsics) -> ImmersalLocalizeResult {
         let started = Date()
-        let info: LocalizeInfo = lock.withLock {
+        let info: LocalizeInfo? = lock.withLock {
+            var loaded = Array(handles.values)
+            guard !loaded.isEmpty else { return nil }
             if !configured {
                 _ = icvSetInteger("LocalizationMaxPixels", Self.maxPixels)
                 configured = true
             }
             var k: [Float] = [intrinsics.fx, intrinsics.fy, intrinsics.ox, intrinsics.oy]
             var rot: [Float] = [0, 0, 0, 1]
-            var loaded = Array(handles.values)
-            if loaded.isEmpty { loaded = [-1] }
             var pixels = frame.pixels
             return pixels.withUnsafeMutableBytes { raw -> LocalizeInfo in
                 guard let base = raw.baseAddress else {
                     var none = LocalizeInfo(); none.handle = -1; return none
                 }
-                // n = 0: consider every loaded map, as Immersal's SDK does.
-                return icvLocalize(0, &loaded, Int32(frame.width), Int32(frame.height),
+                // Every loaded handle, by count: correct whether the plugin
+                // reads `n` as "these handles" or treats 0 as "all".
+                return icvLocalize(Int32(loaded.count), &loaded, Int32(frame.width), Int32(frame.height),
                                    &k, base, 1, 0, &rot)
             }
         }
         let latency = Date().timeIntervalSince(started)
+        guard let info else {
+            return ImmersalLocalizeResult(success: false, error: "no maps loaded", mapID: nil, pose: nil,
+                                          latency: latency, requestBytes: frame.pixels.count)
+        }
         let mapID = lock.withLock { ids[info.handle] }
         guard info.handle >= 0, let mapID else {
             return ImmersalLocalizeResult(success: false, error: "no match", mapID: nil, pose: nil,

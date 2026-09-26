@@ -56,11 +56,18 @@ struct ImmersalMapCache {
             var request = URLRequest(url: components.url!)
             request.timeoutInterval = 120
             let (data, response) = try await session.data(for: request)
-            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            let http = response as? HTTPURLResponse
+            let status = http?.statusCode ?? 0
             guard status == 200 else { throw Failure(message: "map \(id): http \(status)") }
             if data.count < Self.minimumMapBytes {
                 let reason = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String
                 throw Failure(message: "map \(id): \(reason ?? "empty response")")
+            }
+            // A captive portal or proxy page is a 200 too, and well over 1 KB.
+            let type = (http?.value(forHTTPHeaderField: "Content-Type") ?? "").lowercased()
+            let first = data.first ?? 0
+            if type.hasPrefix("text/") || type.hasPrefix("application/json") || first == UInt8(ascii: "<") || first == UInt8(ascii: "{") {
+                throw Failure(message: "map \(id): not a map (\(type.isEmpty ? "starts with '\(Character(UnicodeScalar(first)))'" : type))")
             }
             try data.write(to: url(for: id), options: [.atomic])
             let fraction = Double(index + 1) / Double(ids.count)

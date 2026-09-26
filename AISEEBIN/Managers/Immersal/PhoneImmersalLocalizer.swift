@@ -81,9 +81,25 @@ final class PhoneImmersalLocalizer {
         Self.logger.notice("started against maps \(alignment.mapIDs, privacy: .public)")
         let token = ImmersalConfig.token
         DiagnosticsLog.write("phone-immersal start maps=\(alignment.mapIDs) token=\(token.prefix(6))… \(ImmersalConfig.storedToken.isEmpty ? "built-in" : "typed") bundled=\(ImmersalConfig.hasBundledToken)")
-        let choice = ImmersalLocalizerFactory.make(mapIDs: alignment.mapIDs, token: token, cache: ImmersalMapCache())
-        localizer = choice.localizer
-        localizerName = choice.localizer.name
+        localizer = nil
+        localizerName = ""
+        reselectLocalizer()
+    }
+
+    /// Chooses the localizer again for the running session, off the main
+    /// actor, without touching the anchor or the counters: called at start,
+    /// and again when a map binary lands so a cloud session moves on-device.
+    func reselectLocalizer() {
+        guard running, let alignment else { return }
+        let generation = self.generation
+        let mapIDs = alignment.mapIDs
+        let token = ImmersalConfig.token
+        Task { [weak self] in
+            let choice = await ImmersalLocalizerFactory.select(mapIDs: mapIDs, token: token, cache: ImmersalMapCache())
+            guard let self, self.running, generation == self.generation else { return }
+            self.localizer = choice.localizer
+            self.localizerName = choice.localizer.name
+        }
     }
 
     func stop() {
@@ -131,9 +147,12 @@ final class PhoneImmersalLocalizer {
         // Keep a recent frame as sent, so it can be pulled off a tester's phone
         // and run against Immersal by hand when nothing matches. The first few
         // after a start and then one in twenty: enough to see, cheap on disk.
-        if attempts < 3 || attempts % 20 == 0, let png = ImmersalFrameEncoder.png(from: frame) {
-            try? png.write(to: DiagnosticsLog.url.deletingLastPathComponent().appendingPathComponent("immersal-last.png"))
+        if attempts < 3 || attempts % 20 == 0 {
             DiagnosticsLog.write(String(format: "phone-immersal frame %dx%d fx=%.0f fy=%.0f ox=%.0f oy=%.0f via %@", frame.width, frame.height, intrinsics.fx, intrinsics.fy, intrinsics.ox, intrinsics.oy, localizer.name))
+            Task.detached(priority: .utility) {
+                guard let png = ImmersalFrameEncoder.png(from: frame) else { return }
+                try? png.write(to: DiagnosticsLog.url.deletingLastPathComponent().appendingPathComponent("immersal-last.png"))
+            }
         }
         let result = await localizer.localize(frame, intrinsics: intrinsics)
         guard generation == self.generation, running else { return }
