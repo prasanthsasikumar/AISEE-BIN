@@ -54,10 +54,28 @@ final class GlassesService {
     /// dozing) is restarted after a short pause. Set by whoever needs frames
     /// continuously; a user toggling the stream off clears it.
     var keepStreaming = false
-    /// The most recent decoded frame, rendered at most a few times a second
-    /// for the on-screen preview. Never used for localization — see `onFrame`.
+    /// The most recent decoded frame, rendered for the on-screen preview while
+    /// the app is in the foreground (every frame, or four a second). Never used for localization — see `onFrame`.
     private(set) var previewImage: UIImage?
     private(set) var framesPerSecond = 0
+    /// How much later than its best this second's frames arrived, in ms: the
+    /// delay queued up between the glasses' encoder and the phone. Nil when the
+    /// stream carries no timestamps.
+    private(set) var lagBuildUpMs: Int?
+    /// What the glasses encode. Takes effect on the next stream start; the
+    /// Glasses screen restarts a running stream after changing it.
+    var streamSettings = AiSeeStreamSettings.load() {
+        didSet { streamSettings.save() }
+    }
+    /// Render every frame for the preview (the default) instead of four a
+    /// second. Four a second made the preview look up to 250 ms late. Either way
+    /// nothing is rendered while the app is in the background.
+    var smoothPreview = UserDefaults.standard.object(forKey: "glasses.stream.smoothPreview") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(smoothPreview, forKey: "glasses.stream.smoothPreview")
+            fanout.previewInterval = smoothPreview ? 0 : 0.25
+        }
+    }
     private(set) var lastStreamError: String?
     /// Last few kit diagnostics, newest last.
     private(set) var log: [String] = []
@@ -87,6 +105,18 @@ final class GlassesService {
         private var lastPreviewAt: TimeInterval = 0
         private var frameCount = 0
         private var fpsWindowStart: TimeInterval = 0
+        /// 0 renders every frame; otherwise the minimum gap between previews.
+        private var _previewInterval: TimeInterval = 0
+        /// False while the app is not in the foreground: nobody can see the
+        /// preview, so no frame is rendered for it.
+        private var _previewVisible = true
+        // Lag build-up: arrival time minus the stream's timestamp, per frame. Its
+        // absolute value is meaningless (two clocks), so we report how far this
+        // second's average sits above the best frame of the last ten seconds.
+        private var lagSum: Double = 0
+        private var lagCount = 0
+        private var lagSecondMin = Double.infinity
+        private var lagRecentMins: [Double] = []
 
         private var _latest: AiSeeFrame?
 
@@ -100,19 +130,52 @@ final class GlassesService {
             set { lock.withLock { _latest = newValue } }
         }
 
-        /// Whether to render a preview now, and the fps figure once per second.
-        func account(now: TimeInterval) -> (renderPreview: Bool, fps: Int?) {
+        var previewInterval: TimeInterval {
+            get { lock.withLock { _previewInterval } }
+            set { lock.withLock { _previewInterval = newValue } }
+        }
+
+        var previewVisible: Bool {
+            get { lock.withLock { _previewVisible } }
+            set { lock.withLock { _previewVisible = newValue } }
+        }
+
+        func resetLag() {
+            lock.withLock {
+                lagSum = 0; lagCount = 0; lagSecondMin = .infinity; lagRecentMins = []
+            }
+        }
+
+        /// Whether to render a preview now, and once per second the fps figure
+        /// and the lag build-up in milliseconds (nil without stream timestamps).
+        func account(now: TimeInterval, presentationTime: CMTime) -> (renderPreview: Bool, fps: Int?, lagMs: Int??) {
             lock.withLock {
                 frameCount += 1
+                if presentationTime.isNumeric {
+                    let lag = now - presentationTime.seconds
+                    lagSum += lag
+                    lagCount += 1
+                    lagSecondMin = min(lagSecondMin, lag)
+                }
                 var fps: Int?
+                var lagMs: Int??
                 if now - fpsWindowStart >= 1 {
                     fps = frameCount
                     frameCount = 0
                     fpsWindowStart = now
+                    if lagCount > 0 {
+                        lagRecentMins.append(lagSecondMin)
+                        if lagRecentMins.count > 10 { lagRecentMins.removeFirst() }
+                        let floor = lagRecentMins.min() ?? lagSecondMin
+                        lagMs = .some(Int(((lagSum / Double(lagCount)) - floor) * 1000))
+                    } else {
+                        lagMs = .some(nil)
+                    }
+                    lagSum = 0; lagCount = 0; lagSecondMin = .infinity
                 }
-                let render = now - lastPreviewAt >= 0.25
+                let render = _previewVisible && now - lastPreviewAt >= _previewInterval
                 if render { lastPreviewAt = now }
-                return (render, fps)
+                return (render, fps, lagMs)
             }
         }
     }
@@ -124,6 +187,16 @@ final class GlassesService {
         connection = AiSeeConnectionService(log: sink)
         coordinator = AiSeeDeviceCoordinator(log: sink)
         Self.shared = self
+        fanout.previewInterval = smoothPreview ? 0 : 0.25
+        fanout.previewVisible = UIApplication.shared.applicationState != .background
+        let center = NotificationCenter.default
+        let fanout = self.fanout
+        center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { _ in
+            fanout.previewVisible = false
+        }
+        center.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { _ in
+            fanout.previewVisible = true
+        }
 
         Task {
             await coordinator.setKeyPressObserver { [weak self] index in
@@ -248,7 +321,10 @@ final class GlassesService {
     }
 
     private func startStreamingOnce() async throws {
+        fanout.resetLag()
+        lagBuildUpMs = nil
         try await coordinator.startLiveStream(
+            settings: streamSettings,
             onFrame: { [weak self] frame in self?.receive(frame) },
             onError: { [weak self] text in
                 Task { @MainActor in self?.lastStreamError = text }
@@ -259,6 +335,7 @@ final class GlassesService {
                     self.isStreaming = false
                     self.previewImage = nil
                     self.framesPerSecond = 0
+                    self.lagBuildUpMs = nil
                     if let text { self.lastStreamError = text }
                     self.restartStreamIfWanted()
                 }
@@ -291,6 +368,17 @@ final class GlassesService {
         isStreaming = false
         previewImage = nil
         framesPerSecond = 0
+        lagBuildUpMs = nil
+    }
+
+    /// Stops and restarts a running stream so new `streamSettings` reach the
+    /// glasses. Keeps `keepStreaming` as it was.
+    func restartStreamForNewSettings() async throws {
+        guard isStreaming else { return }
+        let keep = keepStreaming
+        await stopStreaming()
+        keepStreaming = keep
+        try await startStreaming()
     }
 
     /// SDK thread. Hands the frame to the localizer and, a few times a second,
@@ -302,12 +390,14 @@ final class GlassesService {
         fanout.latest = frame
         fanout.onFrame?(frame)
 
-        let (renderPreview, fps) = fanout.account(now: ProcessInfo.processInfo.systemUptime)
+        let (renderPreview, fps, lagMs) = fanout.account(now: ProcessInfo.processInfo.systemUptime,
+                                                         presentationTime: frame.presentationTime)
         guard renderPreview || fps != nil else { return }
         let image = renderPreview ? frame.image : nil
         Task { @MainActor in
             if let image { self.previewImage = image }
             if let fps { self.framesPerSecond = fps }
+            if let lagMs { self.lagBuildUpMs = lagMs }
         }
     }
 
@@ -334,5 +424,24 @@ final class GlassesService {
         Self.logger.notice("\(line, privacy: .public)")
         log.append(line)
         if log.count > 60 { log.removeFirst(log.count - 60) }
+    }
+}
+
+extension AiSeeStreamSettings {
+    private static let key = "glasses.stream.settings"
+
+    static func load(from defaults: UserDefaults = .standard) -> AiSeeStreamSettings {
+        var s = AiSeeStreamSettings()
+        guard let d = defaults.dictionary(forKey: key) else { return s }
+        if let raw = d["size"] as? String, let size = Size(rawValue: raw) { s.size = size }
+        if let fps = d["fps"] as? Int, fps > 0 { s.fps = UInt(fps) }
+        if let kbps = d["kbps"] as? Int, kbps > 0 { s.kbps = UInt(kbps) }
+        if let cbr = d["cbr"] as? Bool { s.constantBitrate = cbr }
+        return s
+    }
+
+    func save(to defaults: UserDefaults = .standard) {
+        defaults.set(["size": size.rawValue, "fps": Int(fps), "kbps": Int(kbps), "cbr": constantBitrate],
+                     forKey: Self.key)
     }
 }

@@ -21,6 +21,7 @@ import RTKAIDeviceConnection
 final class AiSeeLiveStream: NSObject, LiveStreamSampleReceiving, @unchecked Sendable {
     private let connection: IntelligenceDeviceConnection
     private let log: AiSeeLog
+    private let settings: AiSeeStreamSettings
     private let decoder = AiSeeH264Decoder()
     private let lock = NSLock()
     // All of the below: `lock`-guarded.
@@ -33,8 +34,9 @@ final class AiSeeLiveStream: NSObject, LiveStreamSampleReceiving, @unchecked Sen
     private var stopped = false
     private var decoding = false
 
-    init(connection: IntelligenceDeviceConnection, log: @escaping AiSeeLog) {
+    init(connection: IntelligenceDeviceConnection, settings: AiSeeStreamSettings, log: @escaping AiSeeLog) {
         self.connection = connection
+        self.settings = settings
         self.log = log
     }
 
@@ -46,7 +48,7 @@ final class AiSeeLiveStream: NSObject, LiveStreamSampleReceiving, @unchecked Sen
                onError: @escaping @Sendable (String) -> Void,
                onTerminate: @escaping @Sendable (String?) -> Void) async throws {
         guard connection.deviceIsConnected else { throw AiSeeError.notConnected }
-        let stream = LiveCaptureStream(accessoryConnection: connection)
+        let stream = LiveCaptureStream(accessoryConnection: connection, configuration: Self.configuration(settings))
         lock.withLock {
             self.onFrame = onFrame
             self.onError = onError
@@ -58,12 +60,22 @@ final class AiSeeLiveStream: NSObject, LiveStreamSampleReceiving, @unchecked Sen
         let t0 = Date()
         do {
             let info = try await stream.start(via: .wifi, sampleReceivers: [self])
-            log("livestream: started in \(Int(Date().timeIntervalSince(t0) * 1000))ms, video=\(info.video != nil) audio=\(info.audio != nil)")
+            log("livestream: started in \(Int(Date().timeIntervalSince(t0) * 1000))ms, video=\(info.video != nil) audio=\(info.audio != nil), "
+                + "\(settings.size.label) \(settings.fps) fps \(settings.kbps) kbps \(settings.constantBitrate ? "CBR" : "VBR")")
         } catch {
             lock.withLock { self.capture = nil; self.stopped = true }
             log("livestream: start failed: \(error)")
             throw AiSeeError.sdk(error)
         }
+    }
+
+    private static func configuration(_ s: AiSeeStreamSettings) -> LiveStreamingConfiguration {
+        var cfg = LiveStreamingConfiguration()
+        cfg.videoSettings.size = s.size == .p480 ? .`480p` : .`720p`
+        cfg.videoSettings.fps = s.fps
+        cfg.videoSettings.bps = s.kbps * 1000
+        cfg.videoSettings.rcMode = s.constantBitrate ? .CBR : .VBR
+        return cfg
     }
 
     /// Host-initiated teardown: stops the SDK stream, then releases our side.
@@ -127,9 +139,9 @@ final class AiSeeLiveStream: NSObject, LiveStreamSampleReceiving, @unchecked Sen
         }
         guard go else { return }
         defer { lock.withLock { decoding = false } }
-        decoder.decode(sampleBuffer) { [weak self] pixelBuffer in
+        decoder.decode(sampleBuffer) { [weak self] pixelBuffer, presentationTime in
             guard let self else { return }
-            let frame = AiSeeFrame(pixelBuffer: pixelBuffer)
+            let frame = AiSeeFrame(pixelBuffer: pixelBuffer, presentationTime: presentationTime)
             let handler: (@Sendable (AiSeeFrame) -> Void)? = self.lock.withLock {
                 guard !self.stopped else { return nil }
                 self._latest = frame

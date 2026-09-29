@@ -44,8 +44,11 @@ struct AiSeePhotoCapture {
             let t0 = Date()
             var phase = "shoot"
             do {
+                var size = CaptureConfiguration.PictureSize.`480p`
+                size.width = Self.pictureSize.width
+                size.height = Self.pictureSize.height
                 let info = try await connection.mediaRoutine.snapshot(
-                    quality: Self.quality, pictureSize: Self.pictureSize, playingTone: false)
+                    configuration: AIPhotographConfiguration(pictureSize: size, q: Self.quality), playingTone: false)
                 let shootMs = Self.ms(since: t0)
                 phase = "transfer"
                 let t1 = Date()

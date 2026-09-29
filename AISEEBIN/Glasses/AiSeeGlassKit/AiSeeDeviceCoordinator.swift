@@ -171,7 +171,8 @@ actor AiSeeDeviceCoordinator {
     ///     A start failure is thrown, not routed here.
     ///   - onTerminate: the stream ended — error text, or nil for a clean end.
     ///     Fired for SDK-initiated ends only; an explicit `stopLiveStream()` does not fire it.
-    func startLiveStream(onFrame: @escaping @Sendable (AiSeeFrame) -> Void,
+    func startLiveStream(settings: AiSeeStreamSettings = AiSeeStreamSettings(),
+                         onFrame: @escaping @Sendable (AiSeeFrame) -> Void,
                          onError: @escaping @Sendable (String) -> Void,
                          onTerminate: @escaping @Sendable (String?) -> Void) async throws {
         // One operation at a time: a stream opened mid-capture would race the shot.
@@ -180,7 +181,7 @@ actor AiSeeDeviceCoordinator {
         guard !streaming && !streamStarting else { return }
         streamStarting = true
         defer { streamStarting = false; pendingStreamStop = false }
-        let stream = AiSeeLiveStream(connection: connection, log: log)
+        let stream = AiSeeLiveStream(connection: connection, settings: settings, log: log)
         try await stream.start(
             onFrame: onFrame,
             // Not fired today: start failures throw, terminations go to onTerminate.
@@ -362,7 +363,8 @@ actor AiSeeDeviceCoordinator {
     func setKeyPressObserver(_ observer: (@Sendable (_ keyIndex: Int) -> Void)?) {}
     func setStateObserver(_ observer: (@Sendable (_ micOpen: Bool, _ streaming: Bool) -> Void)?) {}
     func capturePhoto() async throws -> Data { throw AiSeeError.notConnected }
-    func startLiveStream(onFrame: @escaping @Sendable (AiSeeFrame) -> Void,
+    func startLiveStream(settings: AiSeeStreamSettings = AiSeeStreamSettings(),
+                         onFrame: @escaping @Sendable (AiSeeFrame) -> Void,
                          onError: @escaping @Sendable (String) -> Void,
                          onTerminate: @escaping @Sendable (String?) -> Void) async throws {
         throw AiSeeError.notConnected

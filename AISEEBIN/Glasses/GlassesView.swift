@@ -94,7 +94,7 @@ struct GlassesView: View {
 
     // MARK: - Stream
 
-    private var streamSection: some View {
+    @ViewBuilder private var streamSection: some View {
         Section {
             if let image = glasses.previewImage {
                 Image(uiImage: image)
@@ -107,6 +107,9 @@ struct GlassesView: View {
                 LabeledContent("Live video", value: glasses.isStreaming ? "\(glasses.framesPerSecond) fps" : "off")
             }
             .disabled(streamBusy)
+            if glasses.isStreaming, let lag = glasses.lagBuildUpMs {
+                LabeledContent("Lag build-up", value: "\(lag) ms")
+            }
             if let error = streamError ?? glasses.lastStreamError {
                 Text(error).font(.footnote).foregroundStyle(.red)
             }
@@ -114,6 +117,45 @@ struct GlassesView: View {
             Text("Camera")
         } footer: {
             Text("Video arrives over the glasses’ own Wi-Fi hotspot; iOS asks to join it the first time. Internet goes over cellular while it runs.")
+        }
+        Section {
+            Picker("Frame rate", selection: streamSetting(\.fps)) {
+                ForEach([5, 10, 15, 20, 30] as [UInt], id: \.self) { Text("\($0) fps").tag($0) }
+            }
+            Picker("Bitrate", selection: streamSetting(\.kbps)) {
+                ForEach([250, 500, 1000, 2000] as [UInt], id: \.self) { Text("\($0) kbps").tag($0) }
+            }
+            Picker("Resolution", selection: streamSetting(\.size)) {
+                ForEach(AiSeeStreamSettings.Size.allCases, id: \.self) { Text($0.label).tag($0) }
+            }
+            Toggle("Constant bitrate", isOn: streamSetting(\.constantBitrate))
+            Toggle("Smooth preview", isOn: Binding(get: { glasses.smoothPreview }, set: { glasses.smoothPreview = $0 }))
+            Button("Reset to defaults") { applyStreamSettings(AiSeeStreamSettings()) }
+                .disabled(glasses.streamSettings == AiSeeStreamSettings())
+        } header: {
+            Text("Stream tuning")
+        } footer: {
+            Text("A running stream restarts to apply a change. Lag build-up is how far behind its best the video is running; a figure that keeps climbing means frames are queuing. Smooth preview shows every frame instead of four a second; turn it off only to save battery with the screen on. 480p is below the 960 px Immersal is sent, so fixes may suffer.")
+        }
+    }
+
+    private func streamSetting<T: Equatable>(_ keyPath: WritableKeyPath<AiSeeStreamSettings, T>) -> Binding<T> {
+        Binding(get: { glasses.streamSettings[keyPath: keyPath] }, set: { value in
+            var settings = glasses.streamSettings
+            settings[keyPath: keyPath] = value
+            applyStreamSettings(settings)
+        })
+    }
+
+    private func applyStreamSettings(_ settings: AiSeeStreamSettings) {
+        guard settings != glasses.streamSettings else { return }
+        glasses.streamSettings = settings
+        guard glasses.isStreaming, !streamBusy else { return }
+        streamBusy = true
+        streamError = nil
+        Task {
+            defer { streamBusy = false }
+            do { try await glasses.restartStreamForNewSettings() } catch { streamError = error.localizedDescription }
         }
     }
 

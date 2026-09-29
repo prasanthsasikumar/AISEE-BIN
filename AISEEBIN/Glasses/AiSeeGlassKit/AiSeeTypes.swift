@@ -6,6 +6,7 @@
 //
 
 import CoreImage
+import CoreMedia
 import CoreVideo
 import Foundation
 import UIKit
@@ -36,10 +37,14 @@ struct AiSeeDiscoveredDevice: Identifiable, Equatable {
 /// name, so callers are unchanged.
 struct AiSeeFrame {
     let pixelBuffer: CVPixelBuffer?
+    /// The stream's timestamp for this frame (`.invalid` when unknown). Its
+    /// clock is the SDK's, not the phone's, so only differences mean anything.
+    let presentationTime: CMTime
     private let cache: ImageCache
 
-    init(pixelBuffer: CVPixelBuffer?) {
+    init(pixelBuffer: CVPixelBuffer?, presentationTime: CMTime = .invalid) {
         self.pixelBuffer = pixelBuffer
+        self.presentationTime = presentationTime
         self.cache = ImageCache()
     }
 
@@ -70,6 +75,20 @@ struct AiSeeFrame {
             }
         }
     }
+}
+
+/// What the glasses encode for the live stream. Lower fps and bitrate send less
+/// over the hotspot, which is where the stream's lag builds up; constant bitrate
+/// keeps the encoder from bursting on a busy scene.
+struct AiSeeStreamSettings: Equatable, Sendable {
+    enum Size: String, CaseIterable, Sendable {
+        case p480, p720
+        var label: String { self == .p480 ? "480p" : "720p" }
+    }
+    var size: Size = .p720
+    var fps: UInt = 30
+    var kbps: UInt = 1000
+    var constantBitrate = false
 }
 
 enum AiSeeError: LocalizedError {

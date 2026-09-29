@@ -23,7 +23,7 @@ final class AiSeeH264Decoder {
 
     deinit { invalidate() }
 
-    func decode(_ sample: CMSampleBuffer, onFrame: @escaping (CVPixelBuffer) -> Void) {
+    func decode(_ sample: CMSampleBuffer, onFrame: @escaping (CVPixelBuffer, CMTime) -> Void) {
         guard let format = sample.formatDescription else { return }
         // A resolution/SPS change mid-stream needs a new session; VideoToolbox
         // otherwise rejects the frame with kVTFormatDescriptionChangeNotSupportedErr.
@@ -35,8 +35,8 @@ final class AiSeeH264Decoder {
         guard let session else { return }
 
         let status = VTDecompressionSessionDecodeFrame(session, sampleBuffer: sample, flags: [], infoFlagsOut: nil) {
-            status, _, imageBuffer, _, _ in
-            if status == noErr, let imageBuffer { onFrame(imageBuffer) }
+            status, _, imageBuffer, presentationTime, _ in
+            if status == noErr, let imageBuffer { onFrame(imageBuffer, presentationTime) }
         }
         if Self.recreateErrors.contains(status) {
             VTDecompressionSessionInvalidate(session)
