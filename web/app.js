@@ -373,9 +373,12 @@ function draw() {
     if (p === state.selectedNode || p === state.connectFrom || p === state.pathFrom) {
       ctx.strokeStyle = (p === state.connectFrom || p === state.pathFrom) ? '#ffd166' : '#fff'; ctx.lineWidth = 3; ctx.stroke();
     }
-    if ((p.category === 'exhibit' || p.category === 'hazard')) {
-      ctx.beginPath(); ctx.arc(x, y, 2.5 * state.view.scale, 0, Math.PI * 2);
-      ctx.strokeStyle = (CATEGORY_COLORS[p.category]) + '55'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+    const radius = announceRadius(p);
+    if (radius > 0) {
+      const selected = p === state.selectedNode;
+      ctx.beginPath(); ctx.arc(x, y, radius * state.view.scale, 0, Math.PI * 2);
+      ctx.strokeStyle = (CATEGORY_COLORS[p.category]) + (selected ? 'cc' : '55'); ctx.lineWidth = selected ? 2 : 1;
+      ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
     }
     if (showLabels) {
       ctx.font = '12px -apple-system, sans-serif'; ctx.fillStyle = '#e6e8ee';
@@ -470,6 +473,31 @@ function renderVersions() {
   });
 }
 
+// Announce radius, metres: exhibits and hazards are spoken when a visitor comes
+// this close. Matches NavigationPOI.announceRadius in the iOS app, which ignores
+// values outside 0.5–20 m and falls back to the default.
+const DEFAULT_ANNOUNCE_RADIUS = 2.5;
+const ANNOUNCE_RADIUS_MIN = 0.5, ANNOUNCE_RADIUS_MAX = 20;
+function isAnnounced(p) { return p.category === 'exhibit' || p.category === 'hazard'; }
+function announceRadius(p) {
+  if (!isAnnounced(p)) return 0;
+  const r = p.announceRadius;
+  return typeof r === 'number' && r >= ANNOUNCE_RADIUS_MIN && r <= ANNOUNCE_RADIUS_MAX ? r : DEFAULT_ANNOUNCE_RADIUS;
+}
+function renderRadius(n) {
+  $('nodeRadiusRow').hidden = !isAnnounced(n);
+  const r = announceRadius(n) || DEFAULT_ANNOUNCE_RADIUS;
+  $('nodeRadiusRange').value = Math.min(r, +$('nodeRadiusRange').max);
+  if (document.activeElement !== $('nodeRadius')) $('nodeRadius').value = r;
+  $('nodeRadiusValue').textContent = `${r} m${typeof n.announceRadius === 'number' ? '' : ' (default)'}`;
+  $('nodeRadiusReset').hidden = typeof n.announceRadius !== 'number';
+}
+function setRadius(n, value) {
+  const v = Math.round(parseFloat(value) * 100) / 100;
+  if (isNaN(v)) return;
+  n.announceRadius = Math.min(ANNOUNCE_RADIUS_MAX, Math.max(ANNOUNCE_RADIUS_MIN, v));
+}
+
 function renderSidebar() {
   const g = state.graph;
   $('mapName').value = g?.name ?? '';
@@ -481,6 +509,7 @@ function renderSidebar() {
     $('nodeId').textContent = n.id; $('nodeName').value = n.name; $('nodeCategory').value = n.category || 'destination';
     $('nodeDetails').value = n.details || ''; $('nodeAliases').value = (n.aliases || []).join(', ');
     $('nodeX').value = n.x.toFixed(2); $('nodeZ').value = n.z.toFixed(2);
+    renderRadius(n);
     const neighbours = g.edges.filter(e => e.from === n.id || e.to === n.id).map(e => nodeById(e.from === n.id ? e.to : e.from)?.name ?? '?');
     $('nodeEdges').textContent = neighbours.join(', ') || 'none';
   }
@@ -648,10 +677,19 @@ function deleteNode() {
 function deleteEdge() { if (state.selectedEdge === null) return; beginChange(); state.graph.edges.splice(state.selectedEdge, 1); state.selectedEdge = null; markDirty(); }
 
 // node panel bindings
-['nodeName', 'nodeCategory', 'nodeDetails', 'nodeAliases', 'nodeX', 'nodeZ', 'mapName'].forEach(id => $(id).addEventListener('focus', beginChange));
+['nodeName', 'nodeCategory', 'nodeDetails', 'nodeAliases', 'nodeX', 'nodeZ', 'nodeRadius', 'nodeRadiusRange', 'mapName'].forEach(id => $(id).addEventListener('focus', beginChange));
 const bindNode = (id, apply) => $(id).addEventListener('input', () => { if (!state.selectedNode) return; apply(state.selectedNode, $(id).value); state.dirty = true; updateSaveButton(); $('mapStats').textContent = `${state.graph.pois.length} nodes · ${state.graph.edges.length} edges`; draw(); });
 bindNode('nodeName', (n, v) => n.name = v);
-bindNode('nodeCategory', (n, v) => n.category = v);
+bindNode('nodeCategory', (n, v) => { n.category = v; renderRadius(n); });
+bindNode('nodeRadius', (n, v) => { setRadius(n, v); renderRadius(n); });
+bindNode('nodeRadiusRange', (n, v) => { setRadius(n, v); renderRadius(n); });
+// The slider can be dragged without focusing first; snapshot for undo on press.
+$('nodeRadiusRange').addEventListener('pointerdown', beginChange);
+$('nodeRadius').addEventListener('change', () => { if (state.selectedNode) renderRadius(state.selectedNode); });
+$('nodeRadiusReset').onclick = () => {
+  const n = state.selectedNode; if (!n) return;
+  beginChange(); delete n.announceRadius; markDirty();
+};
 bindNode('nodeDetails', (n, v) => n.details = v || null);
 bindNode('nodeAliases', (n, v) => n.aliases = v.split(',').map(s => s.trim()).filter(Boolean));
 bindNode('nodeX', (n, v) => { if (!isNaN(parseFloat(v))) n.x = parseFloat(v); });

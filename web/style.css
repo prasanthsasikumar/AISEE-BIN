@@ -32,6 +32,11 @@ label.chk { flex-direction:row; }
 label.chk input { width:auto; }
 .row { display:flex; gap:8px; }
 .row label { flex:1; }
+.row.radius { align-items:center; }
+.row.radius input[type=range] { flex:1; padding:0; accent-color:var(--accent); }
+.row.radius input[type=number] { width:72px; flex:none; }
+button.link { padding:0; border:none; background:none; color:var(--accent); font-size:12px; }
+button.link:hover { text-decoration:underline; }
 button, .button { padding:6px 10px; border:1px solid var(--line); border-radius:6px; background:#20242e; color:var(--text); cursor:pointer; font:inherit; text-decoration:none; display:inline-block; text-align:center; }
 button:hover, .button:hover { border-color:#3a4150; }
 button:disabled { opacity:.45; cursor:default; }

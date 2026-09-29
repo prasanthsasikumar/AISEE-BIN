@@ -41,9 +41,13 @@ struct NavigationPOI: Identifiable, Hashable, Codable {
     var details: String?
     /// Extra spoken names for voice matching ("bathroom" → Restrooms).
     var aliases: [String] = []
+    /// Announce radius set in the web editor, metres; nil means the default.
+    /// Stored as `announceRadius` in the map JSON.
+    var customAnnounceRadius: Float?
 
     init(id: String, name: String, x: Float, z: Float,
-         category: POICategory = .destination, details: String? = nil, aliases: [String] = []) {
+         category: POICategory = .destination, details: String? = nil, aliases: [String] = [],
+         customAnnounceRadius: Float? = nil) {
         self.id = id
         self.name = name
         self.x = x
@@ -51,6 +55,7 @@ struct NavigationPOI: Identifiable, Hashable, Codable {
         self.category = category
         self.details = details
         self.aliases = aliases
+        self.customAnnounceRadius = customAnnounceRadius
     }
 
     var planarPosition: SIMD2<Float> { SIMD2(x, z) }
@@ -58,11 +63,24 @@ struct NavigationPOI: Identifiable, Hashable, Codable {
     /// Nodes the user can pick or ask for by voice.
     var isDestination: Bool { category == .destination || category == .exhibit }
 
+    /// Used when a place has no radius of its own.
+    static let defaultAnnounceRadius: Float = 2.5
+    /// A radius outside this range is treated as a typo and ignored.
+    static let announceRadiusRange: ClosedRange<Float> = 0.5...20
+
     /// Radius (metres) within which the node is announced while walking; 0 = never.
-    var announceRadius: Float { category == .exhibit || category == .hazard ? 2.5 : 0 }
+    /// Only exhibits and hazards are announced; the editor may set their radius.
+    var announceRadius: Float {
+        guard category == .exhibit || category == .hazard else { return 0 }
+        if let custom = customAnnounceRadius, Self.announceRadiusRange.contains(custom) { return custom }
+        return Self.defaultAnnounceRadius
+    }
 
     // Custom decoding so JSON written by hand may omit the optional fields.
-    private enum CodingKeys: String, CodingKey { case id, name, x, z, category, details, aliases }
+    private enum CodingKeys: String, CodingKey {
+        case id, name, x, z, category, details, aliases
+        case customAnnounceRadius = "announceRadius"
+    }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -73,6 +91,7 @@ struct NavigationPOI: Identifiable, Hashable, Codable {
         category = try c.decodeIfPresent(POICategory.self, forKey: .category) ?? .destination
         details = try c.decodeIfPresent(String.self, forKey: .details)
         aliases = try c.decodeIfPresent([String].self, forKey: .aliases) ?? []
+        customAnnounceRadius = try? c.decodeIfPresent(Float.self, forKey: .customAnnounceRadius)
     }
 }
 
