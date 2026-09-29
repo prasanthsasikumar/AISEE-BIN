@@ -1,6 +1,8 @@
 package com.flowsxr.aiseebin.map
 
 import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -23,10 +25,42 @@ object MapRepository {
     private const val BASE = "https://djfpemdkeguztyuerxqc.supabase.co/rest/v1/ab_map_versions"
     private const val KEY = "sb_publishable_hEk_pFTUws4X_SL7QKiFUA_DeFU9-YL"
 
-    /** Newest version of every map, sorted with glasses-ready maps first. */
-    fun list(): List<MapSummary> {
+    /** What came back, and whether it is the copy saved on the phone because the server was unreachable. */
+    data class Loaded<T>(val value: T, val offline: Boolean)
+
+    /**
+     * Newest version of every map, sorted with glasses-ready maps first. The
+     * answer is saved in [cacheDir] and served from there when the server is
+     * unreachable — the usual case on the glasses' Wi-Fi with no SIM data.
+     */
+    fun list(cacheDir: File): Loaded<List<MapSummary>> {
         val select = "map_slug,version,name:graph->>name,alignment:graph->immersalAlignment"
-        val rows = JSONArray(get("$BASE?select=${enc(select)}&order=map_slug.asc,version.desc"))
+        val file = File(cacheDir.apply { mkdirs() }, "index.json")
+        return try {
+            val body = get("$BASE?select=${enc(select)}&order=map_slug.asc,version.desc")
+            val list = parseList(JSONArray(body))
+            runCatching { file.writeText(body) }
+            Loaded(list, offline = false)
+        } catch (e: Exception) {
+            if (!file.isFile) throw e
+            Loaded(parseList(JSONArray(file.readText())), offline = true)
+        }
+    }
+
+    /** The newest version of [slug]; the saved copy when offline. */
+    fun load(slug: String, cacheDir: File): Loaded<NavigationMap> {
+        val file = File(cacheDir.apply { mkdirs() }, "${slug.replace(Regex("[^A-Za-z0-9_-]"), "_")}.json")
+        return try {
+            val graph = fetchGraph(slug)
+            runCatching { file.writeText(graph.toString()) }
+            Loaded(NavigationMap.parse(graph), offline = false)
+        } catch (e: Exception) {
+            if (!file.isFile) throw e
+            Loaded(NavigationMap.parse(JSONObject(file.readText())), offline = true)
+        }
+    }
+
+    private fun parseList(rows: JSONArray): List<MapSummary> {
         val newest = linkedMapOf<String, MapSummary>()
         for (i in 0 until rows.length()) {
             val r = rows.getJSONObject(i)
@@ -44,11 +78,11 @@ object MapRepository {
         return newest.values.sortedWith(compareBy({ it.immersalMapIds.isEmpty() }, { it.name.lowercase() }))
     }
 
-    fun load(slug: String): NavigationMap {
+    private fun fetchGraph(slug: String): JSONObject {
         val url = "$BASE?select=graph&map_slug=eq.${enc(slug)}&order=version.desc&limit=1"
         val rows = JSONArray(get(url))
         require(rows.length() > 0) { "No map called $slug on the server" }
-        return NavigationMap.parse(rows.getJSONObject(0).getJSONObject("graph"))
+        return rows.getJSONObject(0).getJSONObject("graph")
     }
 
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")

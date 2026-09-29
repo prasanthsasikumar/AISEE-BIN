@@ -37,11 +37,14 @@ data class MapState(
     /** Immersal map ids of the selected map that are cached on the phone. */
     val cached: List<Int> = emptyList(),
     val downloading: Boolean = false,
+    /** The map came from the copy saved on the phone because the server was unreachable. */
+    val offline: Boolean = false,
 )
 
 class AppModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("app", Context.MODE_PRIVATE)
     private val cache = ImmersalMapCache(app.filesDir)
+    private val mapDir = java.io.File(app.filesDir, "maps")
     val speaker = Speaker(app)
     val glasses = GlassesController(app, viewModelScope)
     /** Debug: a still image fed to positioning in place of glasses frames. */
@@ -132,9 +135,10 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     fun refreshMaps() {
         _maps.update { it.copy(loading = true, status = "Loading maps from the server…") }
         viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) { runCatching { MapRepository.list() } }
-            result.onSuccess { list ->
-                _maps.update { it.copy(available = list, loading = false, status = null) }
+            val result = withContext(Dispatchers.IO) { runCatching { MapRepository.list(mapDir) } }
+            result.onSuccess { (list, offline) ->
+                _maps.update { it.copy(available = list, loading = false, offline = offline, status = null) }
+                if (offline) append("map server unreachable: using the map list saved on this phone")
                 append("server maps: ${list.joinToString { "${it.slug}${if (it.immersalMapIds.isEmpty()) "" else it.immersalMapIds}" }}")
                 val pick = _maps.value.selectedSlug?.takeIf { s -> list.any { it.slug == s } }
                     ?: list.firstOrNull { it.immersalMapIds.isNotEmpty() }?.slug
@@ -142,6 +146,8 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             }.onFailure { e ->
                 _maps.update { it.copy(loading = false, status = "Could not reach the map server: ${e.message}") }
                 append("map list failed: $e")
+                // The last map used may still be saved on the phone.
+                _maps.value.selectedSlug?.let { if (_maps.value.map == null) selectMap(it) }
             }
         }
     }
@@ -152,16 +158,17 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putString(KEY_MAP, slug).apply()
         _maps.update { it.copy(selectedSlug = slug, map = null, loading = true, status = "Loading $slug…") }
         viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) { runCatching { MapRepository.load(slug) } }
-            result.onSuccess { map ->
+            val result = withContext(Dispatchers.IO) { runCatching { MapRepository.load(slug, mapDir) } }
+            result.onSuccess { (map, offline) ->
+                if (offline) append("map server unreachable: using the copy of $slug saved on this phone")
                 announcer = com.flowsxr.aiseebin.positioning.ProximityAnnouncer(map.pois)
                 val ids = map.alignment?.mapIds.orEmpty()
                 _maps.update {
-                    it.copy(map = map, loading = false, cached = ids.filter(cache::has),
+                    it.copy(map = map, loading = false, offline = offline, cached = ids.filter(cache::has),
                         status = if (ids.isEmpty()) "This map has no Immersal alignment, so the glasses cannot position in it." else null)
                 }
                 append("loaded map ${map.name}: ${map.pois.size} places, Immersal $ids")
-                if (ids.any { !cache.has(it) }) downloadMaps()
+                if (!offline && ids.any { !cache.has(it) }) downloadMaps()
             }.onFailure { e ->
                 _maps.update { it.copy(loading = false, status = "Could not load $slug: ${e.message}") }
                 append("map load failed: $e")

@@ -3,6 +3,13 @@ import Foundation
 import Observation
 import simd
 
+/// The visitor on the graph floor plane, for the live map.
+struct MapPose: Equatable {
+    var position: SIMD2<Float>
+    /// Radians; heading h faces (sin h, -cos h) on (x, z), as in NavigationGeometry.
+    var heading: Float
+}
+
 /// Snapshot of internals for the on-screen debug visualizer.
 struct DebugInfo {
     var fps: Double = 0
@@ -129,6 +136,15 @@ final class NavigationViewModel {
     private(set) var routeLegCount = 0
     /// Name of the place last arrived at, kept so the arrival panel can stay up.
     private(set) var arrivedPlaceName: String?
+    /// Where the visitor is on the graph, for the live map; nil until tracking
+    /// is trustworthy. Updated a few times a second, not every frame.
+    private(set) var mapPose: MapPose?
+    /// Node ids of the active route, start to destination, for the live map.
+    private(set) var routePath: [String] = []
+    @ObservationIgnored private var lastMapPoseUpdate: TimeInterval = 0
+
+    /// The graph the app is navigating, with anchor-corrected positions.
+    var displayMap: NavigationMap { engine.map }
 
     var isAuthoring: Bool { mode == .authoring }
 
@@ -495,6 +511,7 @@ final class NavigationViewModel {
         routeLegCount = path.count
         lastInstruction = nil
         debug.routeNodes = path.map(engine.displayName(of:))
+        routePath = path.map(engine.name(of:))
         statusMessage = nil
 
         if let instruction = makeInstruction(from: currentTransform) {
@@ -517,6 +534,7 @@ final class NavigationViewModel {
         routeLegCount = 0
         debug.subGoal = "—"
         debug.routeNodes = []
+        routePath = []
         guidance.stopSpeaking()
     }
 
@@ -706,6 +724,7 @@ final class NavigationViewModel {
 
     private func handle(_ snapshot: PoseSnapshot) {
         updateDebug(with: snapshot)
+        updateMapPose(with: snapshot)
         guard !isAuthoring else { return }
 
         let position = NavigationGeometry.planarPosition(of: snapshot.cameraTransform)
@@ -783,6 +802,7 @@ final class NavigationViewModel {
         routeLeg = 1
         routeLegCount = path.count
         debug.routeNodes = path.map(engine.displayName(of:))
+        routePath = path.map(engine.name(of:))
     }
 
     private func finishNavigation(at name: String) {
@@ -796,6 +816,7 @@ final class NavigationViewModel {
         routeLegCount = 0
         statusMessage = "Arrived at \(name)."
         debug.subGoal = "arrived"
+        routePath = []
     }
 
     /// Distance + turn toward the tracker's current target, or `nil` when there is no target.
@@ -806,6 +827,18 @@ final class NavigationViewModel {
                                      distance: vector.distance,
                                      nextNodeName: tracker.spokenTargetName ?? engine.displayName(of: target),
                                      isFinal: tracker.isFinalLeg)
+    }
+
+    private func updateMapPose(with snapshot: PoseSnapshot) {
+        guard snapshot.trackingReliable, !isAuthoring else {
+            if mapPose != nil { mapPose = nil }
+            return
+        }
+        let now = ProcessInfo.processInfo.systemUptime
+        guard now - lastMapPoseUpdate >= 0.2 else { return }
+        lastMapPoseUpdate = now
+        mapPose = MapPose(position: NavigationGeometry.planarPosition(of: snapshot.cameraTransform),
+                          heading: NavigationGeometry.heading(of: snapshot.cameraTransform))
     }
 
     private func updateDebug(with snapshot: PoseSnapshot) {

@@ -11,6 +11,7 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var showingGlasses = false
+    @AppStorage("nav.showMap") private var showMap = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -81,6 +82,15 @@ struct ContentView: View {
                                             && viewModel.arManager.isUsingSavedWorldMap)
                 syncSection
                 primaryPanel
+
+                if showMap, !viewModel.displayMap.pois.isEmpty {
+                    LiveMapView(map: viewModel.displayMap,
+                                pose: viewModel.mapPose,
+                                routePath: viewModel.routePath,
+                                selectedID: viewModel.selectedDestination?.id)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 210)
+                }
 
                 if viewModel.showDebug {
                     DebugOverlay(info: viewModel.debug,
@@ -210,6 +220,7 @@ struct ContentView: View {
                     .disabled(!viewModel.arManager.hasSavedWorldMap)
                     Divider()
                     Toggle("Mute Voice", isOn: $guidance.isMuted)
+                    Toggle("Show Map", isOn: $showMap)
                     Toggle("Debug Overlay", isOn: $viewModel.showDebug)
                 } label: {
                     Image(systemName: "ellipsis")

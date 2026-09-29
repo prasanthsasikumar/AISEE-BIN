@@ -185,17 +185,77 @@ private fun AiseeTheme(content: @Composable () -> Unit) {
 
 @Composable
 private fun Screen(model: AppModel, permissionsGranted: Boolean, requestPermissions: () -> Unit, openBluetoothSettings: () -> Unit) {
+    val g by model.glasses.state.collectAsStateWithLifecycle()
+    val live = g.stream == Stream.STARTING || g.stream == Stream.PLAYING
+    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+        if (live) {
+            // Fixed, not in the scrolling list: the SDK's video is a SurfaceView,
+            // which mis-places itself inside a scrolling parent.
+            LiveVideo(g.stream, g.fps)
+            LiveMap(model)
+        }
+        ScrollingPanels(model, live, permissionsGranted, requestPermissions, openBluetoothSettings)
+    }
+}
+
+@Composable
+private fun LiveVideo(stream: Stream, fps: Int) {
+    Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black)) {
+        AndroidView(
+            factory = { ctx ->
+                RTKVideoView(ctx).apply {
+                    layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                }
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+        Text(
+            if (stream == Stream.PLAYING) "Live · $fps fps" else "Starting… accept the Wi-Fi prompt",
+            Modifier.align(Alignment.TopStart).padding(8.dp)
+                .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(6.dp))
+                .padding(horizontal = 8.dp, vertical = 3.dp),
+            color = Color.White, fontSize = 12.sp,
+        )
+    }
+}
+
+/** The live map right under the video: where the glasses put you, and in words. */
+@Composable
+private fun LiveMap(model: AppModel) {
+    val p by model.positioning.state.collectAsStateWithLifecycle()
+    val m by model.maps.collectAsStateWithLifecycle()
+    val map = m.map ?: return
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        MapCanvas(map, p.lastFix, height = 220.dp)
+        val fix = p.lastFix
+        Text(
+            when {
+                fix != null -> LocationDescriber(map).describe(fix.position, fix.heading) ?: map.name
+                p.running -> "Looking for your position in ${map.name}…"
+                else -> "${map.name} · start positioning below"
+            },
+            fontWeight = FontWeight.Medium,
+        )
+    }
+    HorizontalDivider()
+}
+
+@Composable
+private fun ScrollingPanels(model: AppModel, live: Boolean, permissionsGranted: Boolean,
+                            requestPermissions: () -> Unit, openBluetoothSettings: () -> Unit) {
     Column(
         Modifier
             .fillMaxSize()
-            .safeDrawingPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("AISEE-BIN", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-        Text("Android glasses prototype", style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (!live) {
+            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("AISEE-BIN", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text("glasses prototype", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
 
         if (!permissionsGranted) {
             Section("Permissions") {
@@ -203,9 +263,14 @@ private fun Screen(model: AppModel, permissionsGranted: Boolean, requestPermissi
                 Button(onClick = requestPermissions) { Text("Grant permissions") }
             }
         }
-        GlassesSection(model, openBluetoothSettings)
+        if (live) {
+            PositioningSection(model, showMap = false)
+            GlassesSection(model, openBluetoothSettings)
+        } else {
+            GlassesSection(model, openBluetoothSettings)
+        }
         MapSection(model)
-        PositioningSection(model)
+        if (!live) PositioningSection(model, showMap = true)
         SettingsSection(model)
         LogSection(model)
         Spacer(Modifier.height(24.dp))
@@ -289,19 +354,6 @@ private fun GlassesSection(model: AppModel, openBluetoothSettings: () -> Unit) {
                     OutlinedButton(onClick = { model.stopCamera() }) { Text("Stop camera") }
                 }
             }
-            // Realtek's GLSurfaceView renders the decoded stream; one global render target.
-            if (g.stream == Stream.STARTING || g.stream == Stream.PLAYING) {
-                Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black, RoundedCornerShape(8.dp))) {
-                    AndroidView(
-                        factory = { ctx ->
-                            RTKVideoView(ctx).apply {
-                                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-            }
         }
         g.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
@@ -329,6 +381,7 @@ private fun MapSection(model: AppModel) {
                 }
             }
         }
+        if (m.offline) Text("Offline: using the copy saved on this phone.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         m.status?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { picking = !picking }) { Text("Choose map…") }
@@ -352,7 +405,7 @@ private fun MapSection(model: AppModel) {
 }
 
 @Composable
-private fun PositioningSection(model: AppModel) {
+private fun PositioningSection(model: AppModel, showMap: Boolean) {
     val p by model.positioning.state.collectAsStateWithLifecycle()
     val m by model.maps.collectAsStateWithLifecycle()
     val g by model.glasses.state.collectAsStateWithLifecycle()
@@ -393,7 +446,7 @@ private fun PositioningSection(model: AppModel) {
             m.map?.let { map -> LocationDescriber(map).describe(fix.position, fix.heading)?.let { Text(it, fontWeight = FontWeight.Medium) } }
         }
         spoken?.let { Text("Last spoken: $it", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) }
-        m.map?.let { MapCanvas(it, p.lastFix) }
+        if (showMap) m.map?.let { MapCanvas(it, p.lastFix) }
         val announce by model.announcePlaces.collectAsStateWithLifecycle()
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
