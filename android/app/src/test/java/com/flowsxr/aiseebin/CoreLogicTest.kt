@@ -130,6 +130,44 @@ class CoreLogicTest {
         assertTrue(between, between.startsWith("You are between the Table and the Plant"))
     }
 
+    // MARK: walking
+
+    @Test fun announceRadiusFromEditorOnlyForAnnouncedPlaces() {
+        val map = NavigationMap.parse(JSONObject("""{"name":"T","pois":[
+            {"id":"e","name":"Shelf","x":0,"z":0,"category":"exhibit","announceRadius":1},
+            {"id":"h","name":"Step","x":0,"z":0,"category":"hazard"},
+            {"id":"d","name":"Door","x":0,"z":0,"category":"destination","announceRadius":4},
+            {"id":"x","name":"Odd","x":0,"z":0,"category":"exhibit","announceRadius":99}],"edges":[]}"""))
+        assertEquals(listOf(1f, 2.5f, 0f, 2.5f), map.pois.map { it.announceRadius })
+    }
+
+    @Test fun proximityAnnouncesOnceAndRearmsBeyondOneAndAHalfRadii() {
+        val map = NavigationMap.parse(JSONObject("""{"name":"T","pois":[
+            {"id":"e","name":"Shelf","x":0,"z":-3,"category":"exhibit","announceRadius":1,"details":"Books"},
+            {"id":"h","name":"Step","x":10,"z":0,"category":"hazard"}],"edges":[]}"""))
+        val a = com.flowsxr.aiseebin.positioning.ProximityAnnouncer(map.pois)
+        assertTrue(a.update(Vec2(0f, 0f), 0f).isEmpty())              // 3 m away, radius 1
+        val hit = a.update(Vec2(0f, -2.2f), 0f)                          // 0.8 m, ahead
+        assertEquals("Shelf ahead. Books", hit.single().spokenText)
+        assertTrue(a.update(Vec2(0f, -2.4f), 0f).isEmpty())              // still inside: no repeat
+        assertTrue(a.update(Vec2(0f, -1.7f), 0f).isEmpty())              // 1.3 m: not re-armed yet
+        assertTrue(a.update(Vec2(0f, -1.2f), 0f).isEmpty())              // 1.8 m: re-armed
+        assertEquals(1, a.update(Vec2(0f, -2.5f), 0f).size)              // announced again
+        assertEquals("Caution: Step on your right.", a.update(Vec2(8f, 0f), 0f).single().spokenText)
+    }
+
+    @Test fun fixGateRejectsJumpsThenReanchors() {
+        val g = com.flowsxr.aiseebin.positioning.FixGate()
+        assertTrue(g.evaluate(Vec2(0f, 0f), 0f))
+        assertTrue(g.evaluate(Vec2(1f, 0f), 0f))       // within slack
+        assertFalse(g.evaluate(Vec2(8f, 0f), 0.5f))    // jumped 7 m after walking 0.5 m
+        assertEquals(7f, g.lastJump, eps)
+        assertTrue(g.evaluate(Vec2(4f, 0f), 3f))       // walked 3 m: a 3 m move is fine
+        assertFalse(g.evaluate(Vec2(20f, 0f), 3f))
+        assertFalse(g.evaluate(Vec2(20f, 0f), 3f))
+        assertTrue(g.evaluate(Vec2(20f, 0f), 3f))      // third in a row: believe it
+    }
+
     // MARK: image
 
     @Test fun downscaleAveragesAndKeepsAspect() {

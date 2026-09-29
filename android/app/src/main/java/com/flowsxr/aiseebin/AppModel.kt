@@ -47,10 +47,16 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     /** Debug: a still image fed to positioning in place of glasses frames. */
     @Volatile var frameOverride: com.flowsxr.aiseebin.immersal.GrayImage? = null
     private var fakeSeq = 0L
+    val odometer = com.flowsxr.aiseebin.positioning.Odometer(app)
     val positioning = GlassesPositioning(viewModelScope, {
         frameOverride?.let { com.flowsxr.aiseebin.glasses.TimedFrame(it, ++fakeSeq, System.currentTimeMillis()) }
             ?: GlassesFrames.latest()
-    }, app.getExternalFilesDir(null))
+    }, app.getExternalFilesDir(null), walked = { odometer.walked })
+
+    /** Speak exhibits and hazards on the way past (iOS ProximityAnnouncer). */
+    private val _announcePlaces = MutableStateFlow(prefs.getBoolean(KEY_ANNOUNCE, true))
+    val announcePlaces: StateFlow<Boolean> = _announcePlaces
+    @Volatile private var announcer: com.flowsxr.aiseebin.positioning.ProximityAnnouncer? = null
 
     /** True while a positioning start is loading maps; the button stays disabled. */
     private val _starting = MutableStateFlow(false)
@@ -101,6 +107,19 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                 announcedFirstFix = true
                 viewModelScope.launch { describe(fix)?.let { speak("Located. $it") } }
             }
+            val passing = if (_announcePlaces.value) announcer?.update(fix.position, fix.heading).orEmpty() else emptyList()
+            if (passing.isNotEmpty()) viewModelScope.launch {
+                for (a in passing) {
+                    val hazard = a.poi.category == com.flowsxr.aiseebin.map.PoiCategory.HAZARD
+                    append("announce ${a.poi.name} (%.1f m, radius %.1f m)".format(a.distance, a.poi.announceRadius))
+                    if (hazard) buzzWarning()
+                    // Hazards cut in; exhibits wait their turn, as on iOS.
+                    speak(a.spokenText, interrupt = hazard)
+                }
+            }
+        }
+        viewModelScope.launch {
+            positioning.state.collect { if (!it.running) odometer.stop() }
         }
         append("native Immersal plugin: ${if (ImmersalNative.available) "available" else "missing (cloud only)"}")
         append("built-in Immersal token: ${if (hasBuiltInToken) "yes" else "no"}")
@@ -135,6 +154,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) { runCatching { MapRepository.load(slug) } }
             result.onSuccess { map ->
+                announcer = com.flowsxr.aiseebin.positioning.ProximityAnnouncer(map.pois)
                 val ids = map.alignment?.mapIds.orEmpty()
                 _maps.update {
                     it.copy(map = map, loading = false, cached = ids.filter(cache::has),
@@ -181,6 +201,9 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                     append("positioning start abandoned")
                     return@launch
                 }
+                announcer = com.flowsxr.aiseebin.positioning.ProximityAnnouncer(map.pois)
+                odometer.start()
+                append("walked distance from the ${odometer.source}")
                 positioning.start(localizer, alignment, GlassesCamera(_focalPx.value))
                 append("positioning started (${localizer.label}, focal ${_focalPx.value.toInt()} px)")
             } finally {
@@ -280,9 +303,26 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     private fun describe(fix: Fix): String? = _maps.value.map?.let { LocationDescriber(it).describe(fix.position, fix.heading) }
 
-    private fun speak(text: String) {
+    private fun speak(text: String, interrupt: Boolean = true) {
         _spoken.value = text
-        speaker.say(text)
+        speaker.say(text, interrupt)
+    }
+
+    private fun buzzWarning() {
+        val vibrator = getApplication<Application>().getSystemService(android.os.Vibrator::class.java) ?: return
+        runCatching { vibrator.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 120, 80, 120, 80, 250), -1)) }
+    }
+
+    /** Debug: behave as if positioning produced this fix (announcements, where-am-I). */
+    fun injectFix(x: Float, z: Float, heading: Float) {
+        val fix = Fix(com.flowsxr.aiseebin.map.Vec2(x, z), heading, System.currentTimeMillis(), null)
+        append("debug: injected fix x=$x z=$z heading=$heading")
+        positioning.onFix?.invoke(fix)
+    }
+
+    fun setAnnouncePlaces(on: Boolean) {
+        _announcePlaces.value = on
+        prefs.edit().putBoolean(KEY_ANNOUNCE, on).apply()
     }
 
     // MARK: - Glasses
@@ -338,6 +378,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         private const val KEY_MAP = "map.slug"
         private const val KEY_FOCAL = "glasses.focalPx"
         private const val KEY_TOKEN = "immersal.token"
+        private const val KEY_ANNOUNCE = "announce.places"
         private const val STALE_SECONDS = 10
     }
 }

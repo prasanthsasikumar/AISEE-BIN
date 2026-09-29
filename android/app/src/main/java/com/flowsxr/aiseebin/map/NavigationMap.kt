@@ -33,8 +33,23 @@ data class NavigationPoi(
     val position: Vec2,
     val category: PoiCategory,
     val details: String?,
+    /** Radius set in the web editor (`announceRadius`), metres; null means the default. */
+    val customAnnounceRadius: Float? = null,
 ) {
     val isNamed: Boolean get() = category != PoiCategory.JUNCTION
+
+    /** Metres within which this place is announced while walking; 0 = never (iOS `NavigationPOI.announceRadius`). */
+    val announceRadius: Float
+        get() {
+            if (category != PoiCategory.EXHIBIT && category != PoiCategory.HAZARD) return 0f
+            val custom = customAnnounceRadius
+            return if (custom != null && custom in ANNOUNCE_RADIUS_RANGE) custom else DEFAULT_ANNOUNCE_RADIUS
+        }
+
+    companion object {
+        const val DEFAULT_ANNOUNCE_RADIUS = 2.5f
+        val ANNOUNCE_RADIUS_RANGE = 0.5f..20f
+    }
 }
 
 data class NavigationEdge(val from: String, val to: String)
@@ -77,6 +92,8 @@ data class NavigationMap(
                         position = Vec2(p.optDouble("x", 0.0).toFloat(), p.optDouble("z", 0.0).toFloat()),
                         category = PoiCategory.parse(p.optString("category", "destination")),
                         details = if (p.isNull("details")) null else p.optString("details").ifBlank { null },
+                        customAnnounceRadius = if (p.has("announceRadius") && !p.isNull("announceRadius"))
+                            p.optDouble("announceRadius", Double.NaN).toFloat().takeIf { it.isFinite() } else null,
                     )
                 }
             } ?: emptyList()

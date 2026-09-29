@@ -41,6 +41,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -137,6 +138,7 @@ class MainActivity : ComponentActivity() {
             "position" -> model.startPositioning()
             "stopposition" -> model.stopPositioning()
             "whereami" -> model.whereAmI("adb")
+            "fakefix" -> model.injectFix(intent.getFloatExtra("x", 0f), intent.getFloatExtra("z", 0f), intent.getFloatExtra("h", 0f))
             "fakeframes" -> model.fakeFrames(intent.getStringExtra("pattern"))
             "selftest" -> model.selfTest(intent.getStringExtra("pattern") ?: "checker")
             "setint" -> model.append("setInteger ${intent.getStringExtra("name")}=${intent.getIntExtra("value", 0)} → " +
@@ -148,6 +150,7 @@ class MainActivity : ComponentActivity() {
     private fun requiredPermissions(): Array<String> = buildList {
         add(Manifest.permission.ACCESS_FINE_LOCATION)
         add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        if (Build.VERSION.SDK_INT >= 29) add(Manifest.permission.ACTIVITY_RECOGNITION)
         if (Build.VERSION.SDK_INT >= 31) {
             add(Manifest.permission.BLUETOOTH_CONNECT)
             add(Manifest.permission.BLUETOOTH_SCAN)
@@ -158,8 +161,10 @@ class MainActivity : ComponentActivity() {
         }
     }.toTypedArray()
 
+    // Step counting is optional: without it the jump filter allows walking pace instead.
     private fun missingPermissions() = requiredPermissions().filter {
-        ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        it != Manifest.permission.ACTIVITY_RECOGNITION &&
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
     }
 }
 
@@ -371,7 +376,7 @@ private fun PositioningSection(model: AppModel) {
         }
         p.localizer?.let { Row2("Localizer", it) }
         if (p.running || p.attempts > 0) {
-            Row2("Fixes", "${p.fixes} of ${p.attempts} tries")
+            Row2("Fixes", "${p.fixes} of ${p.attempts} tries" + if (p.rejected > 0) " · ${p.rejected} rejected" else "")
             p.lastLatencyMs?.let { Row2("Last try", "$it ms") }
             p.frameSize?.let { Row2("Frame sent", "${it.first}×${it.second}") }
             p.lastError?.let { Row2("Last result", it) }
@@ -385,6 +390,15 @@ private fun PositioningSection(model: AppModel) {
         }
         spoken?.let { Text("Last spoken: $it", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) }
         m.map?.let { MapCanvas(it, p.lastFix) }
+        val announce by model.announcePlaces.collectAsStateWithLifecycle()
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Announce places as I walk")
+                Text("Exhibits and hazards, within the radius set in the map editor.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+            }
+            Switch(checked = announce, onCheckedChange = model::setAnnouncePlaces)
+        }
         Text("A glasses button press also asks \"where am I\".", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
     }
 }

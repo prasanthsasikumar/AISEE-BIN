@@ -18,6 +18,7 @@ mode, and phone-only positioning.
 | Localizing | `immersal/Localizers.kt` | `AutoLocalizer` uses the cloud (`/localizeb64`) when the default network has internet, and Immersal's on-device plugin otherwise. The on-device path needs the map file, which the app caches when a map is picked. |
 | Pose → map | `immersal/Immersal.kt`, `map/NavigationMap.kt` | Same conventions as iOS: row-major, CV camera, `ImmersalAlignment`. |
 | "Where am I" | `map/NavigationMap.kt` (`LocationDescriber`), `Speaker.kt` | Same wording as iOS. It triggers on a glasses button press or the on-screen button. |
+| Announcing places | `positioning/Walking.kt` (`ProximityAnnouncer`, `FixGate`), `positioning/Odometer.kt` | Exhibits and hazards are spoken on entering their radius, set per place in the web editor (default 2.5 m). A hazard interrupts speech and buzzes; an exhibit waits its turn. A fix that jumps further than the step counter says you walked is dropped, and the filter re-anchors after 3 in a row. The step counter needs the Physical-activity permission; without it, walking pace is assumed. |
 | Screen | `MainActivity.kt`, `ui/MapCanvas.kt` | One Compose screen: glasses, map, positioning, settings and log. |
 
 ## Building
@@ -47,7 +48,7 @@ mode, and phone-only positioning.
 adb shell am broadcast -a com.flowsxr.aiseebin.DEBUG -p com.flowsxr.aiseebin --es cmd <command>
 ```
 
-- **Commands:** `connect`, `disconnect`, `camera`, `stopcamera`, `position`, `stopposition`, `whereami`, `devices`.
+- **Commands:** `connect`, `disconnect`, `camera`, `stopcamera`, `position`, `stopposition`, `whereami`, `devices`, `fakefix --ef x <m> --ef z <m> --ef h <rad>`.
 - **Map:** `map --es slug <slug>`.
 - **Self-test:** `selftest --es pattern flat|noise|file`. `file` reads `files/test.png` from the app's external files directory.
 - **Fake frames:** `fakeframes --es pattern file` feeds positioning a still image in place of the camera.
@@ -62,6 +63,8 @@ Logs go to logcat under `AISEEBIN`, `Glasses` and `aiseebin-native`. The app's o
 - **On-device localize:** a flat frame took 1.3 s. A real photo took 3.4–3.8 s with 4 threads, and 4.4 s with the default thread count. Both were "no match", as expected, because the frames weren't of the mapped space.
 - **Cloud localize:** a 960-wide photo took 0.9–2.7 s, "no match" as expected.
 - **Camera start:** the glasses bring up their hotspot. Joining it needs the app in the foreground to tap Android's Wi-Fi prompt, so it was **not verified** with the phone locked.
+
+**Your first field session (2026-09-29, PSK room, map 151810):** 25 fixes in 168 tries. On-device fixes had a median of 288 ms (207 ms and up). No-match tries took 0.45–0.7 s. Announcements were checked on the phone with injected positions (`fakefix --ef x --ef z --ef h`).
 
 **Still owed:**
 - A real fix against a mapped space.

@@ -27,6 +27,8 @@ data class PositioningState(
     val running: Boolean = false,
     val attempts: Int = 0,
     val fixes: Int = 0,
+    /** Fixes the jump filter threw away. */
+    val rejected: Int = 0,
     val lastLatencyMs: Long? = null,
     val lastRequestBytes: Int? = null,
     val lastError: String? = null,
@@ -46,7 +48,10 @@ class GlassesPositioning(
     private val scope: CoroutineScope,
     private val latestFrame: () -> TimedFrame?,
     private val debugDir: File?,
+    /** Metres walked since positioning started, for the jump filter. */
+    private val walked: () -> Float = { 0f },
 ) {
+    private val gate = FixGate()
     private val _state = MutableStateFlow(PositioningState())
     val state: StateFlow<PositioningState> = _state
 
@@ -66,6 +71,7 @@ class GlassesPositioning(
         stop()
         this.localizer = localizer
         val gen = ++generation
+        synchronized(gate) { gate.reset() }
         _state.value = PositioningState(running = true, localizer = localizer.label)
         job = scope.launch(Dispatchers.IO) {
             var lastStart = 0L
@@ -125,8 +131,26 @@ class GlassesPositioning(
             }
             return
         }
+        val position = alignment.toGraph(Vec2(planar.x, planar.z))
+        val walkedNow = walked()
+        val (believed, jump) = synchronized(gate) { gate.evaluate(position, walkedNow) to gate.lastJump }
+        if (!believed) {
+            onAttempt?.invoke("fix rejected: jumped %.1f m, walked %.1f m".format(jump, walkedNow))
+            _state.update {
+                it.copy(
+                    attempts = it.attempts + 1,
+                    rejected = it.rejected + 1,
+                    lastLatencyMs = result.latencyMs,
+                    lastRequestBytes = result.requestBytes,
+                    lastError = "fix rejected: jumped %.1f m".format(jump),
+                    frameSize = sent.width to sent.height,
+                    localizer = label,
+                )
+            }
+            return
+        }
         val fix = Fix(
-            position = alignment.toGraph(Vec2(planar.x, planar.z)),
+            position = position,
             heading = Geometry.wrapAngle(alignment.toGraphHeading(planar.heading)),
             atMillis = capturedAt,
             mapId = result.mapId,
