@@ -187,7 +187,9 @@ private fun AiseeTheme(content: @Composable () -> Unit) {
 private fun Screen(model: AppModel, permissionsGranted: Boolean, requestPermissions: () -> Unit, openBluetoothSettings: () -> Unit) {
     val g by model.glasses.state.collectAsStateWithLifecycle()
     val live = g.stream == Stream.STARTING || g.stream == Stream.PLAYING
-    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+    // Painted here too: with the SDK's SurfaceView on screen the Surface behind
+    // this stopped drawing and the white window showed through.
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).safeDrawingPadding()) {
         if (live) {
             // Fixed, not in the scrolling list: the SDK's video is a SurfaceView,
             // which mis-places itself inside a scrolling parent.
@@ -204,19 +206,22 @@ private fun LiveVideo(stream: Stream, fps: Int) {
         AndroidView(
             factory = { ctx ->
                 RTKVideoView(ctx).apply {
+                    // Composite the video above the window. Left behind it, the SurfaceView
+                    // made Compose's window transparent well beyond its own bounds (a black
+                    // or white screen around the video). Nothing is drawn over it, so the
+                    // status line sits below.
+                    setZOrderMediaOverlay(true)
                     layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 }
             },
             modifier = Modifier.fillMaxSize(),
         )
-        Text(
-            if (stream == Stream.PLAYING) "Live · $fps fps" else "Starting… accept the Wi-Fi prompt",
-            Modifier.align(Alignment.TopStart).padding(8.dp)
-                .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(6.dp))
-                .padding(horizontal = 8.dp, vertical = 3.dp),
-            color = Color.White, fontSize = 12.sp,
-        )
     }
+    Text(
+        if (stream == Stream.PLAYING) "Live · $fps fps" else "Starting… accept the Wi-Fi prompt",
+        Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,
+    )
 }
 
 /** The live map right under the video: where the glasses put you, and in words. */

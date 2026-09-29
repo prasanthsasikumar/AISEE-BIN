@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- A real light/dark pair, with system force-dark off: EMUI darkened the
-         light theme itself and stopped once the video SurfaceView appeared,
-         leaving a white screen around the video. -->
-    <style name="Theme.Aisee" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.Aisee" parent="android:Theme.Material.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowBackground">@color/window</item>
