@@ -89,7 +89,11 @@ class MainActivity : ComponentActivity() {
         // A tester walks with this open; keep the screen on while it is in front.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         permissionsGranted = missingPermissions().isEmpty()
-        if (!permissionsGranted) permissionRequest.launch(requiredPermissions())
+        // Ask for everything not yet granted, including the optional step counter.
+        val ungranted = requiredPermissions().filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (ungranted.isNotEmpty()) permissionRequest.launch(ungranted.toTypedArray())
         handleDebugCommand(intent)
         if (BuildConfig.DEBUG) {
             ContextCompat.registerReceiver(this, debugReceiver, IntentFilter(DEBUG_ACTION), ContextCompat.RECEIVER_EXPORTED)
