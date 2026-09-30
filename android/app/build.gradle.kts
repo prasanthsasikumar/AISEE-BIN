@@ -1,5 +1,6 @@
 import java.net.URI
 import java.security.MessageDigest
+import java.util.Properties
 import java.util.zip.ZipFile
 
 plugins {
@@ -12,6 +13,10 @@ plugins {
 // (IMMERSAL_DEFAULT_TOKEN). A build without it asks for one on screen.
 val immersalToken: String = File(System.getProperty("user.home"), ".config/aiseebin/immersal_pro_token")
     .takeIf { it.isFile }?.readText()?.trim().orEmpty()
+
+// Release signing: the Play upload key lives outside the repo, like the token.
+val uploadKeyProps = File(System.getProperty("user.home"), ".config/aiseebin/android-upload.properties")
+    .takeIf { it.isFile }?.let { f -> Properties().apply { f.inputStream().use { load(it) } } }
 
 // Immersal's native plugin (SDK 2.4.0) is published in its public Unity SDK repo
 // but may not be redistributed, so it is fetched at build time and gitignored,
@@ -80,10 +85,20 @@ android {
         prefab = true
     }
 
+    signingConfigs {
+        if (uploadKeyProps != null) create("upload") {
+            storeFile = File(uploadKeyProps.getProperty("storeFile"))
+            storePassword = uploadKeyProps.getProperty("storePassword")
+            keyAlias = uploadKeyProps.getProperty("keyAlias")
+            keyPassword = uploadKeyProps.getProperty("keyPassword")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            // Without the upload key (another machine) a release is debug-signed and cannot go to Play.
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
         }
     }
 

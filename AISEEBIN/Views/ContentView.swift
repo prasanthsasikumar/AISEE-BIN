@@ -12,6 +12,7 @@ struct ContentView: View {
 
     @State private var showingGlasses = false
     @AppStorage("nav.showMap") private var showMap = true
+    @State private var showingMap = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -41,6 +42,9 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingGlasses) {
             GlassesView(viewModel: viewModel)
+        }
+        .fullScreenCover(isPresented: $showingMap) {
+            FullScreenMap(viewModel: viewModel)
         }
     }
 
@@ -83,14 +87,6 @@ struct ContentView: View {
                 syncSection
                 primaryPanel
 
-                if showMap, !viewModel.displayMap.pois.isEmpty {
-                    LiveMapView(map: viewModel.displayMap,
-                                pose: viewModel.mapPose,
-                                routePath: viewModel.routePath,
-                                selectedID: viewModel.selectedDestination?.id)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 210)
-                }
 
                 if viewModel.showDebug {
                     DebugOverlay(info: viewModel.debug,
@@ -99,7 +95,21 @@ struct ContentView: View {
                                  lastSpoken: viewModel.guidance.lastSpokenText)
                 }
 
-                Spacer(minLength: 12)
+                if showsMap {
+                    // Fills whatever height the panels leave, so the mode switcher is
+                    // never pushed off the top; tap for the full-screen map.
+                    Button { showingMap = true } label: {
+                        LiveMapView(map: viewModel.displayMap,
+                                    pose: viewModel.mapPose,
+                                    routePath: viewModel.routePath,
+                                    selectedID: viewModel.selectedDestination?.id)
+                            .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHidden(true)
+                } else {
+                    Spacer(minLength: 12)
+                }
                 footerPanel
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -173,6 +183,8 @@ struct ContentView: View {
         }
     }
 
+    private var showsMap: Bool { showMap && !viewModel.displayMap.pois.isEmpty }
+
     private var isRelocalizing: Bool {
         viewModel.localizationStatus == .relocalizing || viewModel.localizationStatus == .initializing
     }
@@ -185,7 +197,8 @@ struct ContentView: View {
             TalkButton(isListening: viewModel.isListening,
                        transcript: viewModel.recognizer.transcript,
                        hint: talkHint,
-                       isCompact: viewModel.isNavigating) {
+                       // The map needs the height; the compact button stays a large target.
+                       isCompact: viewModel.isNavigating || showsMap) {
                 viewModel.toggleListening()
             }
 
@@ -879,5 +892,38 @@ struct GlassesStage: View {
             }
         }
         .accessibilityHidden(true)
+    }
+}
+
+/// The live map on its own, for the helper walking alongside.
+struct FullScreenMap: View {
+    let viewModel: NavigationViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(viewModel.mapName).font(.dsHeadline).foregroundStyle(DS.N.ink)
+                Spacer()
+                Button("Done") { dismiss() }
+                    .font(.dsBody.weight(.semibold))
+                    .foregroundStyle(DS.N.accent)
+            }
+            LiveMapView(map: viewModel.displayMap,
+                        pose: viewModel.mapPose,
+                        routePath: viewModel.routePath,
+                        selectedID: viewModel.selectedDestination?.id)
+            // Only from a trusted pose: before relocalizing, the tracking frame is not the map's.
+            if let pose = viewModel.mapPose,
+               let place = LocationDescriber(map: viewModel.displayMap)
+                .describe(position: pose.position, heading: pose.heading)?.screenText {
+                Text("You are \(place).").font(.dsBody).foregroundStyle(DS.N.inkSecondary)
+            } else {
+                Text("Finding your position…").font(.dsBody).foregroundStyle(DS.N.inkMuted)
+            }
+        }
+        .padding(20)
+        .background(DS.N.canvas.ignoresSafeArea())
+        .preferredColorScheme(.dark)
     }
 }

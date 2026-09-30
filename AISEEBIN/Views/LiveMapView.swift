@@ -11,14 +11,23 @@ struct LiveMapView: View {
     let pose: MapPose?
     let routePath: [String]
     let selectedID: String?
+    /// A card of its own, or bare as the Navigate stage's background.
+    var framed = true
 
     var body: some View {
-        Canvas { context, size in
+        let canvas = Canvas { context, size in
             draw(in: &context, size: size)
         }
-        .padding(10)
-        .background(DS.N.panel, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .dsStroke(DS.N.hairline, radius: 20)
+        Group {
+            if framed {
+                canvas
+                    .padding(10)
+                    .background(DS.N.panel, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .dsStroke(DS.N.hairline, radius: 20)
+            } else {
+                canvas
+            }
+        }
         // The spoken and on-screen panels already say where the visitor is.
         .accessibilityHidden(true)
     }
