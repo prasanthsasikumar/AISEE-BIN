@@ -838,12 +838,16 @@ async function loadClouds() {
 }
 
 function drawClouds() {
-  for (const cl of state.clouds.values()) {
+  // While moving a scan it is drawn first and see-through, so the scans it is
+  // being lined up against stay visible on top of it where they overlap.
+  const moving = state.mode === 'cloud' ? state.selectedCloud : null;
+  const order = [...state.clouds.values()].sort((a, b) => (b.id === moving) - (a.id === moving));
+  for (const cl of order) {
     const pl = placementOf(cl.id); if (!pl || cl.hidden) continue;
-    const selected = cl.id === state.selectedCloud && state.mode === 'cloud';
-    ctx.fillStyle = cl.color; ctx.globalAlpha = state.mode === 'cloud' ? (selected ? 0.9 : 0.35) : 0.6;
+    const selected = cl.id === moving;
+    ctx.fillStyle = cl.color; ctx.globalAlpha = moving === null ? 0.6 : selected ? 0.35 : 0.8;
     const c = Math.cos(pl.yaw), s = Math.sin(pl.yaw), k = state.view.scale;
-    const size = selected ? 2 : 1.5;
+    const size = 1.5;
     for (let i = 0; i < cl.disp.length; i += 3) {
       const x = cl.disp[i], z = cl.disp[i + 2];
       ctx.fillRect(state.view.ox + (c * x - s * z + pl.tx) * k, state.view.oy + (s * x + c * z + pl.tz) * k, size, size);
