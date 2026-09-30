@@ -63,6 +63,25 @@
       <label class="chk"><input type="checkbox" id="density"> density (clusters read as solid shapes)</label>
       <svg id="heightHist" viewBox="0 0 240 110" role="img" aria-label="Histogram of point heights"></svg>
     </details>
+    <details id="cloudsPanel" class="scan" hidden>
+      <summary>Immersal maps <span id="cloudCount" class="muted small"></span></summary>
+      <div class="muted small">Line several Immersal scans up into one map. Select a scan, then drag it on the canvas with <b>Move scan</b> (hold Alt/Option to rotate), or nudge it: arrow keys move 10 cm (Shift 1 m), [ and ] turn 1° (Shift 5°). Line up walkways, bed edges and trunks.</div>
+      <ul id="cloudList" class="list clouds"></ul>
+      <button id="addCloud" type="button">+ Add Immersal map…</button>
+      <div id="cloudEdit" hidden>
+        <div class="row radius"><span class="muted small">Turn</span><input id="cloudYawRange" type="range" min="-180" max="180" step="0.5"><input id="cloudYaw" type="number" step="0.5"></div>
+        <div class="row">
+          <label>x (m) <input id="cloudTx" type="number" step="0.05"></label>
+          <label>z (m) <input id="cloudTz" type="number" step="0.05"></label>
+          <label>height (m) <input id="cloudTy" type="number" step="0.05"></label>
+        </div>
+        <div class="row">
+          <button id="moveCloud" type="button" class="mode" title="Drag the selected scan on the canvas; Alt/Option-drag rotates it">Move scan</button>
+          <button id="removeCloud" type="button" class="danger">Remove</button>
+        </div>
+        <div id="cloudOverlap" class="muted small"></div>
+      </div>
+    </details>
     <div id="connectivity" class="warn small" hidden></div>
     <button id="autoConnect" hidden>Auto-connect isolated places</button>
 
@@ -129,6 +148,7 @@
   <div id="status3d" class="muted small"></div>
 </div>
 <script src="immersal.js"></script>
+<script src="align.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

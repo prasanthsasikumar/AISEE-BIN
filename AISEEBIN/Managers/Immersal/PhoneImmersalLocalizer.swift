@@ -178,7 +178,7 @@ final class PhoneImmersalLocalizer {
             return
         }
         let wasAnchored = anchor.isAnchored
-        let graphPose = alignment.toGraph(cameraPose: poseInMap)
+        let graphPose = alignment.toGraph(cameraPose: poseInMap, mapID: result.mapID)
         if anchor.update(graphPose: graphPose, sessionPose: sessionPose) {
             lastError = nil
             lastFixAt = capturedAt

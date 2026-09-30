@@ -35,6 +35,10 @@ label.chk input { width:auto; }
 .row.radius { align-items:center; }
 .row.radius input[type=range] { flex:1; padding:0; accent-color:var(--accent); }
 .row.radius input[type=number] { width:72px; flex:none; }
+ul.clouds li { display:flex; align-items:center; gap:8px; }
+ul.clouds li i { width:12px; height:12px; border-radius:3px; flex:none; }
+ul.clouds li input { width:auto; margin:0; }
+ul.clouds li span { flex:1; }
 button.link { padding:0; border:none; background:none; color:var(--accent); font-size:12px; }
 button.link:hover { text-decoration:underline; }
 button, .button { padding:6px 10px; border:1px solid var(--line); border-radius:6px; background:#20242e; color:var(--text); cursor:pointer; font:inherit; text-decoration:none; display:inline-block; text-align:center; }

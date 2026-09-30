@@ -30,6 +30,8 @@ const state = {
   dirty: false,
   view: { scale: 40, ox: 0, oy: 0 },  // px per metre, screen offset of world origin
   drag: null,
+  clouds: new Map(),      // Immersal map id -> {id, raw, disp, match, centre, color, hidden}; placements live in graph.immersalAlignment.maps
+  selectedCloud: null,    // Immersal map id of the scan being lined up
   history: [],            // graph snapshots for undo
   future: [],             // graph snapshots for redo
 };
@@ -168,6 +170,8 @@ async function loadVersion(row) {
   $('downloadPoints').href = row.pointcloud_path ? publicURL(row.pointcloud_path) : '#';
   $('versionInfo').textContent = `v${row.version} · ${row.source} · ${new Date(row.created_at).toLocaleString()}${row.note ? ' · ' + row.note : ''}`;
   fitView(); draw();
+  state.clouds = new Map(); state.selectedCloud = null; renderClouds();
+  if (alignmentMaps()) loadClouds().then(() => { fitView(); draw(); });
   if (row.pointcloud_path) {
     setStatus(`Loading ${row.point_count ?? ''} points…`);
     try {
@@ -252,7 +256,12 @@ function contentBounds(trim = false) {
   let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
   const add = (x, z) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); };
   state.graph?.pois.forEach(p => add(p.x, p.z));
-  if (state.points) {
+  if (hasClouds()) {
+    for (const cl of state.clouds.values()) {
+      const pl = placementOf(cl.id); if (!pl) continue;
+      for (let i = 0; i < cl.disp.length; i += 30) { const [x, , z] = CloudAlign.apply(pl, cl.disp[i], cl.disp[i + 1], cl.disp[i + 2]); add(x, z); }
+    }
+  } else if (state.points) {
     if (trim) {
       // Ignore stray far-away feature points when fitting the view (2nd..98th percentile).
       const xs = [], zs = [];
@@ -404,6 +413,7 @@ function drawGrid(w, h) {
 }
 
 function drawPoints() {
+  if (hasClouds()) { drawClouds(); return; }
   if (state.pointsBitmap) {
     const m = state.pointsBitmapMeta; const [sx, sy] = toScreen(m.minX, m.minZ);
     const k = state.view.scale / m.scale;
@@ -520,6 +530,7 @@ function renderSidebar() {
     $('edgeLabel').textContent = `${a?.name ?? e.from} ↔ ${b?.name ?? e.to}`;
     $('edgeLength').textContent = a && b ? `${Math.hypot(a.x - b.x, a.z - b.z).toFixed(2)} m` : '';
   }
+  renderClouds();
 }
 
 function markDirty() { state.dirty = true; updateSaveButton(); renderSidebar(); draw(); }
@@ -533,11 +544,12 @@ function selectEdge(i) { state.selectedEdge = i; state.selectedNode = null; rend
 function setMode(mode) {
   state.mode = mode; state.connectFrom = null;
   state.pathFrom = mode === 'path' ? state.selectedNode : null;
-  document.querySelectorAll('button.mode').forEach(b => b.classList.toggle('active', b.id === { select: 'modeSelect', add: 'modeAdd', connect: 'modeConnect', path: 'modePath' }[mode]));
-  canvas.className = mode === 'select' ? '' : mode;
+  document.querySelectorAll('button.mode').forEach(b => b.classList.toggle('active', b.id === { select: 'modeSelect', add: 'modeAdd', connect: 'modeConnect', path: 'modePath', cloud: 'moveCloud' }[mode]));
+  canvas.className = mode === 'select' ? '' : mode === 'cloud' ? 'dragging' : mode;
   $('hint').textContent = { select: 'Drag to pan · wheel to zoom · drag a node to move it · Delete removes the selection',
     add: 'Click on the canvas to place a node', connect: 'Click a node, then another node, to add (or remove) an edge',
-    path: (state.pathFrom ? `Path from "${state.pathFrom.name}": ` : 'Path: click a node to start, then ') + 'click along the corridor to lay waypoints · click a node to end there · Esc to stop' }[mode];
+    path: (state.pathFrom ? `Path from "${state.pathFrom.name}": ` : 'Path: click a node to start, then ') + 'click along the corridor to lay waypoints · click a node to end there · Esc to stop',
+    cloud: 'Drag to move the selected scan · Alt/Option-drag to turn it · arrows nudge 10 cm (Shift 1 m) · [ ] turn 1° (Shift 5°) · Esc to stop' }[mode];
   draw();
 }
 
@@ -601,6 +613,12 @@ canvas.addEventListener('pointerdown', ev => {
     return;
   }
   if (ev.button !== 0) return;
+  if (state.mode === 'cloud') {
+    const pl = placementOf(state.selectedCloud); if (!pl) return;
+    const [wx, wz] = toWorld(sx, sy);
+    state.drag = { type: 'cloud', wx, wz, orig: { ...pl }, rotate: ev.altKey, snap: snapshot(), moved: false };
+    return;
+  }
   const node = hitNode(sx, sy);
   if (state.mode === 'add') { if (!node) { const [x, z] = toWorld(sx, sy); addNodeAt(x, z); } return; }
   if (state.mode === 'path') {
@@ -631,17 +649,20 @@ canvas.addEventListener('pointermove', ev => {
   const [wx, wz] = toWorld(sx, sy); $('coords').textContent = `x ${wx.toFixed(2)}  z ${wz.toFixed(2)}`;
   if (!state.drag) return;
   if (state.drag.type === 'pan') { state.view.ox = state.drag.ox + sx - state.drag.x; state.view.oy = state.drag.oy + sy - state.drag.y; draw(); }
+  else if (state.drag.type === 'cloud') { dragCloud(wx, wz); }
   else { state.drag.node.x = +wx.toFixed(2); state.drag.node.z = +wz.toFixed(2); state.drag.moved = true; renderSidebar(); draw(); }
 });
 
 canvas.addEventListener('pointerup', () => {
-  if (state.drag?.type === 'node' && state.drag.moved) {
+  if ((state.drag?.type === 'node' || state.drag?.type === 'cloud') && state.drag.moved) {
     // Record the pre-drag state as one undo step.
     state.history.push(state.drag.snap); if (state.history.length > 200) state.history.shift();
     state.future = []; updateUndoButtons();
     markDirty();
   }
-  state.drag = null; canvas.classList.remove('dragging');
+  const wasCloud = state.drag?.type === 'cloud';
+  state.drag = null; if (state.mode !== 'cloud') canvas.classList.remove('dragging');
+  if (wasCloud) { renderCloudEdit(); scheduleOverlap(); }
 });
 
 canvas.addEventListener('contextmenu', ev => ev.preventDefault());
@@ -663,6 +684,12 @@ document.addEventListener('keydown', ev => {
   }
   if (mod && ev.key.toLowerCase() === 'y') { ev.preventDefault(); redo(); return; }
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+  if (state.mode === 'cloud' && placementOf(state.selectedCloud)) {
+    const m = ev.shiftKey ? 1 : 0.1, deg = ev.shiftKey ? 5 : 1;
+    const moves = { ArrowLeft: [-m, 0, 0], ArrowRight: [m, 0, 0], ArrowUp: [0, -m, 0], ArrowDown: [0, m, 0], '[': [0, 0, -deg], ']': [0, 0, deg], '{': [0, 0, -deg], '}': [0, 0, deg] };
+    const mv = moves[ev.key];
+    if (mv) { ev.preventDefault(); nudgeCloud(mv[0], mv[1], mv[2]); return; }
+  }
   if (ev.key === 'Escape') { setMode('select'); selectNode(null); }
   if (ev.key === 'Delete' || ev.key === 'Backspace') { if (state.selectedNode) deleteNode(); else if (state.selectedEdge !== null) deleteEdge(); }
 });
@@ -724,6 +751,7 @@ $('slug').addEventListener('change', () => {
   }
   if (state.dirty && !confirm('Discard unsaved changes?')) { $('slug').value = state.slug; return; }
   state.slug = slug; state.current = null; state.graph = null; state.points = null; state.pointsBitmap = null; state.pendingPoints = null; state.dirty = false;
+  state.clouds = new Map(); state.selectedCloud = null;
   loadVersions().catch(e => setStatus(e.message, true)); draw();
 });
 
@@ -748,6 +776,7 @@ $('importImmersal').onclick = async () => {
     if (taken && !confirm(`A map called "${slug}" already exists on the server. Continue and save the import as its next version?`)) return;
     state.slug = slug; state.current = null; state.versions = []; state.history = []; state.future = [];
     state.graph = { name: map.name, pois: [], edges: [], immersalAlignment: ImmersalImport.identityAlignment(map.id) };
+    state.clouds = new Map(); state.selectedCloud = null;
     state.points = map.points; state.pendingPoints = map.points; state.pointsBitmap = null;
     state.selectedNode = state.selectedEdge = null;
     computeHeights(); renderScanTools(); buildPointsBitmap();
@@ -758,6 +787,211 @@ $('importImmersal').onclick = async () => {
     setStatus(`Import failed: ${e.message}`, true);
   } finally { btn.disabled = false; }
 };
+
+// ---------- Immersal maps: several scans lined up in one map ----------
+// Each scan keeps its own coordinates; graph.immersalAlignment.maps holds where
+// it sits in the map ({id, name, yaw, tx, ty, tz}), which the apps apply to a fix
+// from that scan. The top-level yaw/tx/tz mirror the first scan for older builds.
+// Lining up is by eye: on the Flower Dome scans an automatic snap latched onto
+// wrong placements that scored as well as the right one.
+const CLOUD_COLORS = ['#5aa9ff', '#ff9f43', '#2ecc71', '#e056fd', '#f7d794', '#ff6b6b', '#48dbfb', '#c8d6e5'];
+
+function alignmentMaps() { const m = state.graph?.immersalAlignment?.maps; return Array.isArray(m) && m.length ? m : null; }
+function placementOf(id) { return alignmentMaps()?.find(m => m.id === id) ?? null; }
+function hasClouds() { return !!alignmentMaps() && state.clouds.size > 0; }
+
+/// Gives a single-scan map its maps list, so a second scan can join it.
+function ensureMaps() {
+  const a = state.graph.immersalAlignment;
+  if (!a) { state.graph.immersalAlignment = { mapIDs: [], yaw: 0, tx: 0, tz: 0, pairCount: 0, rmsError: 0, maps: [] }; return; }
+  if (!Array.isArray(a.maps)) a.maps = (a.mapIDs || []).map(id => ({ id, name: `Immersal ${id}`, yaw: a.yaw || 0, tx: a.tx || 0, ty: 0, tz: a.tz || 0 }));
+}
+
+/// mapIDs and the top-level placement follow the maps list.
+function syncAlignment() {
+  const a = state.graph.immersalAlignment, maps = a.maps || [];
+  a.mapIDs = maps.map(m => m.id);
+  if (maps[0]) { a.yaw = maps[0].yaw; a.tx = maps[0].tx; a.tz = maps[0].tz; }
+}
+
+async function loadCloud(id) {
+  const map = await ImmersalImport.fetchMap({ id, base: '/immersal' });
+  const raw = map.points;
+  const disp = CloudAlign.thin(raw, 25000), match = CloudAlign.thin(CloudAlign.voxelize(raw, 0.15), 6000);
+  const used = new Set([...state.clouds.values()].map(c => c.color));
+  const color = CLOUD_COLORS.find(c => !used.has(c)) || CLOUD_COLORS[state.clouds.size % CLOUD_COLORS.length];
+  state.clouds.set(id, { id, raw, disp, match, centre: CloudAlign.centroid(disp), color, hidden: false });
+}
+
+const cloudFailed = new Set();   // scans whose cloud could not be fetched this session; not retried on every redraw
+async function loadClouds() {
+  const maps = alignmentMaps() || [];
+  setStatus(`Loading ${maps.length} Immersal scan(s)…`);
+  for (const m of maps) {
+    if (state.clouds.has(m.id)) continue;
+    if (cloudFailed.has(m.id)) continue;
+    try { await loadCloud(m.id); } catch (e) { cloudFailed.add(m.id); setStatus(`Immersal ${m.id}: ${e.message}`, true); }
+  }
+  if (state.selectedCloud === null && maps[0]) state.selectedCloud = maps[0].id;
+  renderClouds(); draw();
+  setStatus(`${state.clouds.size} Immersal scan(s) loaded.`);
+}
+
+function drawClouds() {
+  for (const cl of state.clouds.values()) {
+    const pl = placementOf(cl.id); if (!pl || cl.hidden) continue;
+    const selected = cl.id === state.selectedCloud && state.mode === 'cloud';
+    ctx.fillStyle = cl.color; ctx.globalAlpha = state.mode === 'cloud' ? (selected ? 0.9 : 0.35) : 0.6;
+    const c = Math.cos(pl.yaw), s = Math.sin(pl.yaw), k = state.view.scale;
+    const size = selected ? 2 : 1.5;
+    for (let i = 0; i < cl.disp.length; i += 3) {
+      const x = cl.disp[i], z = cl.disp[i + 2];
+      ctx.fillRect(state.view.ox + (c * x - s * z + pl.tx) * k, state.view.oy + (s * x + c * z + pl.tz) * k, size, size);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+/// Where the scan's centre sits in the map, the point it turns about.
+function cloudCentre(cl, pl) { const [x, , z] = CloudAlign.apply(pl, cl.centre[0], cl.centre[1], cl.centre[2]); return [x, z]; }
+
+function turnAbout(pl, cl, dYaw) {
+  const [cx, cz] = cloudCentre(cl, pl);
+  const next = { ...pl, yaw: pl.yaw + dYaw, tx: 0, tz: 0 };
+  const [qx, qz] = cloudCentre(cl, next);
+  next.tx = cx - qx; next.tz = cz - qz;
+  return next;
+}
+
+function setPlacement(id, next) {
+  const pl = placementOf(id); if (!pl) return;
+  let yaw = next.yaw; while (yaw > Math.PI) yaw -= 2 * Math.PI; while (yaw <= -Math.PI) yaw += 2 * Math.PI;
+  Object.assign(pl, { yaw: +yaw.toFixed(5), tx: +next.tx.toFixed(3), ty: +(next.ty ?? pl.ty ?? 0).toFixed(3), tz: +next.tz.toFixed(3) });
+  syncAlignment();
+}
+
+function dragCloud(wx, wz) {
+  const d = state.drag, cl = state.clouds.get(state.selectedCloud); if (!cl) return;
+  if (d.rotate) {
+    const [cx, cz] = cloudCentre(cl, d.orig);
+    const a0 = Math.atan2(d.wz - cz, d.wx - cx), a1 = Math.atan2(wz - cz, wx - cx);
+    setPlacement(cl.id, turnAbout(d.orig, cl, a1 - a0));
+  } else {
+    setPlacement(cl.id, { ...d.orig, tx: d.orig.tx + wx - d.wx, tz: d.orig.tz + wz - d.wz });
+  }
+  d.moved = true; draw();
+}
+
+function nudgeCloud(dx, dz, dDeg) {
+  const cl = state.clouds.get(state.selectedCloud), pl = placementOf(state.selectedCloud); if (!cl || !pl) return;
+  beginChange();
+  const moved = dDeg ? turnAbout(pl, cl, dDeg * Math.PI / 180) : { ...pl, tx: pl.tx + dx, tz: pl.tz + dz };
+  setPlacement(cl.id, moved);
+  state.dirty = true; updateSaveButton(); renderCloudEdit(); draw(); scheduleOverlap();
+}
+
+let overlapTimer = null;
+function scheduleOverlap() { clearTimeout(overlapTimer); overlapTimer = setTimeout(showOverlap, 250); }
+
+/// A rough guide only: how many of this scan's points have another scan's point
+/// within 35 cm. Dense planting keeps it high even when slightly off, so the
+/// eye on walkways and trunks is the real test.
+function showOverlap() {
+  const box = $('cloudOverlap'); const id = state.selectedCloud;
+  const list = [...state.clouds.values()].map(cl => ({ match: cl.match, placement: placementOf(cl.id), hidden: cl.hidden }));
+  const idx = [...state.clouds.keys()].indexOf(id);
+  if (idx < 0 || list.length < 2) { box.textContent = ''; return; }
+  const target = CloudAlign.targetFrom(list, idx);
+  if (!target.length) { box.textContent = 'Show another scan to compare against.'; return; }
+  const g = CloudAlign.buildGrid(target, 0.35);
+  const f = CloudAlign.overlap(CloudAlign.thin(list[idx].match, 1200), g, list[idx].placement, 0.35);
+  box.textContent = `Overlap with the other visible scans: ${(f * 100).toFixed(0)}% of points within 35 cm (a guide, not proof).`;
+}
+
+let cloudsLoading = false;
+function renderClouds() {
+  const panel = $('cloudsPanel'); panel.hidden = !state.graph;
+  const maps = alignmentMaps() || [];
+  // An undo can bring back a scan whose cloud was dropped: fetch it again.
+  if (!cloudsLoading && maps.some(m => !state.clouds.has(m.id) && !cloudFailed.has(m.id)) && state.clouds.size) {
+    cloudsLoading = true; loadClouds().finally(() => { cloudsLoading = false; });
+  }
+  $('cloudCount').textContent = maps.length ? `(${maps.length})` : '';
+  const ul = $('cloudList'); ul.innerHTML = '';
+  maps.forEach((m, i) => {
+    const cl = state.clouds.get(m.id);
+    const li = document.createElement('li'); if (m.id === state.selectedCloud) li.classList.add('active');
+    li.innerHTML = `<i style="background:${cl?.color ?? '#555'}"></i><span>${escapeHTML(m.name || `Immersal ${m.id}`)} <span class="meta">${m.id}${i === 0 ? ' · first' : ''}${cl ? '' : ' · loading'}</span></span>`;
+    const vis = document.createElement('input'); vis.type = 'checkbox'; vis.checked = !cl?.hidden; vis.title = 'Show this scan';
+    vis.onclick = e => { e.stopPropagation(); if (cl) { cl.hidden = !vis.checked; draw(); scheduleOverlap(); } };
+    li.appendChild(vis);
+    li.onclick = () => { state.selectedCloud = m.id; renderClouds(); draw(); scheduleOverlap(); };
+    ul.appendChild(li);
+  });
+  renderCloudEdit();
+}
+
+function renderCloudEdit() {
+  const pl = placementOf(state.selectedCloud);
+  $('cloudEdit').hidden = !pl; if (!pl) return;
+  const deg = pl.yaw * 180 / Math.PI;
+  $('cloudYawRange').value = deg.toFixed(1);
+  if (document.activeElement !== $('cloudYaw')) $('cloudYaw').value = deg.toFixed(1);
+  if (document.activeElement !== $('cloudTx')) $('cloudTx').value = pl.tx.toFixed(2);
+  if (document.activeElement !== $('cloudTz')) $('cloudTz').value = pl.tz.toFixed(2);
+  if (document.activeElement !== $('cloudTy')) $('cloudTy').value = (pl.ty ?? 0).toFixed(2);
+}
+
+$('addCloud').onclick = async () => {
+  if (!state.graph) return;
+  const idText = prompt('Immersal map id to add (from the Mapper app or the Developer Portal):', '');
+  if (!idText) return;
+  const id = parseInt(idText.trim(), 10);
+  if (!Number.isInteger(id) || id <= 0) { setStatus('Map id must be a number.', true); return; }
+  if (placementOf(id)) { setStatus(`Immersal ${id} is already in this map.`, true); return; }
+  if ((alignmentMaps()?.length ?? 0) >= 8) { setStatus('Immersal localizes against at most 8 maps at once.', true); return; }
+  const name = prompt('A name to show for it (e.g. "Points C 1 2 3"):', `Immersal ${id}`) || `Immersal ${id}`;
+  $('addCloud').disabled = true;
+  try {
+    beginChange(); ensureMaps();
+    // Scans already in the map need their clouds too, to line the new one up against.
+    for (const m of alignmentMaps() || []) if (!state.clouds.has(m.id)) await loadCloud(m.id);
+    setStatus(`Fetching Immersal ${id}…`);
+    await loadCloud(id);
+    const cl = state.clouds.get(id);
+    // Start it in the middle of the view, heights roughly matched, for moving into place.
+    const [wx, wz] = toWorld(canvas.clientWidth / 2, canvas.clientHeight / 2);
+    const first = alignmentMaps()?.[0]; const firstCl = first && state.clouds.get(first.id);
+    const ty = firstCl ? (firstCl.centre[1] + (first.ty || 0)) - cl.centre[1] : 0;
+    state.graph.immersalAlignment.maps.push({ id, name, yaw: 0, tx: +(wx - cl.centre[0]).toFixed(3), ty: +ty.toFixed(3), tz: +(wz - cl.centre[2]).toFixed(3) });
+    syncAlignment();
+    state.selectedCloud = id; state.dirty = true; updateSaveButton(); renderClouds(); setMode('cloud'); draw(); scheduleOverlap();
+    setStatus(`Added ${name}. Drag it into place (Alt/Option-drag turns it), then save.`);
+  } catch (e) { setStatus(`Could not add Immersal ${id}: ${e.message}`, true); }
+  finally { $('addCloud').disabled = false; }
+};
+
+$('moveCloud').onclick = () => setMode(state.mode === 'cloud' ? 'select' : 'cloud');
+$('removeCloud').onclick = () => {
+  const id = state.selectedCloud, maps = alignmentMaps(); if (!maps || !placementOf(id)) return;
+  if (maps.length === 1) { setStatus('The last scan cannot be removed; the map needs one to position in.', true); return; }
+  if (!confirm(`Remove Immersal ${id} from this map? Its scan stays on Immersal.`)) return;
+  beginChange();
+  state.graph.immersalAlignment.maps = maps.filter(m => m.id !== id); syncAlignment();
+  state.clouds.delete(id); state.selectedCloud = alignmentMaps()?.[0]?.id ?? null;
+  markDirty(); renderClouds();
+};
+const bindCloud = (el, apply) => $(el).addEventListener('input', () => {
+  const pl = placementOf(state.selectedCloud); const v = parseFloat($(el).value); if (!pl || isNaN(v)) return;
+  const cl = state.clouds.get(state.selectedCloud);
+  setPlacement(pl.id, apply(pl, v, cl)); state.dirty = true; updateSaveButton(); renderCloudEdit(); draw(); scheduleOverlap();
+});
+['cloudYaw', 'cloudYawRange', 'cloudTx', 'cloudTz', 'cloudTy'].forEach(id => { $(id).addEventListener('focus', beginChange); $(id).addEventListener('pointerdown', beginChange); });
+bindCloud('cloudYaw', (pl, v, cl) => turnAbout(pl, cl, v * Math.PI / 180 - pl.yaw));
+bindCloud('cloudYawRange', (pl, v, cl) => turnAbout(pl, cl, v * Math.PI / 180 - pl.yaw));
+bindCloud('cloudTx', (pl, v) => ({ ...pl, tx: v }));
+bindCloud('cloudTz', (pl, v) => ({ ...pl, tz: v }));
+bindCloud('cloudTy', (pl, v) => ({ ...pl, ty: v }));
 
 // ---------- Scan view: height band, density, histogram ----------
 // Lives in a collapsed disclosure in the sidebar; applies to the canvas and the 3D view.

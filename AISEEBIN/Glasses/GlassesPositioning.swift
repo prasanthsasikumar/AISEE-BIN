@@ -286,7 +286,7 @@ final class GlassesPositioning {
         guard let alignment else { return }
         lastError = nil
 
-        let poseInGraph = alignment.toGraph(cameraPose: poseInMap)
+        let poseInGraph = alignment.toGraph(cameraPose: poseInMap, mapID: result.mapID)
         let position = NavigationGeometry.planarPosition(of: poseInGraph)
         let heading = NavigationGeometry.heading(of: poseInGraph)
 

@@ -30,6 +30,19 @@ struct ImmersalAlignment: Codable, Equatable {
     /// `"scan"` for one produced by an Author walk that captured the Immersal
     /// map on ARKit's own poses, which has a world map in the same frame.
     var origin: String? = nil
+    /// Several Immersal maps lined up in the web editor, each with its own
+    /// placement in the graph frame. When a fix names one of these maps, its
+    /// placement is used instead of the top-level yaw/tx/tz, which keep the
+    /// first map's placement for builds that predate this field.
+    var maps: [MapPlacement]? = nil
+
+    struct MapPlacement: Codable, Equatable {
+        var id: Int
+        /// Radians, same convention as the top-level `yaw`.
+        var yaw: Float
+        var tx: Float
+        var tz: Float
+    }
 
     static let originScan = "scan"
 
@@ -49,30 +62,42 @@ struct ImmersalAlignment: Codable, Equatable {
 
     // MARK: - Applying
 
-    func toGraph(_ p: SIMD2<Float>) -> SIMD2<Float> {
-        let c = cos(yaw), s = sin(yaw)
-        return SIMD2(c * p.x - s * p.y + tx,
-                     s * p.x + c * p.y + tz)
+    /// The placement a fix from `mapID` uses: that map's own when the editor
+    /// lined several up, else the top-level one.
+    func placement(for mapID: Int?) -> MapPlacement {
+        if let mapID, let own = maps?.first(where: { $0.id == mapID }) { return own }
+        return MapPlacement(id: mapID ?? mapIDs.first ?? 0, yaw: yaw, tx: tx, tz: tz)
     }
 
-    func toGraphHeading(_ heading: Float) -> Float {
-        NavigationGeometry.wrapAngle(heading + yaw)
+    func toGraph(_ p: SIMD2<Float>, mapID: Int? = nil) -> SIMD2<Float> {
+        let m = placement(for: mapID)
+        let c = cos(m.yaw), s = sin(m.yaw)
+        return SIMD2(c * p.x - s * p.y + m.tx,
+                     s * p.x + c * p.y + m.tz)
+    }
+
+    func toGraphHeading(_ heading: Float, mapID: Int? = nil) -> Float {
+        NavigationGeometry.wrapAngle(heading + placement(for: mapID).yaw)
     }
 
     /// The full 4×4, for callers that carry a camera pose rather than a point.
     /// Vertical offset is left at zero: nothing in guidance reads `y`.
-    var transform: simd_float4x4 {
-        let c = cos(yaw), s = sin(yaw)
+    var transform: simd_float4x4 { transform(for: nil) }
+
+    func transform(for mapID: Int?) -> simd_float4x4 {
+        let m = placement(for: mapID)
+        let c = cos(m.yaw), s = sin(m.yaw)
         return simd_float4x4(columns: (
             SIMD4<Float>(c, 0, s, 0),
             SIMD4<Float>(0, 1, 0, 0),
             SIMD4<Float>(-s, 0, c, 0),
-            SIMD4<Float>(tx, 0, tz, 1)
+            SIMD4<Float>(m.tx, 0, m.tz, 1)
         ))
     }
 
-    func toGraph(cameraPose: simd_float4x4) -> simd_float4x4 {
-        transform * cameraPose
+    /// `mapID` is the Immersal map that produced the pose.
+    func toGraph(cameraPose: simd_float4x4, mapID: Int? = nil) -> simd_float4x4 {
+        transform(for: mapID) * cameraPose
     }
 
     // MARK: - Fitting

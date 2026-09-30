@@ -65,13 +65,21 @@ data class ImmersalAlignment(
     val tz: Float,
     val pairCount: Int,
     val origin: String?,
+    /** Per-map placements when several Immersal maps were lined up in the web editor. */
+    val maps: Map<Int, Placement> = emptyMap(),
 ) {
-    fun toGraph(p: Vec2): Vec2 {
-        val c = cos(yaw); val s = sin(yaw)
-        return Vec2(c * p.x - s * p.z + tx, s * p.x + c * p.z + tz)
+    data class Placement(val yaw: Float, val tx: Float, val tz: Float)
+
+    /** The placement a fix from [mapId] uses: its own if the editor gave one, else the top-level. */
+    fun placement(mapId: Int?): Placement = mapId?.let { maps[it] } ?: Placement(yaw, tx, tz)
+
+    fun toGraph(p: Vec2, mapId: Int? = null): Vec2 {
+        val m = placement(mapId)
+        val c = cos(m.yaw); val s = sin(m.yaw)
+        return Vec2(c * p.x - s * p.z + m.tx, s * p.x + c * p.z + m.tz)
     }
 
-    fun toGraphHeading(heading: Float) = Geometry.wrapAngle(heading + yaw)
+    fun toGraphHeading(heading: Float, mapId: Int? = null) = Geometry.wrapAngle(heading + placement(mapId).yaw)
 }
 
 /** The same graph JSON the iOS app and the web editor read and write. */
@@ -112,6 +120,13 @@ data class NavigationMap(
                     tz = a.optDouble("tz", 0.0).toFloat(),
                     pairCount = a.optInt("pairCount", 0),
                     origin = if (a.isNull("origin")) null else a.optString("origin").ifBlank { null },
+                    maps = a.optJSONArray("maps")?.let { arr ->
+                        (0 until arr.length()).associate { i ->
+                            val m = arr.getJSONObject(i)
+                            m.getInt("id") to ImmersalAlignment.Placement(
+                                m.optDouble("yaw", 0.0).toFloat(), m.optDouble("tx", 0.0).toFloat(), m.optDouble("tz", 0.0).toFloat())
+                        }
+                    } ?: emptyMap(),
                 )
             }
             return NavigationMap(json.optString("name", "Map"), pois, edges, alignment)

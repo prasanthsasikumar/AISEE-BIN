@@ -95,6 +95,18 @@ class CoreLogicTest {
         assertEquals((PI / 2).toFloat(), a.toGraphHeading(0f), eps)
     }
 
+    @Test fun perMapPlacementsFromTheEditor() {
+        val map = NavigationMap.parse(JSONObject("""{"name":"T","pois":[],"edges":[],"immersalAlignment":{"mapIDs":[10,20],
+            "yaw":0,"tx":0,"tz":0,"pairCount":0,"rmsError":0,
+            "maps":[{"id":10,"yaw":0,"tx":0,"tz":0},{"id":20,"yaw":1.5707964,"tx":5,"tz":-2}]}}"""))
+        val a = map.alignment!!
+        assertEquals(Vec2(1f, 0f), a.toGraph(Vec2(1f, 0f), 10))
+        val p = a.toGraph(Vec2(1f, 0f), 20)
+        assertEquals(5f, p.x, eps); assertEquals(-1f, p.z, eps)
+        assertEquals((PI / 2).toFloat(), a.toGraphHeading(0f, 20), eps)
+        assertEquals(Vec2(1f, 0f), a.toGraph(Vec2(1f, 0f), 99))
+    }
+
     @Test fun relativeSides() {
         // Facing heading 0 (−z); a point at +x is on the right.
         assertEquals(RelativeSide.RIGHT, RelativeSide.of(Geometry.relativeBearing(Vec2(0f, 0f), 0f, Vec2(5f, 0f))))

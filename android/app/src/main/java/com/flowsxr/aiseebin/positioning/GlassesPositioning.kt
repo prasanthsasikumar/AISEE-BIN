@@ -131,7 +131,7 @@ class GlassesPositioning(
             }
             return
         }
-        val position = alignment.toGraph(Vec2(planar.x, planar.z))
+        val position = alignment.toGraph(Vec2(planar.x, planar.z), result.mapId)
         val walkedNow = walked()
         val (believed, jump) = synchronized(gate) { gate.evaluate(position, walkedNow) to gate.lastJump }
         if (!believed) {
@@ -151,7 +151,7 @@ class GlassesPositioning(
         }
         val fix = Fix(
             position = position,
-            heading = Geometry.wrapAngle(alignment.toGraphHeading(planar.heading)),
+            heading = Geometry.wrapAngle(alignment.toGraphHeading(planar.heading, result.mapId)),
             atMillis = capturedAt,
             mapId = result.mapId,
         )

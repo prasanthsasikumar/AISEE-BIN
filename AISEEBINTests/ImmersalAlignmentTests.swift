@@ -23,6 +23,30 @@ final class ImmersalAlignmentTests: XCTestCase {
         }
     }
 
+    func testPerMapPlacementsFromTheEditor() throws {
+        let json = #"{"mapIDs":[10,20],"yaw":0,"tx":0,"tz":0,"pairCount":0,"rmsError":0,"maps":[{"id":10,"yaw":0,"tx":0,"tz":0},{"id":20,"yaw":1.5707964,"tx":5,"tz":-2}]}"#
+        let a = try JSONDecoder().decode(ImmersalAlignment.self, from: Data(json.utf8))
+        // Map 10 is the anchor: identity.
+        XCTAssertEqual(a.toGraph(SIMD2(1, 0), mapID: 10), SIMD2(1, 0))
+        // Map 20 is rotated a quarter turn and shifted: (1, 0) -> (0, 1) + (5, -2).
+        let p = a.toGraph(SIMD2(1, 0), mapID: 20)
+        XCTAssertEqual(p.x, 5, accuracy: 1e-5); XCTAssertEqual(p.y, -1, accuracy: 1e-5)
+        XCTAssertEqual(a.toGraphHeading(0, mapID: 20), Float.pi / 2, accuracy: 1e-5)
+        // The 4×4 agrees with the point form.
+        let pose = a.toGraph(cameraPose: simd_float4x4(columns: (SIMD4(1, 0, 0, 0), SIMD4(0, 1, 0, 0), SIMD4(0, 0, 1, 0), SIMD4(1, 0, 0, 1))), mapID: 20)
+        XCTAssertEqual(pose.columns.3.x, 5, accuracy: 1e-5); XCTAssertEqual(pose.columns.3.z, -1, accuracy: 1e-5)
+        // An unknown map (or none) falls back to the top-level placement.
+        XCTAssertEqual(a.toGraph(SIMD2(1, 0), mapID: 99), SIMD2(1, 0))
+        XCTAssertTrue(a.isEditorDrawn)
+    }
+
+    func testAlignmentsWithoutMapsStillDecode() throws {
+        let json = #"{"mapIDs":[151658],"yaw":0,"tx":0,"tz":0,"pairCount":0,"rmsError":0}"#
+        let a = try JSONDecoder().decode(ImmersalAlignment.self, from: Data(json.utf8))
+        XCTAssertNil(a.maps)
+        XCTAssertEqual(a.toGraph(SIMD2(2, 3), mapID: 151658), SIMD2(2, 3))
+    }
+
     func testFitRecoversPlantedTransform() throws {
         let fitted = try ImmersalAlignment.fit(pairs: pairs(count: 12), mapIDs: [151379])
         XCTAssertEqual(fitted.yaw, planted.yaw, accuracy: 1e-4)
