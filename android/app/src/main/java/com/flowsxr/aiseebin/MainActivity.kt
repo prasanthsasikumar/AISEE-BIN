@@ -498,7 +498,12 @@ private fun FieldTestSection(model: AppModel) {
             }
         }
         busy?.let { Text(it, fontWeight = FontWeight.Medium) }
-        OutlinedButton(onClick = { model.sendLog() }, enabled = busy == null) { Text("Send log") }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { model.reloadMap() }, enabled = busy == null) { Text("Reload map") }
+            OutlinedButton(onClick = { model.sendLog() }, enabled = busy == null) { Text("Send log") }
+        }
+        Text("Reload map picks up points just marked on the iPhone; start positioning again afterwards.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
     }
 }
 

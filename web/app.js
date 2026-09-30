@@ -988,6 +988,7 @@ $('removeCloud').onclick = () => {
 const bindCloud = (el, apply) => $(el).addEventListener('input', () => {
   const pl = placementOf(state.selectedCloud); const v = parseFloat($(el).value); if (!pl || isNaN(v)) return;
   const cl = state.clouds.get(state.selectedCloud);
+  if (!cl) { setStatus('That scan\'s point cloud has not loaded, so it cannot be moved yet.', true); return; }
   setPlacement(pl.id, apply(pl, v, cl)); state.dirty = true; updateSaveButton(); renderCloudEdit(); draw(); scheduleOverlap();
 });
 ['cloudYaw', 'cloudYawRange', 'cloudTx', 'cloudTz', 'cloudTy'].forEach(id => { $(id).addEventListener('focus', beginChange); $(id).addEventListener('pointerdown', beginChange); });

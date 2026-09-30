@@ -169,10 +169,12 @@ private final class TransferDelegate: NSObject, URLSessionTaskDelegate {
 enum MapSyncError: LocalizedError {
     case http(Int, String)
     case missingFile(String)
+    case message(String)
 
     var errorDescription: String? {
         switch self {
         case .http(let code, let body): return "Server returned \(code): \(body.prefix(200))"
+        case .message(let text): return text
         case .missingFile(let what):    return "Server version has no \(what)."
         }
     }
@@ -410,17 +412,21 @@ struct MapSyncService {
     }
 
     /// A new version that changes only the graph (field-test marks, a scan
-    /// link): the files of the newest version are carried over untouched, and
+    /// link). `edit` is applied to the *newest* server graph, not the phone's
+    /// copy, so edits made meanwhile in the editor or by another tester are
+    /// kept. The files of the newest version are carried over untouched, and
     /// the row is marked `web` like an editor save, so no world map is fetched.
-    func publishGraph(_ graph: NavigationMap, slug: String, note: String) async throws -> RemoteMapVersion {
-        let latest = try await latestVersion(slug: slug)
+    func publishEdit(slug: String, note: String, edit: (inout NavigationMap) -> Void) async throws -> RemoteMapVersion {
+        guard let latest = try await latestVersion(slug: slug) else { throw MapSyncError.message("No map called \(slug) on the server.") }
+        var graph = latest.graph
+        edit(&graph)
         let version = try await nextVersion(slug: slug)
         struct Row: Encodable {
             let map_slug: String; let version: Int; let source: String; let note: String?
             let graph: NavigationMap; let worldmap_path: String?; let pointcloud_path: String?; let point_count: Int?
         }
         let row = Row(map_slug: slug, version: version, source: MapSource.web.rawValue, note: note, graph: graph,
-                      worldmap_path: latest?.worldmapPath, pointcloud_path: latest?.pointcloudPath, point_count: latest?.pointCount)
+                      worldmap_path: latest.worldmapPath, pointcloud_path: latest.pointcloudPath, point_count: latest.pointCount)
         var req = request(ServerConfig.supabaseURL.appendingPathComponent("rest/v1/ab_map_versions"), method: "POST")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("return=representation", forHTTPHeaderField: "Prefer")

@@ -379,9 +379,9 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                 kotlinx.coroutines.delay(200)
             }
             val after = positioning.state.value
-            val tries = after.attempts - before.attempts
+            val tries = maxOf(0, after.attempts - before.attempts)
             val payload = org.json.JSONObject().put("target_x", poi.position.x.toDouble()).put("target_z", poi.position.z.toDouble())
-                .put("readings", fixes.size).put("tries", tries).put("fixes", after.fixes - before.fixes)
+                .put("readings", fixes.size).put("tries", tries).put("fixes", maxOf(0, after.fixes - before.fixes))
             val summary = if (fixes.isEmpty()) {
                 "no fix in 10 s ($tries tries)"
             } else {
@@ -402,6 +402,9 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             _fieldBusy.value = null
         }
     }
+
+    /** Fetches the selected map again (points marked on the iPhone since), which stops positioning. */
+    fun reloadMap() { _maps.value.selectedSlug?.let { selectMap(it) } }
 
     fun sendLog() {
         if (_fieldBusy.value != null) return

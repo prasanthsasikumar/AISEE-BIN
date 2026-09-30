@@ -75,6 +75,7 @@
 		913E3FEF6D2B3E8FC8A97ABB /* CommandParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1410246899B0ADAEFD12524 /* CommandParserTests.swift */; };
 		915865D02FC2ACDBC1E2DB02 /* libavformat.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 08DB9C4286DCFDD3203120D0 /* libavformat.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		91AECF7A8A92EB88CD108195 /* ImmersalPose.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EC5350A5C237B133D347EF3 /* ImmersalPose.swift */; };
+		923A593D3AB89BFE13453371 /* FieldTestSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 810316C170E8D5BADAA0282B /* FieldTestSession.swift */; };
 		9594F1B7D5EEB79B56307DA5 /* RouteTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60DE300013D590E27A22BD6 /* RouteTrackerTests.swift */; };
 		95EE45353C498F6D0EE63EBF /* libswresample.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 152F81624E8A26CE2AAFE106 /* libswresample.framework */; };
 		9690AF9CF20D2C2F02F70BC6 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8903140164287315C269215C /* DesignSystem.swift */; };
@@ -214,6 +215,7 @@
 		77E1B72F4F53B64E77838144 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		787BE7A6002B8C1FA6963347 /* GrayFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrayFrame.swift; sourceTree = "<group>"; };
 		7DE1A9F99EB3F6021B96B52C /* GzipCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GzipCodec.swift; sourceTree = "<group>"; };
+		810316C170E8D5BADAA0282B /* FieldTestSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FieldTestSession.swift; sourceTree = "<group>"; };
 		87B414D18FF00045961072BB /* NavigationMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationMap.swift; sourceTree = "<group>"; };
 		8903140164287315C269215C /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		8AD8F58EF49D375AAA26FDB0 /* ImmersalLocalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalLocalizer.swift; sourceTree = "<group>"; };
@@ -323,6 +325,7 @@
 			isa = PBXGroup;
 			children = (
 				CF7F1CF8254CD7AD2A426183 /* FieldTestClient.swift */,
+				810316C170E8D5BADAA0282B /* FieldTestSession.swift */,
 				457562D5E3B33F131B5204FF /* FieldTestView.swift */,
 				17C3430B4B93AF715FDBD767 /* ScanLinker.swift */,
 				1D65966B319CDC6C9333AA58 /* ScanLinkSolver.swift */,
@@ -693,6 +696,7 @@
 				9690AF9CF20D2C2F02F70BC6 /* DesignSystem.swift in Sources */,
 				2FFDE7F8F85D76EEB248FD74 /* DiagnosticsLog.swift in Sources */,
 				2C5ADCC772FA300F607AB824 /* FieldTestClient.swift in Sources */,
+				923A593D3AB89BFE13453371 /* FieldTestSession.swift in Sources */,
 				5668966883FFC37E040A7BBF /* FieldTestView.swift in Sources */,
 				7A4E680AF61823BF493BB8F1 /* FixGate.swift in Sources */,
 				B21D44B250BDA53420770296 /* FocalCalibration.swift in Sources */,

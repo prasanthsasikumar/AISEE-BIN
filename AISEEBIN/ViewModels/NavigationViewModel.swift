@@ -290,13 +290,13 @@ final class NavigationViewModel {
             }
             DiagnosticsLog.write("startPositioning phone map=\(baseMap.name) alignment=\(baseMap.immersalAlignment?.mapIDs ?? []) pairs=\(baseMap.immersalAlignment?.pairCount ?? -1) worldMap=\(arManager.hasSavedWorldMap) anchored=\(phoneAnchoredByImmersal)")
             if phoneAnchoredByImmersal {
-                arManager.start(relocalize: false)
+                startARKit(relocalize: false)
                 phoneLocalizer.start(alignment: baseMap.immersalAlignment)
                 guidance.speak("Finding your position. Please look around slowly.", interrupt: true)
                 fetchImmersalMapsIfMissing(restart: true)
             } else {
                 phoneLocalizer.stop()
-                arManager.start(relocalize: true)
+                startARKit(relocalize: true)
                 if arManager.isUsingSavedWorldMap {
                     guidance.speak("Relocalizing. Please look around slowly.", interrupt: true)
                 }
@@ -343,6 +343,8 @@ final class NavigationViewModel {
     }
 
     private func didChange(positioningSource source: PositioningSource) {
+        // ARKit pauses under the glasses, so a scan-link walk cannot continue.
+        if source == .glasses { scanLinker.stop() }
         stopNavigation()
         pendingDestinationID = nil
         statusMessage = nil
@@ -424,6 +426,16 @@ final class NavigationViewModel {
 
     // MARK: - Field test
 
+    /// Field-test work that must outlive the sheet: unpublished marks, the last link result, checks.
+    let fieldSession = FieldTestSession()
+
+    /// Every ARKit (re)start goes through here: its origin moves, which the
+    /// scan-link walk has to know so it never pairs fixes across the restart.
+    private func startARKit(relocalize: Bool) {
+        scanLinker.noteSessionRestart()
+        arManager.start(relocalize: relocalize)
+    }
+
     /// The map as loaded (not anchor-corrected), for field-test edits.
     var currentMap: NavigationMap { baseMap }
     var mapSlug: String { localVersion?.slug ?? ServerConfig.mapSlug }
@@ -437,11 +449,16 @@ final class NavigationViewModel {
                                       : (phoneLocalizer.attempts, phoneLocalizer.fixes)
     }
 
-    /// Publishes an edited copy of the current map as a new server version and
-    /// installs it here, which restarts positioning on the new graph.
-    func publishFieldMap(_ graph: NavigationMap, note: String) async throws -> Int {
-        let saved = try await sync.publishGraph(graph, slug: mapSlug, note: note)
+    /// Applies `edit` to the newest server version of this map (so an editor
+    /// save or another tester's publish is never undone), publishes the result
+    /// and installs it here, which restarts positioning on the new graph.
+    /// Throws if the phone could not load what it published.
+    func publishFieldMap(note: String, edit: @escaping (inout NavigationMap) -> Void) async throws -> Int {
+        let saved = try await sync.publishEdit(slug: mapSlug, note: note, edit: edit)
         await checkForMapUpdate()
+        guard localVersion?.version == saved.version else {
+            throw MapSyncError.message("Published version \(saved.version), but this phone could not load it yet. Use ⋯ → Check Server for Map Updates before marking again.")
+        }
         return saved.version
     }
 
@@ -586,7 +603,7 @@ final class NavigationViewModel {
         if positioningSource == .glasses || phoneAnchoredByImmersal {
             startPositioning()
         } else {
-            arManager.start(relocalize: !discardSavedMap)
+            startARKit(relocalize: !discardSavedMap)
         }
     }
 

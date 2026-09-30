@@ -48,6 +48,7 @@ object FieldResults {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"; doOutput = true; connectTimeout = 10_000; readTimeout = 30_000
             setRequestProperty("apikey", KEY)
+            setRequestProperty("Authorization", "Bearer $KEY")   // as the iPhone app sends; storage uploads work with it
             setRequestProperty("Content-Type", type)
             if (upsert) setRequestProperty("x-upsert", "true")
             setFixedLengthStreamingMode(body.size)

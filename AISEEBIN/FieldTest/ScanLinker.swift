@@ -34,11 +34,14 @@ final class ScanLinker {
     @ObservationIgnored private var nextIndex = 0
     @ObservationIgnored private let gate = Gate()
     @ObservationIgnored private var token = ""
+    /// Bumped whenever ARKit restarts (its origin moves), see `noteSessionRestart`.
+    @ObservationIgnored private var session = 0
 
     private final class Gate: @unchecked Sendable {
         private let lock = NSLock()
         private var armed = false, inFlight = 0, last: TimeInterval = -.infinity
-        func arm() { lock.withLock { armed = true; inFlight = 0; last = -.infinity } }
+        // In-flight requests from an earlier walk still release their slot, so it is not reset here.
+        func arm() { lock.withLock { armed = true; last = -.infinity } }
         func disarm() { lock.withLock { armed = false } }
         func claim(now: TimeInterval) -> Bool {
             lock.withLock {
@@ -59,6 +62,9 @@ final class ScanLinker {
         gate.arm()
         DiagnosticsLog.write("scan-link start maps=\(maps.map(\.id))")
     }
+
+    /// ARKit was restarted: later fixes are in a new frame and must not pair with earlier ones.
+    func noteSessionRestart() { session += 1 }
 
     func stop() {
         guard running else { return }
@@ -97,7 +103,7 @@ final class ScanLinker {
         stats[i].fixes += 1
         lastError = nil
         let fromSession = Placement4.between(poseInA: poseInScan, poseInB: sessionPose)
-        samples.append(.init(mapID: mapID, time: time, fromSession: fromSession))
+        samples.append(.init(mapID: mapID, time: time, fromSession: fromSession, session: session))
         DiagnosticsLog.write(String(format: "scan-link fix map=%d t=%.1f yaw=%.3f t=(%.2f, %.2f, %.2f) %d ms",
                                     mapID, time, fromSession.yaw, fromSession.tx, fromSession.ty, fromSession.tz,
                                     Int(result.latency * 1000)))

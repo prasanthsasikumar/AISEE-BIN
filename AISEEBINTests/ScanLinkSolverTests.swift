@@ -69,6 +69,15 @@ final class ScanLinkSolverTests: XCTestCase {
         XCTAssertEqual(Set(links.keys), [1], "one pair is below the minimum of three")
     }
 
+    func testFixesFromDifferentARKitSessionsAreNotPaired() {
+        let s = Placement4.identity
+        let other = Placement4(yaw: 1, tx: 9, ty: 0, tz: 9)
+        var samples: [ScanLinkSolver.Sample] = []
+        for t in 0..<5 { samples.append(.init(mapID: 1, time: Double(t), fromSession: s, session: 0)) }
+        for t in 0..<5 { samples.append(.init(mapID: 2, time: Double(t) + 0.5, fromSession: other, session: 1)) }
+        XCTAssertEqual(Set(ScanLinkSolver().solve(samples: samples, reference: 1, referencePlacement: s).keys), [1])
+    }
+
     func testCircularMedianAcrossPi() {
         let v: [Float] = [3.1, -3.1, 3.05, -3.12, 3.13]
         XCTAssertEqual(abs(ScanLinkSolver.circularMedian(v)), 3.13, accuracy: 0.05)

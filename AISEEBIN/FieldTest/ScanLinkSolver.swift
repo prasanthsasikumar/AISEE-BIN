@@ -66,6 +66,9 @@ struct ScanLinkSolver {
         var time: TimeInterval
         /// `scan ← session` at that moment.
         var fromSession: Placement4
+        /// ARKit session this was taken in: a restart gives the session a new
+        /// origin, so fixes from different sessions are never paired.
+        var session: Int = 0
     }
 
     struct Link: Equatable {
@@ -114,7 +117,7 @@ struct ScanLinkSolver {
         var estimates: [Placement4] = []
         for a in ms {
             // The closest fix of the other scan, if close enough.
-            guard let b = ps.min(by: { abs($0.time - a.time) < abs($1.time - a.time) }),
+            guard let b = ps.filter({ $0.session == a.session }).min(by: { abs($0.time - a.time) < abs($1.time - a.time) }),
                   abs(b.time - a.time) <= pairWindow else { continue }
             estimates.append(b.fromSession.then(a.fromSession.inverse))
         }
