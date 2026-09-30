@@ -25,6 +25,15 @@ final class ImmersalLocalizerFactoryTests: XCTestCase {
         try Data(repeating: 1, count: 4096).write(to: cache.url(for: id))
     }
 
+    func testServerModeUsesTheCloudEvenWithTheMapCachedAndLeavesTheFile() throws {
+        try write(1)
+        let choice = ImmersalLocalizerFactory.make(mapIDs: [1], token: "t", cache: cache,
+                                                   native: ImmersalNative(), nativeAvailable: true, mode: .server)
+        XCTAssertEqual(choice.localizer.name, "cloud")
+        XCTAssertTrue(choice.reason.contains("chosen in Settings"), choice.reason)
+        XCTAssertTrue(cache.contains(1), "choosing the server must not touch the cached map")
+    }
+
     func testCloudWhenThePluginIsUnavailable() throws {
         try write(1)
         let choice = ImmersalLocalizerFactory.make(mapIDs: [1], token: "t", cache: cache,

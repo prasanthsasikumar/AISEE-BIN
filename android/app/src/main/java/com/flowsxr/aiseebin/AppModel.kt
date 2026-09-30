@@ -75,6 +75,22 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     private val _spoken = MutableStateFlow<String?>(null)
     val spoken: StateFlow<String?> = _spoken
 
+    /** Where localization runs, chosen in Settings. */
+    enum class LocalizerMode(val label: String) { AUTO("Auto"), ON_PHONE("On phone"), SERVER("Immersal server") }
+
+    private val _localizerMode = MutableStateFlow(
+        runCatching { LocalizerMode.valueOf(prefs.getString(KEY_LOCALIZER, null) ?: "") }.getOrDefault(LocalizerMode.AUTO))
+    val localizerMode: StateFlow<LocalizerMode> = _localizerMode
+
+    fun setLocalizerMode(mode: LocalizerMode) {
+        if (mode == _localizerMode.value) return
+        _localizerMode.value = mode
+        prefs.edit().putString(KEY_LOCALIZER, mode.name).apply()
+        append("localization set to ${mode.label}")
+        // A running session switches straight away.
+        if (positioning.state.value.running) { stopPositioning(); startPositioning() }
+    }
+
     private val _focalPx = MutableStateFlow(prefs.getFloat(KEY_FOCAL, GlassesCamera.DEFAULT_FOCAL_PX))
     val focalPx: StateFlow<Float> = _focalPx
 
@@ -226,8 +242,22 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun chooseLocalizer(ids: List<Int>): Localizer? {
-        val (native, why) = NativeLocalizer.open(ids, cache)
         val cloud = token.takeIf { it.isNotBlank() }?.let { CloudLocalizer(it, ids) }
+        when (_localizerMode.value) {
+            LocalizerMode.SERVER -> {
+                if (cloud == null) { append("localizer: none — Immersal server chosen but no token"); return null }
+                append("localizer: Immersal server (chosen in Settings)")
+                return cloud
+            }
+            LocalizerMode.ON_PHONE -> {
+                val (native, why) = NativeLocalizer.open(ids, cache)
+                if (native != null) { append("localizer: on phone (chosen in Settings), $why"); return native }
+                append("localizer: on phone chosen but $why; using the server")
+                return cloud
+            }
+            LocalizerMode.AUTO -> Unit
+        }
+        val (native, why) = NativeLocalizer.open(ids, cache)
         if (native == null && cloud == null) { append("localizer: none — no token and $why"); return null }
         append("localizer: auto (on-device ${if (native != null) "ready" else "unavailable: $why"}, cloud ${if (cloud != null) "ready" else "no token"})")
         return AutoLocalizer(cloud, native, ::hasInternet)
@@ -386,6 +416,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         private const val KEY_FOCAL = "glasses.focalPx"
         private const val KEY_TOKEN = "immersal.token"
         private const val KEY_ANNOUNCE = "announce.places"
+        private const val KEY_LOCALIZER = "immersal.localizerMode"
         private const val STALE_SECONDS = 10
     }
 }

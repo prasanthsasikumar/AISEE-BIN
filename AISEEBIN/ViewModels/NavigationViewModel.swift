@@ -424,6 +424,14 @@ final class NavigationViewModel {
     /// When they land, the running localizer is swapped in place — never the
     /// ARKit session, the anchor or the spoken prompt — and only if the app
     /// is still navigating the same map from the same camera.
+    /// Settings changed where localization runs: swap the running localizer now.
+    func reselectImmersalLocalizer() {
+        switch positioningSource {
+        case .phone:   phoneLocalizer.reselectLocalizer()
+        case .glasses: glassesPositioning.reselectLocalizer()
+        }
+    }
+
     private func fetchImmersalMapsIfMissing(restart: Bool) {
         guard let ids = baseMap.immersalAlignment?.mapIDs, !ids.isEmpty else { return }
         guard !immersalMaps.cache.missing(from: ids).isEmpty else { return }

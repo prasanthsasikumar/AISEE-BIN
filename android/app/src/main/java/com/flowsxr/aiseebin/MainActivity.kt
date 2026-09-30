@@ -19,6 +19,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -142,6 +143,14 @@ class MainActivity : ComponentActivity() {
             "position" -> model.startPositioning()
             "stopposition" -> model.stopPositioning()
             "whereami" -> model.whereAmI("adb")
+            "eis" -> {
+                val e = com.realsil.sdk.audioconnect.smartwear.SmartWearDeviceInfo.getInstance().eisParams
+                model.append(if (e == null) "eis: none received" else
+                    "eis: imuHz=${e.mImuRateHz} stab=${e.mEnableStabilization}/${e.mStabilization} crop=${e.mCropRatioMin}..${e.mCropRatioMax} " +
+                        "rs=${e.mRsReadoutTimeMs}ms rms=${e.mRmsError} K=${e.mCameraMatrix?.joinToString()} D=${e.mDistortionCoeffs?.joinToString()}")
+                val info = com.realsil.sdk.audioconnect.smartwear.SmartWearDeviceInfo.getInstance()
+                model.append("sensors: camera=${runCatching { info.cameraStatus }.getOrNull()} gSensor=${runCatching { info.gSensorStatus }.getOrNull()}")
+            }
             "fakefix" -> model.injectFix(intent.getFloatExtra("x", 0f), intent.getFloatExtra("z", 0f), intent.getFloatExtra("h", 0f))
             "fakeframes" -> model.fakeFrames(intent.getStringExtra("pattern"))
             "selftest" -> model.selfTest(intent.getStringExtra("pattern") ?: "checker")
@@ -473,6 +482,17 @@ private fun SettingsSection(model: AppModel) {
     Section("Settings") {
         TextButton(onClick = { open = !open }) { Text(if (open) "Hide" else "Show") }
         if (open) {
+            val mode by model.localizerMode.collectAsStateWithLifecycle()
+            Text("Localization", fontWeight = FontWeight.Medium)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                AppModel.LocalizerMode.entries.forEach { m ->
+                    if (m == mode) Button(onClick = {}, contentPadding = PaddingValues(horizontal = 12.dp)) { Text(m.label, fontSize = 13.sp) }
+                    else OutlinedButton(onClick = { model.setLocalizerMode(m) }, contentPadding = PaddingValues(horizontal = 12.dp)) { Text(m.label, fontSize = 13.sp) }
+                }
+            }
+            Text("Auto uses the Immersal server when the phone has internet and the phone otherwise. On phone needs the map downloaded; Immersal server needs internet.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+            HorizontalDivider()
             Row2("Lens focal length", "${focal.roundToInt()} px @1280")
             Slider(value = focal, onValueChange = { model.setFocal((it / 25).roundToInt() * 25f) }, valueRange = 600f..1400f)
             Text("1100 px was measured on iOS for these glasses. Takes effect on the next positioning start.",

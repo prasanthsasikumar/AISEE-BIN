@@ -21,9 +21,17 @@ enum ImmersalLocalizerFactory {
 
     static func make(mapIDs: [Int], token: String, cache: ImmersalMapCache,
                      native: ImmersalNative = .shared,
-                     nativeAvailable: Bool = ImmersalNative.isAvailable) -> Choice {
-        let choice = choose(mapIDs: mapIDs, token: token, cache: cache,
+                     nativeAvailable: Bool = ImmersalNative.isAvailable,
+                     mode: ImmersalLocalizerMode = ImmersalConfig.localizerMode) -> Choice {
+        let choice: Choice
+        if mode == .server {
+            choice = Choice(localizer: CloudImmersalLocalizer(token: token, mapIDs: mapIDs),
+                            reason: "Immersal server chosen in Settings")
+        } else {
+            // Auto and On phone take the same path: on the phone whenever it can.
+            choice = choose(mapIDs: mapIDs, token: token, cache: cache,
                             native: native, nativeAvailable: nativeAvailable)
+        }
         DiagnosticsLog.write("immersal localizer: \(choice.localizer.name) (\(choice.reason)) maps=\(mapIDs)")
         return choice
     }

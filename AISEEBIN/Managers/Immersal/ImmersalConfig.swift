@@ -100,6 +100,35 @@ enum ImmersalConfig {
     }
 }
 
+/// Where Immersal localization runs, chosen in Settings.
+enum ImmersalLocalizerMode: String, CaseIterable, Identifiable {
+    /// On the phone when the map is cached and loads, else the server.
+    case auto
+    /// On the phone; the server only when that is impossible (map not cached).
+    case onPhone
+    /// Always Immersal's REST API, even with the map cached.
+    case server
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .auto:    return "Auto"
+        case .onPhone: return "On phone"
+        case .server:  return "Immersal server"
+        }
+    }
+}
+
+extension ImmersalConfig {
+    private static let localizerModeKey = "immersal.localizerMode"
+
+    static var localizerMode: ImmersalLocalizerMode {
+        get { UserDefaults.standard.string(forKey: localizerModeKey).flatMap(ImmersalLocalizerMode.init) ?? .auto }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: localizerModeKey) }
+    }
+}
+
 extension String {
     var immersalMapIDs: [Int] {
         split(whereSeparator: { ", ".contains($0) }).compactMap { Int($0) }

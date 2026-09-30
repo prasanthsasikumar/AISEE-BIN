@@ -17,6 +17,7 @@ struct SettingsView: View {
     @State private var cachedMapIDs: [Int] = []
     @State private var mapDownloadState: String?
     @State private var mapDownloadError: String?
+    @State private var localizerMode = ImmersalConfig.localizerMode
 
     var body: some View {
         NavigationStack {
@@ -61,6 +62,13 @@ struct SettingsView: View {
                     .autocorrectionDisabled()
                     .lineLimit(2...3)
             }
+            Picker("Localization", selection: $localizerMode) {
+                ForEach(ImmersalLocalizerMode.allCases) { Text($0.label).tag($0) }
+            }
+            .onChange(of: localizerMode) { _, mode in
+                ImmersalConfig.localizerMode = mode
+                viewModel.reselectImmersalLocalizer()
+            }
             LabeledContent("Cached on this phone",
                            value: cachedMapIDs.isEmpty ? "none" : cachedMapIDs.map(String.init).joined(separator: ", "))
             Button(mapDownloadState ?? "Download maps for offline use") {
@@ -81,7 +89,8 @@ struct SettingsView: View {
         } header: {
             Text("Immersal")
         } footer: {
-            Text(ImmersalConfig.hasBundledToken
+            Text("Localization: Auto and On phone work on the phone when this map is cached, and use the server otherwise; Immersal server always sends frames to Immersal (needs internet). ")
+            + Text(ImmersalConfig.hasBundledToken
                  ? "Filled in by this build; edit only to try another account or map. Map ids come from the Immersal Mapper app once a scan finishes constructing. Stored on this device only. A map cached on this phone is localized on the phone, with no network."
                  : "Map ids come from the Immersal Mapper app once a scan finishes constructing. Stored on this device only. A map cached on this phone is localized on the phone, with no network.")
         }
