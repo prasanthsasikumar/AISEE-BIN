@@ -61,3 +61,30 @@ as $$
 $$;
 
 grant execute on function public.node_count(public.ab_map_versions) to anon, authenticated;
+
+-- Field-test results from the apps (Flower Dome POC, 2026-09-30): accuracy
+-- checks, marked points, scan-link walks, uploaded logs. Append-only like the
+-- map versions; readable with the publishable key so results can be pulled
+-- the same day without anyone sending files.
+create table if not exists public.ab_field_results (
+  id           bigserial primary key,
+  created_at   timestamptz not null default now(),
+  kind         text not null,          -- check | mark | link | log
+  platform     text,                   -- ios | android
+  device       text,
+  app_version  text,
+  map_slug     text,
+  map_version  int,
+  mode         text,                   -- glasses | phone
+  localizer    text,
+  point_id     text,
+  point_name   text,
+  payload      jsonb not null default '{}'::jsonb
+);
+alter table public.ab_field_results enable row level security;
+drop policy if exists ab_field_read on public.ab_field_results;
+create policy ab_field_read on public.ab_field_results for select to anon, authenticated using (true);
+drop policy if exists ab_field_insert on public.ab_field_results;
+create policy ab_field_insert on public.ab_field_results for insert to anon, authenticated with check (true);
+grant select, insert on public.ab_field_results to anon, authenticated;
+grant usage, select on sequence public.ab_field_results_id_seq to anon, authenticated;

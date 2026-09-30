@@ -350,6 +350,69 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         runCatching { vibrator.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 120, 80, 120, 80, 250), -1)) }
     }
 
+    // MARK: - Field test
+
+    /** Points the iPhone field test has marked (the editor parks unmarked ones at x = -40). */
+    fun markedPoints(): List<com.flowsxr.aiseebin.map.NavigationPoi> =
+        _maps.value.map?.pois.orEmpty().filter { it.isNamed && it.position.x != PARKED_X }
+
+    private val _checks = MutableStateFlow<Map<String, String>>(emptyMap())
+    val checks: StateFlow<Map<String, String>> = _checks
+    private val _fieldBusy = MutableStateFlow<String?>(null)
+    val fieldBusy: StateFlow<String?> = _fieldBusy
+
+    /**
+     * "I'm here" at [poi]: 10 seconds of fixes, their error from the marked
+     * point, and the tries/fixes in that time, posted to the server like the
+     * iPhone's checks.
+     */
+    fun check(poi: com.flowsxr.aiseebin.map.NavigationPoi) {
+        if (_fieldBusy.value != null) return
+        viewModelScope.launch {
+            _fieldBusy.value = "Checking at ${poi.name}…"
+            val before = positioning.state.value
+            val fixes = mutableListOf<Fix>()
+            var last = before.lastFix?.atMillis
+            val end = System.currentTimeMillis() + 10_000
+            while (System.currentTimeMillis() < end) {
+                positioning.state.value.lastFix?.let { if (it.atMillis != last) { fixes += it; last = it.atMillis } }
+                kotlinx.coroutines.delay(200)
+            }
+            val after = positioning.state.value
+            val tries = after.attempts - before.attempts
+            val payload = org.json.JSONObject().put("target_x", poi.position.x.toDouble()).put("target_z", poi.position.z.toDouble())
+                .put("readings", fixes.size).put("tries", tries).put("fixes", after.fixes - before.fixes)
+            val summary = if (fixes.isEmpty()) {
+                "no fix in 10 s ($tries tries)"
+            } else {
+                val mx = fixes.map { it.position.x }.average().toFloat(); val mz = fixes.map { it.position.z }.average().toFloat()
+                val err = com.flowsxr.aiseebin.map.Vec2(mx, mz).distanceTo(poi.position)
+                val errors = fixes.map { it.position.distanceTo(poi.position) }.sorted()
+                val p90 = errors[minOf(errors.size - 1, (errors.size * 0.9).toInt())]
+                payload.put("error_m", err.toDouble()).put("p90_m", p90.toDouble()).put("mean_x", mx.toDouble()).put("mean_z", mz.toDouble())
+                payload.put("samples", org.json.JSONArray(fixes.map { org.json.JSONArray(listOf(it.position.x.toDouble(), it.position.z.toDouble())) }))
+                "%.1f m off (90%% within %.1f m) · %d fixes / %d tries".format(err, p90, fixes.size, tries)
+            }
+            _checks.update { it + (poi.id to summary) }
+            append("check ${poi.name}: $summary")
+            withContext(Dispatchers.IO) {
+                runCatching { FieldResults.post("check", _maps.value.selectedSlug, "glasses", after.localizer, poi.id, poi.name, payload) }
+                    .onFailure { append("check not uploaded: ${it.message}") }
+            }
+            _fieldBusy.value = null
+        }
+    }
+
+    fun sendLog() {
+        if (_fieldBusy.value != null) return
+        viewModelScope.launch {
+            _fieldBusy.value = "Sending log…"
+            val result = withContext(Dispatchers.IO) { runCatching { FieldResults.uploadLog(diagFile, _maps.value.selectedSlug) } }
+            append(result.fold({ "log sent ($it)" }, { "log not sent: ${it.message}" }))
+            _fieldBusy.value = null
+        }
+    }
+
     /** Debug: behave as if positioning produced this fix (announcements, where-am-I). */
     fun injectFix(x: Float, z: Float, heading: Float) {
         val fix = Fix(com.flowsxr.aiseebin.map.Vec2(x, z), heading, System.currentTimeMillis(), null)
@@ -416,6 +479,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         private const val KEY_FOCAL = "glasses.focalPx"
         private const val KEY_TOKEN = "immersal.token"
         private const val KEY_ANNOUNCE = "announce.places"
+        private const val PARKED_X = -40f
         private const val KEY_LOCALIZER = "immersal.localizerMode"
         private const val STALE_SECONDS = 10
     }

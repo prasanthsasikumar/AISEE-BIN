@@ -42,6 +42,9 @@ struct ImmersalAlignment: Codable, Equatable {
         var yaw: Float
         var tx: Float
         var tz: Float
+        /// What the editor calls the scan, and its height offset (unused by guidance).
+        var name: String? = nil
+        var ty: Float? = nil
     }
 
     static let originScan = "scan"

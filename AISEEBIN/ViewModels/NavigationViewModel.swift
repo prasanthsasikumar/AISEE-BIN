@@ -88,6 +88,8 @@ final class NavigationViewModel {
     /// Positions the phone in a map that has an Immersal alignment but no
     /// ARKit world map (one drawn in the web editor on an Immersal scan).
     let phoneLocalizer = PhoneImmersalLocalizer()
+    /// Field test: the "link scans" walk, fed the same ARKit frames.
+    let scanLinker = ScanLinker()
     @ObservationIgnored private let sync = MapSyncService()
     /// Immersal map binaries for on-device localization; `immersalMaps.state`
     /// says why a session is on the cloud.
@@ -250,8 +252,9 @@ final class NavigationViewModel {
             guard let self else { return }
             self.handle(self.anchored(snapshot))
         }
-        arManager.onRawFrame = { [weak localizer = phoneLocalizer] frame, trackingNormal in
+        arManager.onRawFrame = { [weak localizer = phoneLocalizer, weak linker = scanLinker] frame, trackingNormal in
             localizer?.consume(frame, trackingNormal: trackingNormal)
+            linker?.consume(frame, trackingNormal: trackingNormal)
         }
         phoneLocalizer.onFirstFix = { [weak self] in
             self?.guidance.speak("Found you.", interrupt: true)
@@ -419,11 +422,29 @@ final class NavigationViewModel {
 
     // MARK: - Immersal map cache
 
-    /// Starts a download of whatever map binaries the current map names and
-    /// this phone lacks, so positioning can move from the cloud to the phone.
-    /// When they land, the running localizer is swapped in place — never the
-    /// ARKit session, the anchor or the spoken prompt — and only if the app
-    /// is still navigating the same map from the same camera.
+    // MARK: - Field test
+
+    /// The map as loaded (not anchor-corrected), for field-test edits.
+    var currentMap: NavigationMap { baseMap }
+    var mapSlug: String { localVersion?.slug ?? ServerConfig.mapSlug }
+
+    /// "glasses" or "phone", and where fixes are computed, for result rows.
+    var fieldMode: String { positioningSource == .glasses ? "glasses" : "phone" }
+    var fieldLocalizer: String { positioningSource == .glasses ? glassesPositioning.localizerName : phoneLocalizer.localizerName }
+    /// Localization tries and accepted fixes so far in the running session.
+    var fieldCounters: (attempts: Int, fixes: Int) {
+        positioningSource == .glasses ? (glassesPositioning.attempts, glassesPositioning.fixes)
+                                      : (phoneLocalizer.attempts, phoneLocalizer.fixes)
+    }
+
+    /// Publishes an edited copy of the current map as a new server version and
+    /// installs it here, which restarts positioning on the new graph.
+    func publishFieldMap(_ graph: NavigationMap, note: String) async throws -> Int {
+        let saved = try await sync.publishGraph(graph, slug: mapSlug, note: note)
+        await checkForMapUpdate()
+        return saved.version
+    }
+
     /// Settings changed where localization runs: swap the running localizer now.
     func reselectImmersalLocalizer() {
         switch positioningSource {
@@ -432,6 +453,11 @@ final class NavigationViewModel {
         }
     }
 
+    /// Starts a download of whatever map binaries the current map names and
+    /// this phone lacks, so positioning can move from the cloud to the phone.
+    /// When they land, the running localizer is swapped in place — never the
+    /// ARKit session, the anchor or the spoken prompt — and only if the app
+    /// is still navigating the same map from the same camera.
     private func fetchImmersalMapsIfMissing(restart: Bool) {
         guard let ids = baseMap.immersalAlignment?.mapIDs, !ids.isEmpty else { return }
         guard !immersalMaps.cache.missing(from: ids).isEmpty else { return }

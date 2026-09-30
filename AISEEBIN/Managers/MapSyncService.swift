@@ -409,6 +409,29 @@ struct MapSyncService {
         return saved
     }
 
+    /// A new version that changes only the graph (field-test marks, a scan
+    /// link): the files of the newest version are carried over untouched, and
+    /// the row is marked `web` like an editor save, so no world map is fetched.
+    func publishGraph(_ graph: NavigationMap, slug: String, note: String) async throws -> RemoteMapVersion {
+        let latest = try await latestVersion(slug: slug)
+        let version = try await nextVersion(slug: slug)
+        struct Row: Encodable {
+            let map_slug: String; let version: Int; let source: String; let note: String?
+            let graph: NavigationMap; let worldmap_path: String?; let pointcloud_path: String?; let point_count: Int?
+        }
+        let row = Row(map_slug: slug, version: version, source: MapSource.web.rawValue, note: note, graph: graph,
+                      worldmap_path: latest?.worldmapPath, pointcloud_path: latest?.pointcloudPath, point_count: latest?.pointCount)
+        var req = request(ServerConfig.supabaseURL.appendingPathComponent("rest/v1/ab_map_versions"), method: "POST")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("return=representation", forHTTPHeaderField: "Prefer")
+        req.httpBody = try JSONEncoder().encode(row)
+        let data = try await perform(req)
+        guard let saved = try JSONDecoder.supabase.decode([RemoteMapVersion].self, from: data).first else {
+            throw MapSyncError.http(200, "empty insert response")
+        }
+        return saved
+    }
+
     // MARK: - Private
 
     private func nextVersion(slug: String) async throws -> Int {

@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var showingGlasses = false
     @AppStorage("nav.showMap") private var showMap = true
     @State private var showingMap = false
+    @State private var showingFieldTest = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,6 +34,22 @@ struct ContentView: View {
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
             viewModel.startSession()
+            #if DEBUG
+            // Screenshots and simulator checks: `-openFieldTest` opens the field-test sheet at launch.
+            if ProcessInfo.processInfo.arguments.contains("-openFieldTest") { showingFieldTest = true }
+            // `-fieldPostTest` checks the result upload end to end (a row and the log).
+            if ProcessInfo.processInfo.arguments.contains("-fieldPostTest") {
+                Task {
+                    do {
+                        try await FieldTestClient.post(.init(kind: "log", map_slug: viewModel.mapSlug, mode: viewModel.fieldMode,
+                                                             payload: ["note": .string("simulator self-test"), "nested": .object(["ok": .bool(true)])]))
+                        let path = try await FieldTestClient.uploadLog(mapSlug: viewModel.mapSlug)
+                        DiagnosticsLog.write("field-post-test ok \(path)")
+                        print("[field-post-test] ok \(path)")
+                    } catch { print("[field-post-test] FAILED \(error)") }
+                }
+            }
+            #endif
         }
         .onChange(of: scenePhase) { _, phase in
             // ARKit pauses itself in the background; restart tracking when we return.
@@ -42,6 +59,9 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingGlasses) {
             GlassesView(viewModel: viewModel)
+        }
+        .sheet(isPresented: $showingFieldTest) {
+            FieldTestView(viewModel: viewModel)
         }
         .fullScreenCover(isPresented: $showingMap) {
             FullScreenMap(viewModel: viewModel)
@@ -223,6 +243,11 @@ struct ContentView: View {
                     } label: {
                         Label(viewModel.positioningSource == .glasses ? "Glasses (positioning)" : "Glasses…",
                               systemImage: "eyeglasses")
+                    }
+                    Button {
+                        showingFieldTest = true
+                    } label: {
+                        Label("Field Test…", systemImage: "checklist")
                     }
                     Divider()
                     Button("Check Server for Map Updates") { Task { await viewModel.checkForMapUpdate() } }

@@ -285,6 +285,7 @@ private fun ScrollingPanels(model: AppModel, live: Boolean, permissionsGranted: 
         }
         MapSection(model)
         if (!live) PositioningSection(model, showMap = true)
+        FieldTestSection(model)
         SettingsSection(model)
         LogSection(model)
         Spacer(Modifier.height(24.dp))
@@ -471,6 +472,33 @@ private fun PositioningSection(model: AppModel, showMap: Boolean) {
             Switch(checked = announce, onCheckedChange = model::setAnnouncePlaces)
         }
         Text("A glasses button press also asks \"where am I\".", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+    }
+}
+
+@Composable
+private fun FieldTestSection(model: AppModel) {
+    val m by model.maps.collectAsStateWithLifecycle()
+    val checks by model.checks.collectAsStateWithLifecycle()
+    val busy by model.fieldBusy.collectAsStateWithLifecycle()
+    val p by model.positioning.state.collectAsStateWithLifecycle()
+    Section("Field test") {
+        Text("Stand on a marked point and tap I'm here: for 10 seconds the app records the glasses' positions and how far they are from the point. Results go to the team's server.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+        val points = remember(m.map) { model.markedPoints() }
+        if (m.map == null) Text("Load a map first.")
+        else if (points.isEmpty()) Text("No points marked yet: mark them with the iPhone app's Field Test first.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else if (!p.running) Text("Start positioning to check.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        points.forEach { poi ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(poi.name, fontWeight = FontWeight.Medium)
+                    checks[poi.id]?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) }
+                }
+                Button(onClick = { model.check(poi) }, enabled = busy == null && p.running) { Text("I'm here") }
+            }
+        }
+        busy?.let { Text(it, fontWeight = FontWeight.Medium) }
+        OutlinedButton(onClick = { model.sendLog() }, enabled = busy == null) { Text("Send log") }
     }
 }
 
