@@ -1,122 +1,306 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><title>AISEE-BIN Flower Dome update</title>
+<html><head><meta charset="utf-8"><title>AISEE-BIN Flower Dome progress</title>
 <style>
-@page { size: A4; margin: 14mm 15mm 13mm; }
+@page { size: A4; margin: 13mm 15mm 12mm; }
 * { box-sizing: border-box; }
-body { font: 9.3pt/1.38 -apple-system, "Helvetica Neue", Arial, sans-serif; color: #1d2330; margin: 0; }
+body { font: 9.3pt/1.4 -apple-system, "Helvetica Neue", Arial, sans-serif; color: #1d2330; margin: 0; }
 .band { display:flex; align-items:center; justify-content:space-between; background:#13132d; color:#fff; border-radius:6px; padding:11px 14px; margin-bottom:10px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 .band .sub { color:#b9bdd6; margin:0; }
 .logos { display:flex; align-items:center; gap:12px; } .sep { width:1px; height:26px; background:#4a4d70; }
 h1 { font-size: 17pt; margin: 0 0 2px; letter-spacing: -0.2px; }
-.sub { color: #5b6475; margin-bottom: 10px; }
-h2 { font-size: 11.5pt; margin: 10px 0 4px; padding-bottom: 3px; border-bottom: 1.5px solid #6c4cf5; color: #2b1f73; }
+.sub { color: #5b6475; }
+h2 { font-size: 11.5pt; margin: 11px 0 5px; padding-bottom: 3px; border-bottom: 1.5px solid #6c4cf5; color: #2b1f73; break-after: avoid; }
+h3 { font-size: 10pt; margin: 8px 0 3px; color: #2b1f73; break-after: avoid; }
 p { margin: 0 0 6px; }
-ul { margin: 0 0 6px; padding-left: 16px; } li { margin: 1.5px 0; }
-.box { background: #f4f2ff; border-left: 3px solid #6c4cf5; padding: 7px 10px; border-radius: 3px; margin: 6px 0 4px; }
+ul, ol { margin: 0 0 6px; padding-left: 16px; } li { margin: 1.5px 0; }
+.box { background: #f4f2ff; border-left: 3px solid #6c4cf5; padding: 7px 10px; border-radius: 3px; margin: 6px 0; }
 table { width: 100%; border-collapse: collapse; margin: 4px 0 6px; font-size: 9pt; }
 th, td { text-align: left; vertical-align: top; padding: 4px 6px; border-bottom: 1px solid #e3e5ec; }
 th { background: #f1f2f6; font-weight: 600; }
+tr { break-inside: avoid; }
 .ok { color: #137a3b; font-weight: 600; } .mid { color: #a86200; font-weight: 600; } .bad { color: #b3261e; font-weight: 600; }
-figure { margin: 6px 0 4px; break-inside: avoid; } tr { break-inside: avoid; } figure img { width: 100%; border-radius: 4px; border: 1px solid #d9dce4; display: block; }
+.dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; vertical-align:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+.g { background:#27ae60; } .a { background:#f2a516; } .r { background:#e5484d; } .n { background:#b7bccb; }
+figure { margin: 6px 0 4px; break-inside: avoid; } figure img { width: 100%; border-radius: 4px; border: 1px solid #d9dce4; display: block; }
+.dark img { height: 170px; object-fit: contain; background: #14151a; }
 figcaption { font-size: 8.3pt; color: #5b6475; margin-top: 3px; }
-.two { display: flex; gap: 10px; } .two > * { flex: 1; }
-.pb { page-break-before: always; }
+.two { display: flex; gap: 10px; } .two > * { flex: 1; min-width: 0; }
+.pb { break-before: page; }
 .muted { color: #5b6475; }
+/* page 1 */
+.goal { font-size: 10.3pt; margin: 2px 0 8px; }
+.steps { display:flex; gap:8px; margin: 4px 0 10px; }
+.step { flex:1; border:1px solid #dcd6ff; border-radius:6px; padding:7px 9px; background:#faf9ff; }
+.step b.n { display:inline-block; width:18px; height:18px; line-height:18px; text-align:center; border-radius:50%; background:#6c4cf5; color:#fff; font-size:8.5pt; margin-right:5px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+.card { border:1px solid #d9dce4; border-radius:6px; padding:8px 10px; }
+.card h3 { margin-top:0; }
+.card .tag { font-size:8.3pt; color:#5b6475; margin-bottom:4px; }
+.plus { color:#137a3b; } .minus { color:#b3261e; }
+.card ul { list-style:none; padding-left:0; } .card li { padding-left:14px; text-indent:-14px; }
+.both { margin-top:8px; background:#eefaf2; border-left:3px solid #27ae60; padding:6px 10px; border-radius:3px; }
+.tl { display:flex; margin: 6px 0 2px; }
+.tl div { flex:1; border-top:3px solid #6c4cf5; padding:4px 5px 0 0; font-size:8.3pt; position:relative; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+.tl div.future { border-top:3px dashed #b7bccb; }
+.tl div::before { content:""; position:absolute; top:-6px; left:0; width:9px; height:9px; border-radius:50%; background:#6c4cf5; }
+.tl div.future::before { background:#b7bccb; }
+.tl b { display:block; font-size:8.6pt; color:#2b1f73; }
+.status td:first-child { width: 34%; }
+a { color:#4b2fd6; text-decoration:none; }
+.links { font-size:8.6pt; margin-top:8px; color:#5b6475; }
+.links a { margin-right:10px; white-space:nowrap; }
 </style></head><body>
 
+<!-- ================= PAGE 1: OVERVIEW ================= -->
 <div class="band">
   <div><h1>AISEE-BIN: Flower Dome progress</h1>
   <div class="sub">Status update for the team · 1 October 2026 · Gardens by the Bay, Flower Dome POC</div></div>
   <div class="logos"><img src="../../../design/assets/aisee-logo.png" style="height:30px"><span class="sep"></span><img src="../../../design/assets/flowsxr-logo-light.svg" style="height:24px"></div>
 </div>
 
-<div class="box">
-<b>In short:</b> on 1 October we tested phone navigation on site at the Flower Dome.
-<ul>
-<li><b>Inside the dome it worked.</b> On a route our tester scanned with the iPhone app, the phone guided her to Points 1, 2 and 3. She heard "Point X ahead" just before each one.</li>
-<li><b>Around the entrance it struggled.</b> At Points A, B and C the phone had trouble working out where it was.</li>
-<li><b>An Immersal scan fixed the entrance.</b> Using last week's Immersal scan of the entrance, the phone found itself immediately and knew roughly where it was.</li>
-<li><b>Joining several Immersal scans into one big map isn't reliable yet.</b> That is the main problem left to solve.</li>
-</ul>
+<p class="goal"><b>The goal:</b> guide blind and low-vision visitors along the Flower Dome tour (Point A, through Doors B and C, to Points 1–4) with spoken directions. Guidance comes from a phone or from AiSee glasses.</p>
+
+<div class="steps">
+  <div class="step"><b class="n">1</b><b>Scan the place</b><br>Walk the route once with a phone so it can learn what the place looks like.</div>
+  <div class="step"><b class="n">2</b><b>Add the route</b><br>In our web editor, draw the walkways and add the stops, hazards and what to say at each.</div>
+  <div class="step"><b class="n">3</b><b>Guide the visitor</b><br>The phone or glasses recognise where they are and give spoken directions and announcements.</div>
 </div>
 
-<h2>What we have built</h2>
+<h2>Two ways to scan, and the best of both</h2>
+<div class="two">
+  <div class="card">
+    <h3>A · Our app scans and guides (ARKit)</h3>
+    <div class="tag">The iPhone's own tracking, scanned in our app's Author mode</div>
+    <ul>
+      <li><span class="plus">+</span> One walk gives the map, the route and the stops</li>
+      <li><span class="plus">+</span> Smooth, continuous tracking. <b>Worked inside the dome</b></li>
+      <li><span class="minus">−</span> iPhone only, and <b>not for glasses</b></li>
+      <li><span class="minus">−</span> <b>Struggled at the entrance</b>, and sensitive to light</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>B · Immersal scans, our app guides</h3>
+    <div class="tag">Scanned with the Immersal Mapper app; route added in our editor</div>
+    <ul>
+      <li><span class="plus">+</span> <b>Found the entrance instantly</b></li>
+      <li><span class="plus">+</span> Works for <b>phones and glasses</b>, on iOS and Android</li>
+      <li><span class="minus">−</span> About 500 photos per map, so the full route needs several scans</li>
+      <li><span class="minus">−</span> <b>Joining scans into one map is unsolved</b></li>
+    </ul>
+  </div>
+</div>
+<div class="both"><b>Best of both:</b> Immersal tells the phone <i>where</i> it is, and ARKit tracks every step in between. The phone already does this on Immersal maps. Next we use it to extend maps and to join scans.</div>
+
+<h2>Where we are</h2>
+<table class="status">
+<tr><td><span class="dot g"></span><b>iPhone app</b> (TestFlight)</td><td>Ready: navigation, scanning (Author mode) and on-site test tools.</td></tr>
+<tr><td><span class="dot g"></span><b>Android app for the glasses</b></td><td>Ready as a test build. Smooth glasses video, and positioning works in a test room.</td></tr>
+<tr><td><span class="dot g"></span><b>Web map editor</b></td><td>Live at aiseebin.flowsxr.com. Anyone on the team can edit routes, stops and spoken text.</td></tr>
+<tr><td><span class="dot a"></span><b>Phone navigation at the Flower Dome</b></td><td>Worked to Points 1–3 on 1 October. The entrance (A, B, C) needs a better map.</td></tr>
+<tr><td><span class="dot n"></span><b>Glasses at the Flower Dome</b></td><td>Not tested on site yet. Planned for <b>16 October</b>, with Prasanth in Singapore.</td></tr>
+</table>
+
+<h2>Timeline</h2>
+<div class="tl">
+  <div><b>16 Sep</b>Glasses camera recognised by Immersal</div>
+  <div><b>24–26 Sep</b>Phone positioning in Immersal maps; on-phone matching</div>
+  <div><b>25 Sep</b>Immersal scans of the Flower Dome</div>
+  <div><b>29–30 Sep</b>Android glasses app, web editor upgrades, on-site test tools</div>
+  <div><b>1 Oct</b>First on-site test</div>
+  <div class="future"><b>2 Oct</b>Full-route Immersal scan, in daylight</div>
+  <div class="future"><b>by 16 Oct</b>Combined Immersal + ARKit; extend maps</div>
+  <div class="future"><b>16 Oct</b>Glasses test on site</div>
+</div>
+
+<div class="box" style="margin-top:10px"><b>Next:</b> on 2 October Yvonne scans the whole route as <b>one</b> Immersal map. If it holds together, phones and glasses can guide the full tour from a single map. Before 16 October we build the combined Immersal + ARKit positioning and the option to add to an existing map.</div>
+<div class="links"><b style="color:#1d2330">Links:</b>
+<a href="https://testflight.apple.com/join/7uVqcqkE">iPhone app (TestFlight)</a>
+<a href="https://github.com/prasanthsasikumar/AISEE-BIN/releases/download/android-v0.1.1/AISEE-BIN-android-0.1.1.apk">Android app (APK)</a>
+<a href="https://aiseebin.flowsxr.com">Web map editor</a>
+<a href="https://github.com/prasanthsasikumar/AISEE-BIN">GitHub repo</a>
+<a href="https://developers.immersal.com">Immersal portal</a>
+<a href="https://apps.apple.com/us/app/immersal-mapper/id1466607906">Immersal Mapper</a>
+· details on the last page</div>
+
+<!-- ================= DETAIL ================= -->
+<div class="pb"></div>
+<h2>1 · The two ways in detail</h2>
 <table>
-<tr><th style="width:22%">Piece</th><th>What it does now</th></tr>
-<tr><td><b>iPhone app</b><br><span class="muted">TestFlight, build 10</span></td>
-<td>
+<tr><th style="width:18%"></th><th style="width:41%">A · Our app scans (ARKit)</th><th>B · Immersal scans, our app guides</th></tr>
+<tr><td><b>How a map is made</b></td><td>Open Author mode, name the place, walk the route, mark each stop, then Publish. The route comes out of the walk itself.</td><td>Scan with the Immersal Mapper app. Then <i>Import from Immersal</i> in our editor and draw the route and stops on top of the scan.</td></tr>
+<tr><td><b>How it finds you</b></td><td>The phone recognises the place from its saved world map (about 26 MB for the Flower Dome walk). It then tracks every step.</td><td>A camera frame is matched against the Immersal map and gives a position fix. Between fixes, the phone tracks with ARKit and the glasses count steps.</td></tr>
+<tr><td><b>Devices</b></td><td>iPhone only.</td><td>iPhone, Android and AiSee glasses.</td></tr>
+<tr><td><b>Strengths</b></td><td>
 <ul>
-<li><b>Navigate:</b> spoken turn-by-turn guidance with a live map, plus announcements for nearby exhibits and hazards.</li>
-<li><b>Author:</b> scan a place once, mark its stops and publish it.</li>
-<li><b>Field Test:</b> on-site tools to link scans, mark points, check accuracy and send a log.</li>
-<li><b>Positioning:</b> uses Immersal either on the phone or via the Immersal server, chosen with a switch.</li>
+<li>Quick to make: one walk.</li>
+<li>Very smooth tracking.</li>
+<li>Works offline once downloaded.</li>
+<li>Announcements arrived just before each point.</li>
+</ul>
+</td><td>
+<ul>
+<li>Recognises busy, repetitive places better (the entrance).</li>
+<li>Can match online or on the phone itself.</li>
+<li>The only option for the glasses.</li>
 </ul>
 </td></tr>
-<tr><td><b>Android app</b><br><span class="muted">GitHub release 0.1.1</span></td>
-<td>Glasses-only version for phones without ARCore (tested on a Huawei Nova 5T). It shows smooth video from the AiSee glasses, uses Immersal to position, and has a live map and spoken announcements.</td></tr>
-<tr><td><b>Web map editor</b><br><span class="muted">aiseebin.flowsxr.com</span></td>
-<td>
+<tr><td><b>Weaknesses</b></td><td>
 <ul>
-<li>Shows each scanned map as a point cloud, and keeps every saved version.</li>
-<li>Lets you add stops, walkways, spoken descriptions and an announce radius for each place.</li>
-<li>Lets you line up several Immersal scans into one map.</li>
-<li>The apps pick up the latest version on their next launch.</li>
+<li>Recognition fails with changing light or look-alike surfaces.</li>
+<li>Recognises best near where the scan started.</li>
+<li>Two scans can't be joined, and a map can't be extended yet.</li>
 </ul>
-</td></tr>
-<tr><td><b>Shared backend</b></td>
-<td>
+</td><td>
 <ul>
-<li>Maps, versions and Field Test results are stored on our server.</li>
-<li>Testers' logs also arrive there, so we can see what happened on site without being there.</li>
+<li>About 500 photos per map.</li>
+<li>A large site needs several scans, and lining them up by hand was out by tens of metres.</li>
+<li>The scanning and the route-making happen in two different tools.</li>
 </ul>
 </td></tr>
 </table>
+<h3>Combining them</h3>
+<p>Immersal gives an occasional, absolute "you are here", and ARKit gives smooth, step-by-step tracking that drifts slowly. Together they give the strengths of both. Today the phone already uses ARKit between Immersal fixes. Three next steps:</p>
+<ul>
+<li><b>Add to an existing map.</b> Immersal places the phone in the map first, so a new walk lands in the same coordinates and extends the map instead of starting a new one.</li>
+<li><b>Join Immersal scans.</b> A walk that sees two scans within a few seconds tells us exactly how they fit together. That is the "link scans" step of the on-site test; see section 4.</li>
+<li><b>Author-mode Immersal maps.</b> Our Author mode can also send photos to Immersal as it scans (up to 150), so one walk gives both kinds of map. On 1 October no Immersal map came out of it; still to check.</li>
+</ul>
 
-<h2>What we tested on 1 October</h2>
+<h2>2 · Matching online or on the device</h2>
+<p>With Immersal maps, a camera frame can be matched by Immersal's server or by the phone itself. The app has a switch with three settings: <b>Auto</b>, <b>On phone</b> and <b>Immersal server</b>.</p>
 <table>
-<tr><th style="width:24%">Test</th><th style="width:44%">What happened</th><th>Result</th></tr>
-<tr><td><b>Five Immersal scans as one map</b><br><span class="muted">last week's scans, lined up by hand</span></td>
-<td>Our tester marked the tour points and then checked them. Linking the scans on the walk kept timing out on mobile data.</td>
-<td><span class="bad">Not usable yet.</span> The checks were 13–47 m off. A walk that matched all four scans gave new positions, but they still disagree with the marked points.</td></tr>
-<tr><td><b>Phone scan "Flower Dome 1 Oct"</b><br><span class="muted">Author mode, about 108 m, Point A to Point 3</span></td>
-<td>Published on site after a couple of failed uploads. She then navigated to Points 1, 2 and 3 and back, and recorded her screen.</td>
-<td><span class="ok">Worked well inside the dome.</span> Each announcement came just before its point. <span class="mid">Weak at A, B and C</span> near the entrance.</td></tr>
-<tr><td><b>Phone scan "Flower Dome 1 Oct map 2"</b><br><span class="muted">the actual priority-lane route</span></td>
-<td>Retested a little later as it was getting darker.</td>
-<td><span class="bad">Stuck on "Relocalizing"</span> at the entrance. The barrier graphics and the change in light are likely causes.</td></tr>
-<tr><td><b>Immersal entrance scan "Entrance Test Oct 1st"</b><br><span class="muted">last week's scan; A, B and C placed by eye in the editor</span></td>
-<td>Loaded on the phone and tested at the entrance.</td>
-<td><span class="ok">Found its position straight away</span> and knew roughly where it was. The points themselves are rough, because they were placed by eye.</td></tr>
+<tr><th style="width:18%"></th><th style="width:41%">Online (Immersal server)</th><th>On the device</th></tr>
+<tr><td><b>Pros</b></td><td>
+<ul>
+<li>Nothing to download.</li>
+<li>Always uses the latest map.</li>
+<li>Light on the phone's processor and battery.</li>
+</ul>
+</td><td>
+<ul>
+<li>Works with no internet. Glasses use their own Wi-Fi, so the phone has no internet while streaming unless it has mobile data.</li>
+<li>Fast with one map: about 0.3 s per fix on our Android test phone.</li>
+<li>Camera frames never leave the phone.</li>
+</ul>
+</td></tr>
+<tr><td><b>Cons</b></td><td>
+<ul>
+<li>Needs mobile data.</li>
+<li>About 1–3 s per try on site, sometimes up to 8 s.</li>
+<li>Requests timed out on 1 October.</li>
+</ul>
+</td><td>
+<ul>
+<li>The map must be downloaded first.</li>
+<li>Slower when several maps are loaded: 1.5–8 s per try with the four Flower Dome scans on an iPhone 13 Pro Max.</li>
+<li>Slower on older phones.</li>
+<li>One iPhone issue still to fix.</li>
+</ul>
+</td></tr>
+<tr><td><b>Best for</b></td><td>Phones with good mobile data.</td><td>The glasses, and places with poor signal. Ideally one map per area.</td></tr>
 </table>
 
+<h2>3 · The web map editor (aiseebin.flowsxr.com)</h2>
+<figure><img src="images/editor.png"><figcaption>The editor with last week's Immersal entrance scan. A, B and C have been added, and stop "B point" is selected; its settings are on the right.</figcaption></figure>
 <div class="two">
-<figure><img src="images/c44.png" style="height:175px;width:100%;object-fit:contain;background:#14151a"><figcaption>"Flower Dome 1 Oct": the phone scan from Point A through Doors B and C to Points 1, 2 and 3, as published from the app. The grey points are waypoints recorded on the walk.</figcaption></figure>
-<figure><img src="images/c43.png" style="height:175px;width:100%;object-fit:contain;background:#14151a"><figcaption>"Flower Dome 1 Oct map 2": the priority-lane route, from Flower Dome to Point 3. On the retest it got stuck relocalizing at the entrance.</figcaption></figure>
-</div>
-<div class="two">
-<figure><img src="images/c45.png" style="height:175px;width:100%;object-fit:contain;background:#14151a"><figcaption>"Entrance Test Oct 1st": last week's Immersal entrance scan with A, B and C added in the editor. Navigation found its position immediately.</figcaption></figure>
-<figure><img src="images/e20.png" style="height:175px;width:100%;object-fit:contain;background:#14151a"><figcaption>The five Immersal scans (one colour each), lined up by hand, with today's marked points. They look roughly right, but on site they were 13–47 m off.</figcaption></figure>
-</div>
-<h2>What we learned</h2>
+<div>
+<h3>What you can do</h3>
 <ul>
-<li><b>Phone scans (ARKit) work well where there is texture and steady light.</b> Inside the dome that was enough to guide someone. At the entrance the phone often failed to recognise the place: the surfaces repeat, the barriers carry graphics, and the light changes. A map also recognises the place best near where its scan began.</li>
-<li><b>Immersal recognises the entrance much better.</b> But an Immersal map is capped at about 500 photos, so the whole route needs several scans. Lining those scans up is the hard part:
+<li><b>Open any map</b> from the Map menu. Each saved change becomes a new <b>version</b>, listed on the left, so nothing is lost.</li>
+<li><b>Import from Immersal</b> to start a map from an Immersal scan.</li>
+<li>See the scan as a <b>point cloud</b>, top-down or in <b>3D</b>, to tell where walls, paths and beds are.</li>
+<li><b>Line up several Immersal scans</b> into one map (Immersal maps panel).</li>
+<li>Download the map files (route data, world map, point cloud).</li>
+</ul>
+</div>
+<div>
+<h3>How to add or edit a stop</h3>
+<ol>
+<li><b>+ Node</b> and click on the map; drag to move it.</li>
+<li>Set the <b>Type</b>:
   <ul>
-  <li>Lining them up by hand was out by tens of metres.</li>
-  <li>Automatic matching is unreliable on plants.</li>
-  <li>Today's linking walk gave a better fit, but it doesn't yet agree with the marked points.</li>
+  <li><i>Exhibit:</i> a stop that is announced in passing.</li>
+  <li><i>Hazard:</i> a warning, with a vibration.</li>
+  <li><i>Destination:</i> a place visitors can ask to go to.</li>
+  <li><i>Junction:</i> a routing point only.</li>
   </ul></li>
-<li><b>Two phone scans can't be combined.</b> Each starts from its own origin, and there is no way yet to add to an existing map.</li>
-<li><b>Light matters.</b> Tours will run in the daytime, so scans should be made in daytime light too.</li>
-<li><b>Remote testing works.</b> With Field Test logs and the editor, we could diagnose problems from overseas while our tester was on site.</li>
+<li>Write the <b>Spoken description</b>, add <b>Aliases</b> (other names visitors might say), and set how close to <b>announce</b> it.</li>
+<li><b>Connect</b> nodes (or draw a <b>Path</b>) to make walkways.</li>
+<li>Type what changed and click <b>Save as new version</b>. The apps pick it up the next time they open the map.</li>
+</ol>
+</div>
+</div>
+
+<h2>4 · What we tested on site on 1 October</h2>
+<p class="muted">Our tester, on an iPhone 13 Pro Max, with the TestFlight app and remote support. Her logs and published maps reached our server, so we could follow along from overseas.</p>
+<table>
+<tr><th style="width:24%">Test</th><th style="width:40%">What happened</th><th>Result</th></tr>
+<tr><td><b>Five Immersal scans as one map</b><br><span class="muted">last week's scans, lined up by hand</span></td>
+<td>She walked to link the scans, marked the tour points, then checked them. Linking timed out at first on mobile data.</td>
+<td><span class="bad">Not usable yet.</span> Checks were 13–47 m off. The linking walk gave a better fit, but it still disagrees with her marked points.</td></tr>
+<tr><td><b>Way A: "Flower Dome 1 Oct"</b><br><span class="muted">about 108 m, Point A to Point 3</span></td>
+<td>Published after a couple of failed uploads. She then navigated to Points 1, 2 and 3 and back.</td>
+<td><span class="ok">Worked well inside the dome.</span> Each announcement came just before its point. <span class="mid">It had trouble finding her at A, B and C.</span></td></tr>
+<tr><td><b>Way A: "map 2"</b><br><span class="muted">the actual priority-lane route</span></td>
+<td>Retested later, as it was getting darker.</td>
+<td><span class="bad">Stuck on "Relocalizing"</span> at the entrance. Likely causes are the change in light and the barrier graphics.</td></tr>
+<tr><td><b>Way B: "Entrance Test Oct 1st"</b><br><span class="muted">Immersal entrance scan, A, B and C placed by eye</span></td>
+<td>Loaded on the phone at the entrance.</td>
+<td><span class="ok">Found her immediately</span>, at roughly the right place. The points are only rough because they were placed by eye.</td></tr>
+</table>
+<div class="two dark">
+<figure><img src="images/c44.png"><figcaption>Way A, "Flower Dome 1 Oct": Point A through Doors B and C to Points 1–3, from one walk.</figcaption></figure>
+<figure><img src="images/c43.png"><figcaption>Way A, "map 2": the priority-lane route. It got stuck relocalizing at the entrance.</figcaption></figure>
+</div>
+<div class="two dark">
+<figure><img src="images/c45.png"><figcaption>Way B, "Entrance Test Oct 1st": the Immersal entrance scan. It found her position immediately.</figcaption></figure>
+<figure><img src="images/e20.png"><figcaption>The five Immersal scans (one colour each), lined up by hand. They look plausible, but were 13–47 m off on site.</figcaption></figure>
+</div>
+
+<h2>5 · Glasses: tested so far</h2>
+<p>The glasses have no ARKit, so they rely on Immersal maps (Way B). The phone stays in a pocket and does the work.</p>
+<table>
+<tr><th style="width:18%">When</th><th>What we found</th></tr>
+<tr><td>16 Sep · iPhone</td><td>Immersal recognises the AiSee glasses' camera picture. We worked out the camera's lens setting (about a 60° view).</td></tr>
+<tr><td>24 Sep · iPhone</td><td>First walking test with the glasses. Few fixes came through (3 in 474 tries), so this needs work.</td></tr>
+<tr><td>29 Sep · iPhone</td><td>New glasses software from the vendor. The camera preview lag turned out to be on our side; with that fixed, the video is now smooth.</td></tr>
+<tr><td>29–30 Sep · Android</td><td>A glasses-only Android app on a Huawei Nova 5T, a phone without ARCore. In a test room: 25 fixes in 168 tries, about 0.3 s each, all on the phone. Spoken announcements while walking, and a live map.</td></tr>
+<tr><td><b>16 Oct · on site</b></td><td><b>First glasses test in the Flower Dome</b>, with Prasanth in Singapore, using the Immersal map of the route. Controls: tap the temple to talk, double-tap for "where am I", triple-tap to stop.</td></tr>
+</table>
+
+<h2>6 · What we learned</h2>
+<ul>
+<li><b>Light matters for both ways.</b> Tours run in the daytime, so scans should be made in daylight.</li>
+<li><b>The entrance is the hard part.</b> It has look-alike surfaces, graphics on the barriers and changing light. Immersal handled it better than ARKit.</li>
+<li><b>One map is far easier than many.</b> Lining up scans by hand was out by tens of metres, and automatic matching is unreliable on plants. Scanning the whole route as one Immersal map is the quickest thing to try.</li>
+<li><b>Remote testing works.</b> Field Test logs and the editor let us diagnose problems while our tester was on site.</li>
 </ul>
 
-<h2>Next steps</h2>
+<h2>7 · Next steps</h2>
+<table>
+<tr><th style="width:18%">When</th><th>What</th></tr>
+<tr><td>2 Oct</td><td>Yvonne makes one Immersal scan of the whole route within the 500-photo limit, split by area (100+ photos at the entrance), in daylight. She also sends a screen recording and test results; we add them to this report.</td></tr>
+<tr><td>Before 16 Oct</td><td>
 <ul>
-<li><b>On site (Yvonne):</b> make one Immersal scan of the whole route within the 500-photo limit, split by area (100+ photos at the entrance), ideally in daytime light. If it holds together, we get the whole tour in one map with no lining up needed.</li>
-<li><b>App: "Add to an existing map".</b> The phone first finds itself in the current map, then extends it, so weak areas like the entrance can be scanned again in more detail.</li>
-<li><b>App: combined positioning.</b> Use Immersal to get a position fix, then let the phone's own tracking carry it between fixes.</li>
-<li><b>Accuracy:</b> fix a known iPhone issue in how the phone-side Immersal result is read, then use the linking walk again to settle the five-scan line-up. After that, work on making positioning faster and more accurate.</li>
-<li><b>Glasses:</b> not tested at the Flower Dome yet. Test with the glasses on site once an Immersal map covers the route.</li>
+<li>Combined Immersal + ARKit positioning.</li>
+<li>"Add to an existing map".</li>
+<li>Fix the iPhone on-device issue, then settle how the five scans fit together.</li>
+<li>Faster, more accurate glasses positioning.</li>
+<li>Write the spoken cues into the final map.</li>
 </ul>
+</td></tr>
+<tr><td>16 Oct</td><td>On site in Singapore: glasses and phone test of the full tour.</td></tr>
+</table>
+
+<h2>8 · Links</h2>
+<table>
+<tr><th style="width:24%">What</th><th style="width:44%">Link</th><th>Notes</th></tr>
+<tr><td><b>iPhone app</b> (TestFlight)</td><td><a href="https://testflight.apple.com/join/7uVqcqkE">testflight.apple.com/join/7uVqcqkE</a></td><td>Install TestFlight first, then open the link. Build 10.</td></tr>
+<tr><td><b>Android app</b> (glasses only)</td><td><a href="https://github.com/prasanthsasikumar/AISEE-BIN/releases/download/android-v0.1.1/AISEE-BIN-android-0.1.1.apk">AISEE-BIN-android-0.1.1.apk</a><br><span class="muted">release page: <a href="https://github.com/prasanthsasikumar/AISEE-BIN/releases/tag/android-v0.1.1">releases/tag/android-v0.1.1</a></span></td><td>Needs access to the GitHub repo. Allow "install unknown apps" on the phone.</td></tr>
+<tr><td><b>Web map editor</b></td><td><a href="https://aiseebin.flowsxr.com">aiseebin.flowsxr.com</a></td><td>Every save becomes a new version, so edits can always be undone.</td></tr>
+<tr><td><b>Code and documents</b></td><td><a href="https://github.com/prasanthsasikumar/AISEE-BIN">github.com/prasanthsasikumar/AISEE-BIN</a></td><td>Private repo: ask Prasanth for access. Reports are in <code>docs/reports/</code>.</td></tr>
+<tr><td><b>Immersal developer portal</b></td><td><a href="https://developers.immersal.com">developers.immersal.com</a></td><td>Where our Immersal maps are listed and managed (Pro account).</td></tr>
+<tr><td><b>Immersal Mapper</b> (scanning app)</td><td><a href="https://apps.apple.com/us/app/immersal-mapper/id1466607906">App Store: Immersal Mapper</a></td><td>Sign in with our Immersal Pro account, so the app can use the scans.</td></tr>
+<tr><td><b>On-site tester guide</b></td><td><a href="https://github.com/prasanthsasikumar/AISEE-BIN/tree/main/docs/reports/2026-10-01-field-test-guide">docs/reports/2026-10-01-field-test-guide</a></td><td>Step-by-step guide to the Field Test tools.</td></tr>
+</table>
+
 </body></html>
