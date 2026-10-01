@@ -1,0 +1,30 @@
+[
+ [
+  "title",
+  "AISEE-BIN gives blind and low-vision visitors spoken directions through the Flower Dome, on a phone or AiSee glasses."
+ ],
+ [
+  "how",
+  "Scan the place once. Add the route and stops in our web editor. Then the phone or glasses work out where they are, and guide the visitor."
+ ],
+ [
+  "ways",
+  "We're testing two ways to scan: our own app, using the iPhone's ARKit, or Immersal, whose maps also work with the glasses."
+ ],
+ [
+  "editor",
+  "In the web editor, anyone on the team can draw walkways, add stops and hazards, and write what the app says."
+ ],
+ [
+  "site",
+  "On October first, our tester walked the route. Inside the dome, the phone guided her, turn by turn, to Points one, two and three."
+ ],
+ [
+  "entrance",
+  "The entrance was harder. Our phone scan struggled there, but an Immersal scan found her position straight away."
+ ],
+ [
+  "next",
+  "Next: one Immersal scan of the whole route, Immersal and ARKit working together, and a glasses test on site, October sixteenth."
+ ]
+]
