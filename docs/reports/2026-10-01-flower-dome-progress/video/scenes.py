@@ -32,12 +32,12 @@ S['site']=LOGOS+'''<div class="slot" style="left:150px;top:50px;width:370px;heig
 <div style="position:absolute;left:1080px;top:250px;width:720px"><div class="kick">On site · 1 October</div><h2 style="margin:16px 0 30px">Guided turn by turn to Points 1, 2 and 3</h2>
 <div class="d" style="font-size:31px">Directions and a live map on the phone. Each stop is announced just before you reach it.</div>
 <div style="margin-top:30px"><span class="pill g">Worked inside the dome</span></div></div>'''
-S['entrance']=LOGOS+'''<div style="position:absolute;left:130px;top:150px"><div class="kick">The entrance</div><h2 style="margin-top:14px">Immersal found her straight away</h2></div>
+S['entrance']=LOGOS+'''<div style="position:absolute;left:130px;top:150px"><div class="kick">The entrance</div><h2 style="margin-top:14px">Immersal recognised it instantly</h2></div>
 <img class="shot" src="c45.png" style="position:absolute;left:130px;top:320px;width:960px">
 <div class="slot" style="left:1330px;top:140px;width:420px;height:700px"></div>'''
-S['next']=LOGOS+'''<div style="position:absolute;left:130px;top:150px"><div class="kick">Next</div><h2 style="margin-top:14px">Road to the on-site glasses test</h2></div>
+S['next']=LOGOS+'''<div style="position:absolute;left:130px;top:150px"><div class="kick">Coming up</div><h2 style="margin-top:14px">What&#8217;s next</h2></div>
 <div style="position:absolute;left:130px;right:130px;top:420px;display:flex;gap:30px">'''+''.join(f'<div class="card" style="flex:1;height:300px;{st}"><div class="kick" style="font-size:24px">{d}</div><div class="t" style="margin-top:16px">{a}</div><div class="d">{b}</div></div>' for d,a,b,st in [
-("2 Oct","One Immersal map","Scan the whole route in daylight.",""),("Before 16 Oct","Immersal + ARKit","Combine them; extend existing maps.",""),("16 Oct","Glasses on site","Full tour test in Singapore.","border-color:#6fe3a0")])+'</div>'
+("Scan","One Immersal map","Scan the whole route in daylight.",""),("Build","Immersal + ARKit","Combine them; extend existing maps.",""),("Test","Glasses on site","Full tour test at the Flower Dome.","border-color:#6fe3a0")])+'</div>'
 for k,body in S.items():
     open(f'{k}.html','w').write(f'<!doctype html><html><head><meta charset="utf-8"><style>{CSS}</style></head><body>{body}</body></html>')
     subprocess.run(['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','--headless=new','--disable-gpu','--hide-scrollbars','--window-size=1920,1080',f'--screenshot=bg_{k}.png',f'file://{__import__("os").getcwd()}/{k}.html'],capture_output=True)

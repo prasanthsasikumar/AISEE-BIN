@@ -54,16 +54,16 @@ scenes = []
 # (key, background, extra video inputs builder, extra audio)
 for key in ['title', 'how', 'ways', 'editor', 'site', 'entrance', 'next']:
     n = dur(f'n_{key}.mp3'); length = LEAD + n + TAIL
-    APP = 2.5 if key == 'site' else 0          # the app's own voice at the end of the site scene
+    APP = 0          # the app's own voice at the end of the site scene
     if key == 'next': length += 0.5
     length += APP
     inputs = ['-loop', '1', '-framerate', str(FPS), '-t', f'{length:.3f}', '-i', f'bg/bg_{key}.png']
     fc = []
     # gentle push-in on the background
-    fc.append(f"[0:v]scale=2112:1188,zoompan=z='1+0.035*on/({length*FPS:.0f})':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1920x1080:fps={FPS}[bg]")
+    fc.append(f"[0:v]fps={FPS},format=yuv420p[bg]")
     last = 'bg'; idx = 1
     if key == 'site':
-        nav_start = 163.4 - (LEAD + n + TAIL)          # ends on "the Point 1, you have arrived at the Point 1"
+        nav_start = 165.6 - (LEAD + n + TAIL)          # ends on the "You have arrived" screen at Point 1
         inputs += ['-ss', f'{nav_start:.2f}', '-t', f'{length:.3f}', '-i', NAV,
                    '-ss', '6', '-t', f'{length*2:.3f}', '-i', LIVE]
         fc.append(f"[1:v]fps={FPS},scale=370:800:force_original_aspect_ratio=increase,crop=370:800,format=yuva420p,geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)':a='if(gt(abs(X-185)-157,0)*gt(abs(Y-400)-372,0),if(lte(hypot(abs(X-185)-157,abs(Y-400)-372),28),255,0),255)'[nav]")
@@ -71,7 +71,7 @@ for key in ['title', 'how', 'ways', 'editor', 'site', 'entrance', 'next']:
         fc.append(f"[{last}][nav]overlay=150:50:shortest=0:eof_action=pass[v1]")
         fc.append(f"[v1][live]overlay=570:50:eof_action=pass[v2]"); last = 'v2'; idx = 3
     if key == 'entrance':
-        inputs += ['-t', f'{length:.3f}', '-i', CLOUD]
+        inputs += ['-loop', '1', '-framerate', str(FPS), '-t', f'{length:.3f}', '-i', 'cloud_still.png']
         fc.append(f"[1:v]fps={FPS},scale=420:700:force_original_aspect_ratio=increase,crop=420:700,format=yuva420p,geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)':a='if(gt(abs(X-210)-182,0)*gt(abs(Y-350)-322,0),if(lte(hypot(abs(X-210)-182,abs(Y-350)-322),28),255,0),255)'[cl]")
         fc.append(f"[{last}][cl]overlay=1330:140:eof_action=repeat[v1]"); last = 'v1'; idx = 2
     subs = subs_for(key, LEAD)
