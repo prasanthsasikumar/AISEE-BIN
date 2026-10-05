@@ -42,6 +42,10 @@ targets:
       - path: AISEEBIN
         excludes: ["Glasses/AiSeeGlassKit/README.md"]
       - path: Vendor/Immersal/ImmersalNativeStubs.c
+      # Recorded clips for the fixed phrases (voice/generate.py), bundled as "clips/".
+      - path: voice/clips
+        type: folder
+        buildPhase: resources
     preBuildScripts:
       - name: Fetch Immersal plugin
         script: '"$SRCROOT/Vendor/Immersal/fetch.sh"'

@@ -1,0 +1,25 @@
+{
+  "voice": "iP95p4xoKVk53GoZ742B",
+  "model": "eleven_multilingual_v2",
+  "phrases": [
+    "Found you.",
+    "Finding your position. Please look around slowly.",
+    "Relocalizing. Please look around slowly.",
+    "I'm still relocalizing. Please look around slowly.",
+    "Tracking lost. Please pause and turn slowly until tracking resumes.",
+    "You are off route. Recalculating.",
+    "Using the glasses. Please look around slowly.",
+    "Glasses disconnected. Using the phone camera.",
+    "The glasses microphone did not open.",
+    "Microphone or speech recognition permission is off. Please enable it in Settings.",
+    "I don't know that place.",
+    "This map has no named places yet.",
+    "Nothing within ten meters.",
+    "No active route. Say a destination, or ask what's nearby.",
+    "Navigation stopped.",
+    "I didn't catch that. Please try again.",
+    "No position yet. Look around slowly.",
+    "Positioning is off.",
+    "Position known, but this map has no named places."
+  ]
+}

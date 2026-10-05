@@ -1,0 +1,82 @@
+{
+ "voice": "iP95p4xoKVk53GoZ742B",
+ "model": "eleven_multilingual_v2",
+ "clips": {
+  "found you.": {
+   "file": "found-you.mp3",
+   "hash": "fb1f015d53b6bbe0"
+  },
+  "finding your position. please look around slowly.": {
+   "file": "finding-your-position-please-look-around-slowly.mp3",
+   "hash": "51a4b552cba43439"
+  },
+  "relocalizing. please look around slowly.": {
+   "file": "relocalizing-please-look-around-slowly.mp3",
+   "hash": "2a63a07a1ba28401"
+  },
+  "i'm still relocalizing. please look around slowly.": {
+   "file": "im-still-relocalizing-please-look-around-slowly.mp3",
+   "hash": "bc025442943ff88f"
+  },
+  "tracking lost. please pause and turn slowly until tracking resumes.": {
+   "file": "tracking-lost-please-pause-and-turn-slowly-until-tracking-resumes.mp3",
+   "hash": "822266a21e346ade"
+  },
+  "you are off route. recalculating.": {
+   "file": "you-are-off-route-recalculating.mp3",
+   "hash": "242afc6a1a188fe5"
+  },
+  "using the glasses. please look around slowly.": {
+   "file": "using-the-glasses-please-look-around-slowly.mp3",
+   "hash": "5ac79f41672c0a1d"
+  },
+  "glasses disconnected. using the phone camera.": {
+   "file": "glasses-disconnected-using-the-phone-camera.mp3",
+   "hash": "c407b1c3b028b670"
+  },
+  "the glasses microphone did not open.": {
+   "file": "the-glasses-microphone-did-not-open.mp3",
+   "hash": "b1e2ce892cb4749d"
+  },
+  "microphone or speech recognition permission is off. please enable it in settings.": {
+   "file": "microphone-or-speech-recognition-permission-is-off-please-enable-it-in-settings.mp3",
+   "hash": "5fb10a2ca1fd73a2"
+  },
+  "i don't know that place.": {
+   "file": "i-dont-know-that-place.mp3",
+   "hash": "a9342dac32fca804"
+  },
+  "this map has no named places yet.": {
+   "file": "this-map-has-no-named-places-yet.mp3",
+   "hash": "e4f9244d91160870"
+  },
+  "nothing within ten meters.": {
+   "file": "nothing-within-ten-meters.mp3",
+   "hash": "7c68340a99c4af2a"
+  },
+  "no active route. say a destination, or ask what's nearby.": {
+   "file": "no-active-route-say-a-destination-or-ask-whats-nearby.mp3",
+   "hash": "f5c5bdbe83c56ba6"
+  },
+  "navigation stopped.": {
+   "file": "navigation-stopped.mp3",
+   "hash": "e2bb53dbb3039251"
+  },
+  "i didn't catch that. please try again.": {
+   "file": "i-didnt-catch-that-please-try-again.mp3",
+   "hash": "56278dd8d048e8ac"
+  },
+  "no position yet. look around slowly.": {
+   "file": "no-position-yet-look-around-slowly.mp3",
+   "hash": "b548ca5cbc056ad1"
+  },
+  "positioning is off.": {
+   "file": "positioning-is-off.mp3",
+   "hash": "ec7bacfc6f6944f8"
+  },
+  "position known, but this map has no named places.": {
+   "file": "position-known-but-this-map-has-no-named-places.mp3",
+   "hash": "950cd4f24a9047ad"
+  }
+ }
+}

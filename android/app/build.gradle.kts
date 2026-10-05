@@ -44,6 +44,15 @@ val fetchPosePlugin by tasks.registering {
 }
 tasks.named("preBuild") { dependsOn(fetchPosePlugin) }
 
+// Recorded clips for the fixed phrases (voice/generate.py), shared with iOS and
+// packed as assets/clips/.
+val voiceAssetsDir = layout.buildDirectory.dir("generated/voice-assets")
+val syncVoiceClips by tasks.registering(Sync::class) {
+    from(rootProject.file("../voice/clips"))
+    into(voiceAssetsDir.map { it.dir("clips") })
+}
+tasks.named("preBuild") { dependsOn(syncVoiceClips) }
+
 android {
     namespace = "com.flowsxr.aiseebin"
     compileSdk = 36
@@ -71,6 +80,7 @@ android {
     }
 
     sourceSets["main"].jniLibs.srcDir(posePluginDir)
+    sourceSets["main"].assets.srcDir(voiceAssetsDir)
 
     externalNativeBuild {
         cmake {

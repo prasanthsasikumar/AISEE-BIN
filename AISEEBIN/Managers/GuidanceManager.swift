@@ -15,11 +15,12 @@ enum HapticPattern {
     case nodeReached, turnLeft, turnRight, offRoute, arrived
 }
 
-/// Turns `GuidanceCue`s into speech (`AVSpeechSynthesizer`) and haptics
-/// (`CoreHaptics`). Contains no throttling logic; that lives in `GuidancePolicy`.
+/// Turns `GuidanceCue`s into speech and haptics (`CoreHaptics`). Phrases with a
+/// recorded clip (`VoiceClips`) play the clip; everything else goes to
+/// `AVSpeechSynthesizer`. Contains no throttling logic; that lives in `GuidancePolicy`.
 @MainActor
 @Observable
-final class GuidanceManager: NSObject, AVSpeechSynthesizerDelegate {
+final class GuidanceManager: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDelegate {
 
     private(set) var isSpeaking = false
     private(set) var lastSpokenText = ""
@@ -27,6 +28,12 @@ final class GuidanceManager: NSObject, AVSpeechSynthesizerDelegate {
     var isMuted = false
 
     @ObservationIgnored private let synthesizer = AVSpeechSynthesizer()
+    @ObservationIgnored private let clips = VoiceClips.bundled
+    /// One queue for clips and synthesized speech, so a clip waits behind a
+    /// sentence the synthesizer is still reading and the other way round.
+    @ObservationIgnored private var pending: [String] = []
+    @ObservationIgnored private var currentUtterance: AVSpeechUtterance?
+    @ObservationIgnored private var clipPlayer: AVAudioPlayer?
     @ObservationIgnored private var hapticEngine: CHHapticEngine?
     @ObservationIgnored private let fallbackImpact = UIImpactFeedbackGenerator(style: .heavy)
     @ObservationIgnored private let fallbackNotification = UINotificationFeedbackGenerator()
@@ -76,19 +83,53 @@ final class GuidanceManager: NSObject, AVSpeechSynthesizerDelegate {
     /// off so urgent prompts are never queued behind stale ones.
     func speak(_ text: String, interrupt: Bool) {
         guard !isMuted else { return }
-        if interrupt, synthesizer.isSpeaking {
-            synthesizer.stopSpeaking(at: .immediate)
+        if interrupt { stopSpeaking() }
+        pending.append(text)
+        lastSpokenText = text
+        if currentUtterance == nil && clipPlayer == nil { startNext() }
+    }
+
+    func stopSpeaking() {
+        pending.removeAll()
+        currentUtterance = nil
+        if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .immediate) }
+        clipPlayer?.stop()
+        clipPlayer = nil
+        isSpeaking = false
+    }
+
+    private func startNext() {
+        guard !pending.isEmpty else {
+            isSpeaking = false
+            return
+        }
+        let text = pending.removeFirst()
+        isSpeaking = true
+        if let url = clips.url(for: text), let player = try? AVAudioPlayer(contentsOf: url) {
+            player.delegate = self
+            clipPlayer = player
+            if player.play() { return }
+            clipPlayer = nil
         }
         let utterance = AVSpeechUtterance(string: text)
         utterance.rate = voiceRate
         utterance.prefersAssistiveTechnologySettings = true
         utterance.preUtteranceDelay = 0.05
+        currentUtterance = utterance
         synthesizer.speak(utterance)
-        lastSpokenText = text
     }
 
-    func stopSpeaking() {
-        synthesizer.stopSpeaking(at: .immediate)
+    /// Moves the queue on, unless the item that finished was already cut off.
+    private func finished(utterance id: ObjectIdentifier) {
+        guard let current = currentUtterance, ObjectIdentifier(current) == id else { return }
+        currentUtterance = nil
+        startNext()
+    }
+
+    private func finished(clip id: ObjectIdentifier) {
+        guard let current = clipPlayer, ObjectIdentifier(current) == id else { return }
+        clipPlayer = nil
+        startNext()
     }
 
     private func configureAudioSession() {
@@ -114,16 +155,26 @@ final class GuidanceManager: NSObject, AVSpeechSynthesizerDelegate {
 
     // MARK: AVSpeechSynthesizerDelegate
 
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.isSpeaking = true }
-    }
-
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.isSpeaking = false }
+        let id = ObjectIdentifier(utterance)
+        Task { @MainActor in self.finished(utterance: id) }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.isSpeaking = false }
+        let id = ObjectIdentifier(utterance)
+        Task { @MainActor in self.finished(utterance: id) }
+    }
+
+    // MARK: AVAudioPlayerDelegate
+
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        let id = ObjectIdentifier(player)
+        Task { @MainActor in self.finished(clip: id) }
+    }
+
+    nonisolated func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        let id = ObjectIdentifier(player)
+        Task { @MainActor in self.finished(clip: id) }
     }
 
     // MARK: - Haptics

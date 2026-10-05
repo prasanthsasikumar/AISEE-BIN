@@ -148,7 +148,7 @@ One firm tap means *listening*; a double tap means *heard you*. Listening stops 
 | Drifted > 2.5 m off route | "You are off route. Recalculating." then re-plans | three low rumbles |
 | Tracking lost | "Tracking lost. Please pause and turn slowly…" | three low rumbles |
 
-Thresholds live in `GuidanceThresholds`. Sighted helpers can glance at the **live map** on the Navigate screen, which shows the route and where the app thinks you are; tap it for full screen.
+Thresholds live in `GuidanceThresholds`. The fixed phrases ("Relocalizing. Please look around slowly.", "You are off route. Recalculating." and the like) play as recorded ElevenLabs clips on both apps; anything with a place name or distance in it uses the system voice. To change or add a phrase, edit `voice/phrases.json` and run `python3 voice/generate.py`, which reads the key from `~/.config/aiseebin/elevenlabs_key`. Sighted helpers can glance at the **live map** on the Navigate screen, which shows the route and where the app thinks you are; tap it for full screen.
 
 ### With the AiSee glasses
 
@@ -183,6 +183,7 @@ AISEEBINTests/    XCTest cases over the pure-logic layer
 web/              the map editor: vanilla JS, no build step
 server/           schema.sql: Supabase tables, RLS policies, storage bucket
 android/          glasses-only Android prototype (Kotlin, Compose)
+voice/            recorded clips for the fixed spoken phrases, shared by both apps
 Vendor/           Realtek glasses SDK (RTK) and Immersal's native plugin header and fetch script
 probe/            analysis script for the measurement harness
 docs/             specs, plans, the field test guide and reports
