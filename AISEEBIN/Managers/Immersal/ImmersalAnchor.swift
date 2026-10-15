@@ -73,6 +73,36 @@ struct ImmersalAnchor: Equatable {
         return true
     }
 
+    /// A position-only fix: the glasses, whose heading is the head's and not
+    /// the phone's. Keeps the yaw and the height, moves the translation so the
+    /// session pose lands on `graphPosition`, through the same jump gate and
+    /// the same three-in-a-row rule, counted together with pose fixes. Does
+    /// nothing without a fit; `PositionPairBootstrap` covers that case.
+    @discardableResult
+    mutating func updatePosition(graphPosition: SIMD2<Float>, sessionPose: simd_float4x4) -> Bool {
+        guard let current = fit else { return false }
+        let predicted = NavigationGeometry.planarPosition(of: current.transform * sessionPose)
+        lastJump = simd_distance(predicted, graphPosition)
+        if lastJump > maxJump {
+            consecutiveRejections += 1
+            rejected += 1
+            if consecutiveRejections < maxRejections { return false }
+        }
+        let delta = graphPosition - predicted
+        fit = Fit(yaw: current.yaw, tx: current.tx + delta.x, ty: current.ty, tz: current.tz + delta.y)
+        fixes += 1
+        consecutiveRejections = 0
+        return true
+    }
+
+    /// Adopts a fit solved elsewhere (the position-pair bootstrap) as the first fix.
+    mutating func install(fit: Fit) {
+        self.fit = fit
+        fixes += 1
+        consecutiveRejections = 0
+        lastJump = 0
+    }
+
     mutating func reset() {
         fit = nil
         fixes = 0

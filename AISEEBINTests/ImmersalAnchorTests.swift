@@ -84,4 +84,55 @@ final class ImmersalAnchorTests: XCTestCase {
         XCTAssertFalse(anchor.isAnchored)
         XCTAssertEqual(anchor.fixes, 0)
     }
+
+    // MARK: - Position-only fixes (the glasses in lanyard mode)
+
+    func testPositionFixWithoutAnchorDoesNothing() {
+        var anchor = ImmersalAnchor()
+        XCTAssertFalse(anchor.updatePosition(graphPosition: SIMD2(1, 1), sessionPose: pose(x: 0, z: 0, heading: 0)))
+        XCTAssertFalse(anchor.isAnchored)
+        XCTAssertEqual(anchor.fixes, 0)
+    }
+
+    func testPositionFixKeepsYawAndMovesTranslation() {
+        var anchor = ImmersalAnchor()
+        anchor.update(graphPose: pose(x: 10, z: 10, heading: .pi / 2), sessionPose: pose(x: 0, z: 0, heading: 0))
+        // Walked 2 m forward in the session (-z): predicted graph (12, 10). The glasses say (12.5, 10.3).
+        XCTAssertTrue(anchor.updatePosition(graphPosition: SIMD2(12.5, 10.3), sessionPose: pose(x: 0, z: -2, heading: 0)))
+        XCTAssertEqual(anchor.fixes, 2)
+        XCTAssertEqual(anchor.lastJump, simd_length(SIMD2<Float>(0.5, 0.3)), accuracy: 1e-3)
+        assertPlanar(try! XCTUnwrap(anchor.toGraph(pose(x: 0, z: -2, heading: 0))), x: 12.5, z: 10.3, heading: .pi / 2)
+        XCTAssertEqual(anchor.fit?.yaw ?? -1, .pi / 2, accuracy: 1e-5)
+    }
+
+    func testWildPositionFixIsRejectedUntilThreeAgree() {
+        var anchor = ImmersalAnchor()
+        anchor.update(graphPose: pose(x: 0, z: 0, heading: 0), sessionPose: pose(x: 0, z: 0, heading: 0))
+        let still = pose(x: 0, z: 0, heading: 0)
+        XCTAssertFalse(anchor.updatePosition(graphPosition: SIMD2(8, 0), sessionPose: still))
+        XCTAssertFalse(anchor.updatePosition(graphPosition: SIMD2(8, 0), sessionPose: still))
+        XCTAssertEqual(anchor.rejected, 2)
+        assertPlanar(try! XCTUnwrap(anchor.toGraph(still)), x: 0, z: 0, heading: 0)
+        XCTAssertTrue(anchor.updatePosition(graphPosition: SIMD2(8, 0), sessionPose: still))
+        assertPlanar(try! XCTUnwrap(anchor.toGraph(still)), x: 8, z: 0, heading: 0)
+        XCTAssertEqual(anchor.consecutiveRejections, 0)
+    }
+
+    func testPoseFixAfterPositionRejectionsSharesTheCount() {
+        var anchor = ImmersalAnchor()
+        anchor.update(graphPose: pose(x: 0, z: 0, heading: 0), sessionPose: pose(x: 0, z: 0, heading: 0))
+        let still = pose(x: 0, z: 0, heading: 0)
+        XCTAssertFalse(anchor.updatePosition(graphPosition: SIMD2(8, 0), sessionPose: still))
+        XCTAssertFalse(anchor.update(graphPose: pose(x: 8, z: 0, heading: 0), sessionPose: still))
+        XCTAssertTrue(anchor.updatePosition(graphPosition: SIMD2(8, 0), sessionPose: still),
+                      "the third disagreement of either kind is believed")
+    }
+
+    func testInstalledFitCountsAsTheFirstFix() {
+        var anchor = ImmersalAnchor()
+        anchor.install(fit: ImmersalAnchor.Fit(yaw: .pi / 2, tx: 10, ty: 0, tz: 10))
+        XCTAssertTrue(anchor.isAnchored)
+        XCTAssertEqual(anchor.fixes, 1)
+        assertPlanar(try! XCTUnwrap(anchor.toGraph(pose(x: 0, z: -2, heading: 0))), x: 12, z: 10, heading: .pi / 2)
+    }
 }
