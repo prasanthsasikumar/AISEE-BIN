@@ -23,6 +23,7 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 immersalSection
+                guidanceSection
                 glassesSection
                 measurementSection
                 aboutSection
@@ -41,6 +42,16 @@ struct SettingsView: View {
                       mapStore: viewModel.mapStore,
                       places: viewModel.mapStore.loadMap()?.pois ?? SampleGreenhouseMap.map.pois,
                       onAlignmentSaved: { viewModel.reloadMapKeepingSession() })
+        }
+    }
+
+    // MARK: - Guidance
+
+    private var guidanceSection: some View {
+        Section {
+            Toggle("Beep guidance", isOn: $viewModel.beaconEnabled)
+        } footer: {
+            Text("While a route is active, a steady high tick means you are heading along the route. A low pattern means turn: two short beeps for left, one long beep for right. Silence means your position is not known. Say \"beeps on\" or \"beeps off\" any time.")
         }
     }
 

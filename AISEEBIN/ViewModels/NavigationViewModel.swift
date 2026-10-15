@@ -110,6 +110,15 @@ final class NavigationViewModel {
     @ObservationIgnored private var pendingDestinationID: String?
     @ObservationIgnored private var unknownCommandCount = 0
 
+    // MARK: Beacon (beep guidance)
+
+    /// Look-ahead along the route the beacon aims at.
+    static let beaconLookAhead: Float = 3
+    /// Reassurance cadence while the beacon is on.
+    static let beaconProgressReminderInterval: TimeInterval = 30
+    @ObservationIgnored private var beaconPolicy = BeaconPolicy()
+    @ObservationIgnored private let beacon = BeaconSynth()
+
     // MARK: UI state
 
     var selectedDestination: NavigationPOI?
@@ -121,6 +130,18 @@ final class NavigationViewModel {
     private(set) var statusMessage: String?
     private(set) var debug = DebugInfo()
     var showDebug = false
+    /// Beep guidance: optional, off by default, persisted. Takes effect mid-route.
+    var beaconEnabled: Bool = UserDefaults.standard.bool(forKey: "guidance.beacon") {
+        didSet {
+            guard beaconEnabled != oldValue else { return }
+            UserDefaults.standard.set(beaconEnabled, forKey: "guidance.beacon")
+            policy.progressReminderInterval = beaconEnabled ? Self.beaconProgressReminderInterval : thresholds.progressReminderInterval
+            if !beaconEnabled {
+                beacon.stop()
+                beaconPolicy.reset()
+            }
+        }
+    }
     var mode: AppMode = .navigation {
         didSet { if mode != oldValue { didChange(mode: mode, from: oldValue) } }
     }
@@ -231,6 +252,10 @@ final class NavigationViewModel {
         self.glasses = glasses ?? GlassesService()
         self.glassesPositioning = glassesPositioning ?? GlassesPositioning()
         self.policy = GuidancePolicy(thresholds: thresholds)
+        // Not `beaconEnabled`: no stored property may be read before init completes.
+        if UserDefaults.standard.bool(forKey: "guidance.beacon") {
+            self.policy.progressReminderInterval = Self.beaconProgressReminderInterval
+        }
 
         let initialMap = map ?? mapStore.loadMap() ?? SampleGreenhouseMap.map
         self.baseMap = initialMap
@@ -554,6 +579,7 @@ final class NavigationViewModel {
 
         tracker = RouteTracker(path: path, thresholds: thresholds)
         policy.reset()
+        beaconPolicy.reset()
         isNavigating = true
         hasArrived = false
         arrivedPlaceName = nil
@@ -587,6 +613,8 @@ final class NavigationViewModel {
         debug.routeNodes = []
         routePath = []
         guidance.stopSpeaking()
+        beacon.stop()
+        beaconPolicy.reset()
     }
 
     // MARK: - World map
@@ -713,14 +741,15 @@ final class NavigationViewModel {
             pendingDestinationID = nil
             guidance.speak("Navigation stopped.", interrupt: true)
 
-        case .beacon:
-            break   // wired up with the beacon itself
+        case .beacon(let on):
+            beaconEnabled = on
+            guidance.speak(on ? "Beeps on." : "Beeps off.", interrupt: true)
 
         case .unknown:
             unknownCommandCount += 1
             if unknownCommandCount >= 2 {
                 let names = destinations.map(\.name).joined(separator: ", ")
-                guidance.speak("I didn't catch that. You can say: take me to, where am I, what's nearby, repeat, or stop. Destinations are: \(names).", interrupt: true)
+                guidance.speak("I didn't catch that. You can say: take me to, where am I, what's nearby, repeat, beeps on, beeps off, or stop. Destinations are: \(names).", interrupt: true)
             } else {
                 guidance.speak("I didn't catch that. Please try again.", interrupt: true)
             }
@@ -804,6 +833,7 @@ final class NavigationViewModel {
         currentInstruction = instruction
         remainingDistance = tracker.remainingDistance(from: position)
         isOffRoute = snapshot.trackingReliable && tracker.isOffRoute(position: position)
+        updateBeacon(position: position, heading: heading, tracker: tracker, reliable: snapshot.trackingReliable)
         routeLeg = min(tracker.targetIndex + 1, tracker.path.count)
         routeLegCount = tracker.path.count
         debug.subGoal = tracker.targetNode.map(engine.displayName(of:)) ?? "arrived"
@@ -815,7 +845,16 @@ final class NavigationViewModel {
                                   now: snapshot.timestamp)
         guard let cue, !recognizer.isListening else { return }
 
-        guidance.deliver(cue)
+        if case .offRoute = cue, beaconEnabled {
+            // The corridor earcon first, in the beacon's own voice; the words follow it.
+            beacon.playBoundary()
+            Task { [guidance] in
+                try? await Task.sleep(for: .milliseconds(600))
+                guidance.deliver(cue)
+            }
+        } else {
+            guidance.deliver(cue)
+        }
 
         switch cue {
         case .arrived(let id):
@@ -825,6 +864,19 @@ final class NavigationViewModel {
         default:
             break
         }
+    }
+
+    /// One beacon decision per pose: bearing to the look-ahead point on the
+    /// route, silent whenever the pose is not trusted, paused while the app
+    /// speaks or listens.
+    private func updateBeacon(position: SIMD2<Float>, heading: Float, tracker: RouteTracker, reliable: Bool) {
+        guard beaconEnabled else { return }
+        let bearing = tracker.aimPoint(from: position, lookAhead: Self.beaconLookAhead).map {
+            NavigationGeometry.relativeBearing(from: position, heading: heading, to: $0)
+        }
+        let cue = beaconPolicy.evaluate(bearing: bearing, trackingReliable: reliable, navigating: isNavigating)
+        beacon.apply(cue)
+        beacon.setPaused(guidance.isSpeaking || recognizer.isListening)
     }
 
     private func startPendingNavigationIfNeeded() {
@@ -871,6 +923,8 @@ final class NavigationViewModel {
         statusMessage = "Arrived at \(name)."
         debug.subGoal = "arrived"
         routePath = []
+        beacon.stop()
+        beaconPolicy.reset()
     }
 
     /// Distance + turn toward the tracker's current target, or `nil` when there is no target.
