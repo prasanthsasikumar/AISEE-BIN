@@ -9,9 +9,11 @@ import simd
 /// better guess than standing still, and is what keeps "in 3 meters, turn right"
 /// counting down smoothly rather than in jumps.
 ///
-/// Heading is the *head* direction at the last fix. People mostly look where
-/// they walk, and the guidance loop tolerates a metre or two of error at the
-/// approach radius, so no attempt is made to infer body direction separately.
+/// Heading is the *head* direction at the last fix plus the body's turn since,
+/// from the phone's gyro (`TurnSource`). People mostly look where they walk,
+/// so the offset absorbed at the fix is small; the gyro then makes a turn show
+/// up in the heading at once instead of at the next fix. Distance still walks
+/// along the fix heading.
 struct PoseExtrapolator: Equatable {
     /// A fix older than this no longer describes where the visitor is.
     var staleAfter: TimeInterval = 8
@@ -21,13 +23,15 @@ struct PoseExtrapolator: Equatable {
         var heading: Float
         /// Pedometer distance at the fix.
         var walked: Float
+        /// Gyro turn (`TurnSource.turn`) at the fix.
+        var turn: Float
         var time: TimeInterval
     }
 
     private(set) var fix: Fix?
 
-    mutating func anchor(position: SIMD2<Float>, heading: Float, walked: Float, time: TimeInterval) {
-        fix = Fix(position: position, heading: heading, walked: walked, time: time)
+    mutating func anchor(position: SIMD2<Float>, heading: Float, walked: Float, turn: Float, time: TimeInterval) {
+        fix = Fix(position: position, heading: heading, walked: walked, turn: turn, time: time)
     }
 
     mutating func reset() { fix = nil }
@@ -44,11 +48,17 @@ struct PoseExtrapolator: Equatable {
         return fix.position + advance * SIMD2(sin(fix.heading), -cos(fix.heading))
     }
 
+    /// Fix heading plus the body's turn since the fix.
+    func heading(turn: Float) -> Float? {
+        guard let fix else { return nil }
+        return fix.heading + (turn - fix.turn)
+    }
+
     /// A camera transform in the graph frame, as `NavigationGeometry` reads it:
-    /// the camera looks down its own −Z, so `heading(of:)` recovers `fix.heading`.
-    func cameraTransform(walked: Float) -> simd_float4x4? {
-        guard let fix, let p = position(walked: walked) else { return nil }
-        return Self.transform(position: p, heading: fix.heading)
+    /// the camera looks down its own −Z, so `heading(of:)` recovers the heading.
+    func cameraTransform(walked: Float, turn: Float) -> simd_float4x4? {
+        guard let p = position(walked: walked), let h = heading(turn: turn) else { return nil }
+        return Self.transform(position: p, heading: h)
     }
 
     static func transform(position p: SIMD2<Float>, heading h: Float) -> simd_float4x4 {

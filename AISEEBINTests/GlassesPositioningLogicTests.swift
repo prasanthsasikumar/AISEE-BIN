@@ -54,7 +54,7 @@ final class GlassesPositioningLogicTests: XCTestCase {
 
     func testAdvancesAlongHeadingByDistanceWalked() {
         var ex = PoseExtrapolator()
-        ex.anchor(position: SIMD2(1, 1), heading: .pi / 2, walked: 10, time: 0)   // facing +x
+        ex.anchor(position: SIMD2(1, 1), heading: .pi / 2, walked: 10, turn: 0, time: 0)   // facing +x
         let p = ex.position(walked: 13)!
         XCTAssertEqual(p.x, 4, accuracy: 1e-5)
         XCTAssertEqual(p.y, 1, accuracy: 1e-5)
@@ -62,22 +62,22 @@ final class GlassesPositioningLogicTests: XCTestCase {
 
     func testDoesNotWalkBackwards() {
         var ex = PoseExtrapolator()
-        ex.anchor(position: .zero, heading: 0, walked: 10, time: 0)
+        ex.anchor(position: .zero, heading: 0, walked: 10, turn: 0, time: 0)
         XCTAssertEqual(ex.position(walked: 8)!, .zero)
     }
 
     func testStaleness() {
         var ex = PoseExtrapolator(staleAfter: 8)
         XCTAssertTrue(ex.isStale(at: 0))
-        ex.anchor(position: .zero, heading: 0, walked: 0, time: 100)
+        ex.anchor(position: .zero, heading: 0, walked: 0, turn: 0, time: 100)
         XCTAssertFalse(ex.isStale(at: 107))
         XCTAssertTrue(ex.isStale(at: 108.5))
     }
 
     func testTransformRoundTripsThroughNavigationGeometry() {
         var ex = PoseExtrapolator()
-        ex.anchor(position: SIMD2(-3, 7), heading: 2.2, walked: 0, time: 0)
-        let t = ex.cameraTransform(walked: 1.5)!
+        ex.anchor(position: SIMD2(-3, 7), heading: 2.2, walked: 0, turn: 0, time: 0)
+        let t = ex.cameraTransform(walked: 1.5, turn: 0)!
         XCTAssertEqual(NavigationGeometry.heading(of: t), 2.2, accuracy: 1e-5)
         let p = NavigationGeometry.planarPosition(of: t)
         let expected = SIMD2<Float>(-3, 7) + 1.5 * SIMD2(sin(2.2), -cos(2.2))
@@ -88,6 +88,32 @@ final class GlassesPositioningLogicTests: XCTestCase {
                                         SIMD3(t.columns.1.x, t.columns.1.y, t.columns.1.z),
                                         SIMD3(t.columns.2.x, t.columns.2.y, t.columns.2.z)))
         XCTAssertEqual(r.determinant, 1, accuracy: 1e-5)
+    }
+
+    func testHeadingFollowsTurnSinceFix() {
+        var ex = PoseExtrapolator()
+        ex.anchor(position: .zero, heading: 1.0, walked: 0, turn: 0.3, time: 0)
+        // Turned a further 0.5 rad clockwise since the fix: heading 1.5.
+        let t = ex.cameraTransform(walked: 0, turn: 0.8)!
+        XCTAssertEqual(NavigationGeometry.heading(of: t), 1.5, accuracy: 1e-5)
+    }
+
+    func testPositionStillAdvancesAlongFixHeading() {
+        var ex = PoseExtrapolator()
+        ex.anchor(position: .zero, heading: 0, walked: 0, turn: 0, time: 0)   // facing -z
+        let t = ex.cameraTransform(walked: 2, turn: .pi / 2)!                   // turned right since
+        let p = NavigationGeometry.planarPosition(of: t)
+        XCTAssertEqual(p.x, 0, accuracy: 1e-5)
+        XCTAssertEqual(p.y, -2, accuracy: 1e-5, "distance walks along the fix heading; only the heading turns")
+    }
+
+    func testReanchorResetsTheOffset() {
+        var ex = PoseExtrapolator()
+        ex.anchor(position: .zero, heading: 1.0, walked: 0, turn: 0, time: 0)
+        _ = ex.cameraTransform(walked: 0, turn: 2.0)
+        ex.anchor(position: .zero, heading: 0.2, walked: 0, turn: 2.0, time: 1)
+        let t = ex.cameraTransform(walked: 0, turn: 2.0)!
+        XCTAssertEqual(NavigationGeometry.heading(of: t), 0.2, accuracy: 1e-5)
     }
 
     // MARK: - GlassesCamera

@@ -99,6 +99,7 @@ final class GlassesPositioning {
     @ObservationIgnored private var extrapolator = PoseExtrapolator()
     @ObservationIgnored private var ticker: Task<Void, Never>?
     @ObservationIgnored private let pedometer: WalkedDistanceSource
+    @ObservationIgnored private let turnSource: TurnSource
     @ObservationIgnored private var localize: Localize
     @ObservationIgnored private var running = false
     @ObservationIgnored private var generation = 0
@@ -134,8 +135,11 @@ final class GlassesPositioning {
         func release() { lock.withLock { claimed = false } }
     }
 
-    init(pedometer: WalkedDistanceSource = PedometerDistance(), localize: Localize? = nil) {
+    init(pedometer: WalkedDistanceSource = PedometerDistance(),
+         turnSource: TurnSource = DeviceMotionTurn(),
+         localize: Localize? = nil) {
         self.pedometer = pedometer
+        self.turnSource = turnSource
         self.usesDefaultLocalizer = localize == nil
         self.localize = localize ?? { _, _ in
             ImmersalLocalizeResult(success: false, error: "not started", mapID: nil, pose: nil, latency: 0, requestBytes: 0)
@@ -194,6 +198,7 @@ final class GlassesPositioning {
         running = true
         claim.arm(generation: generation)
         pedometer.start()
+        turnSource.start()
         localizationStatus = .relocalizing
         reselectLocalizer()
         let interval = Self.tickInterval
@@ -212,6 +217,7 @@ final class GlassesPositioning {
         ticker?.cancel()
         ticker = nil
         pedometer.stop()
+        turnSource.stop()
         claim.disarm()
         localizationStatus = .notStarted
     }
@@ -235,16 +241,18 @@ final class GlassesPositioning {
         // comes back a second or two later: remember the pedometer reading so
         // the extrapolator can add whatever is walked meanwhile.
         let walkedAtCapture = pedometer.walkedMetres
+        let turnAtCapture = turnSource.turn
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
             let frame = ImmersalFrameEncoder.gray(from: image, targetWidth: Self.sentFrameWidth)
             await self.localizeCopied(frame, capturedAt: now, walkedAtCapture: walkedAtCapture,
-                                      generation: generation)
+                                      turnAtCapture: turnAtCapture, generation: generation)
         }
     }
 
     private func localizeCopied(_ frame: GrayFrame?,
-                                capturedAt: TimeInterval, walkedAtCapture: Float, generation: Int) async {
+                                capturedAt: TimeInterval, walkedAtCapture: Float, turnAtCapture: Float,
+                                generation: Int) async {
         defer { claim.release() }
         guard running, generation == self.generation else { return }
         guard let frame else {
@@ -262,14 +270,15 @@ final class GlassesPositioning {
         let intrinsics = camera.intrinsics(width: frame.width, height: frame.height)
         let result = await localize(frame, intrinsics)
         guard running, generation == self.generation else { return }
-        apply(result, capturedAt: capturedAt, walkedAtCapture: walkedAtCapture)
+        apply(result, capturedAt: capturedAt, walkedAtCapture: walkedAtCapture, turnAtCapture: turnAtCapture)
     }
 
     // MARK: - Applying a fix
 
     private static let logger = Logger(subsystem: "com.flowsxr.aiseebin", category: "positioning")
 
-    private func apply(_ result: ImmersalLocalizeResult, capturedAt: TimeInterval, walkedAtCapture walked: Float) {
+    private func apply(_ result: ImmersalLocalizeResult, capturedAt: TimeInterval,
+                       walkedAtCapture walked: Float, turnAtCapture turn: Float) {
         attempts += 1
         Self.logger.notice("localize \(self.attempts): \(result.success ? "fix" : result.error, privacy: .public) map=\(result.mapID ?? -1) \(Int(result.latency * 1000)) ms \(result.requestBytes) B")
         DiagnosticsLog.write("glasses-immersal localize \(attempts): \(result.success ? "fix" : result.error) map=\(result.mapID ?? -1) \(Int(result.latency * 1000)) ms \(result.requestBytes) B walked=\(String(format: "%.1f", walked))")
@@ -299,8 +308,8 @@ final class GlassesPositioning {
         }
         fixes += 1
         Self.logger.notice("fix \(self.fixes): graph (\(position.x), \(position.y)) heading \(heading * 180 / .pi) deg, walked \(walked) m")
-        DiagnosticsLog.write(String(format: "glasses-immersal fix %d: graph (%.2f, %.2f) heading %.0f deg walked %.1f m", fixes, position.x, position.y, heading * 180 / .pi, walked))
-        extrapolator.anchor(position: position, heading: heading, walked: walked, time: capturedAt)
+        DiagnosticsLog.write(String(format: "glasses-immersal fix %d: graph (%.2f, %.2f) heading %.0f deg walked %.1f m gyro %.0f deg", fixes, position.x, position.y, heading * 180 / .pi, walked, turn * 180 / .pi))
+        extrapolator.anchor(position: position, heading: heading, walked: walked, turn: turn, time: capturedAt)
         tick()
     }
 
@@ -311,7 +320,7 @@ final class GlassesPositioning {
         let now = ProcessInfo.processInfo.systemUptime
         let walked = pedometer.walkedMetres
         walkedMetres = walked
-        guard let transform = extrapolator.cameraTransform(walked: walked), let fix = extrapolator.fix else {
+        guard let transform = extrapolator.cameraTransform(walked: walked, turn: turnSource.turn), let fix = extrapolator.fix else {
             localizationStatus = .relocalizing
             return
         }
