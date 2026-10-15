@@ -14,6 +14,7 @@
 		045107E9B6075E1C2D509F9A /* RTKAudioStreaming.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F0189CC38F649B3DDBC7969A /* RTKAudioStreaming.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		07304DF33200BE3D6DBD045C /* ProbeLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70152EF34D9E97DF4C741CE6 /* ProbeLog.swift */; };
 		083AC06FF3A59C32C8696908 /* ImmersalMapDownloaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9623757E38AE453BB0634565 /* ImmersalMapDownloaderTests.swift */; };
+		0A05969DD5B3CD160C5B6C74 /* BodyHeadingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0938FA1C5C23CAF8F590F772 /* BodyHeadingTests.swift */; };
 		0A2D5416309D0E7E44866183 /* VoiceClipsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D09B21D66FCA516E1C5F9112 /* VoiceClipsTests.swift */; };
 		0AC40621190D37E75E5272C0 /* ImmersalClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7700AECDC1CD6FBBF36B051 /* ImmersalClientTests.swift */; };
 		0B2D93C841CC573645839CDA /* libavcodec.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 1EAD988B72E7456254EEF8B4 /* libavcodec.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -22,6 +23,7 @@
 		13ED2CCD4EE8FB197C95583D /* ImmersalNativeStubs.c in Sources */ = {isa = PBXBuildFile; fileRef = 9217811D11D3F65EE80B1F9A /* ImmersalNativeStubs.c */; };
 		14460B305CD9256BE9B93E7C /* ProximityAnnouncer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 265ECD08052BDF5803336C52 /* ProximityAnnouncer.swift */; };
 		1481315E9F439653A036706A /* AiSeeH264Decoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21C552ED5A1C79AC279B5A9B /* AiSeeH264Decoder.swift */; };
+		17B85566D22C4ABFE6717FBB /* BodyHeading.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96F27A83FB797B374089A5B5 /* BodyHeading.swift */; };
 		1AB16387C633B6569529F61C /* NavigationGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF7B9346BA410D9FDF2F6EFD /* NavigationGeometryTests.swift */; };
 		1CF8BFC9D6C8E761D96C511A /* BeaconPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28008B811196FACD04FF216E /* BeaconPolicyTests.swift */; };
 		1F151CA046E6CF088C59B287 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDB9021F1A22A773A3BA02C8 /* SettingsView.swift */; };
@@ -173,6 +175,7 @@
 		05F7839F7B8A1E5CAA24193C /* ProbeSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProbeSession.swift; sourceTree = "<group>"; };
 		061A49BCDCE064003CC9EA08 /* MapDownloadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapDownloadTests.swift; sourceTree = "<group>"; };
 		08DB9C4286DCFDD3203120D0 /* libavformat.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = libavformat.framework; path = Vendor/RTK/libavformat.framework; sourceTree = "<group>"; };
+		0938FA1C5C23CAF8F590F772 /* BodyHeadingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyHeadingTests.swift; sourceTree = "<group>"; };
 		095B99502D63A2F44845F648 /* BeaconPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconPolicy.swift; sourceTree = "<group>"; };
 		096480BB907702BBDE476ED1 /* GlassesPositioningLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesPositioningLogicTests.swift; sourceTree = "<group>"; };
 		0E265AF3FD2E64C33B94F472 /* ImmersalMappingClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalMappingClient.swift; sourceTree = "<group>"; };
@@ -239,6 +242,7 @@
 		951CA1D1E422039CA70250F6 /* TestURLStub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestURLStub.swift; sourceTree = "<group>"; };
 		9623757E38AE453BB0634565 /* ImmersalMapDownloaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalMapDownloaderTests.swift; sourceTree = "<group>"; };
 		9660A13D46A344C5212F2D9E /* ImmersalNativeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalNativeTests.swift; sourceTree = "<group>"; };
+		96F27A83FB797B374089A5B5 /* BodyHeading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyHeading.swift; sourceTree = "<group>"; };
 		97885123C8C5A05ACE0A19CD /* GlassesPositioning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesPositioning.swift; sourceTree = "<group>"; };
 		9E461935A18A769445C62D21 /* RTKLEFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RTKLEFoundation.framework; path = Vendor/RTK/RTKLEFoundation.framework; sourceTree = "<group>"; };
 		A26AD48F3AE21178241BDF54 /* ImmersalLocalizerFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalLocalizerFactoryTests.swift; sourceTree = "<group>"; };
@@ -420,6 +424,7 @@
 		85D5DA6C193B91DDEF8AC50D /* Glasses */ = {
 			isa = PBXGroup;
 			children = (
+				96F27A83FB797B374089A5B5 /* BodyHeading.swift */,
 				E45842AD38368B637A1DCAEC /* FixGate.swift */,
 				D7D1BC5F4BC8FAF962ED5960 /* FocalCalibration.swift */,
 				5AE3FDFB08E19B06A845F1D0 /* FocalCalibrationRunner.swift */,
@@ -499,6 +504,7 @@
 			isa = PBXGroup;
 			children = (
 				28008B811196FACD04FF216E /* BeaconPolicyTests.swift */,
+				0938FA1C5C23CAF8F590F772 /* BodyHeadingTests.swift */,
 				D1410246899B0ADAEFD12524 /* CommandParserTests.swift */,
 				096480BB907702BBDE476ED1 /* GlassesPositioningLogicTests.swift */,
 				BB3484E049C64F8737394EF7 /* GuidancePolicyTests.swift */,
@@ -716,6 +722,7 @@
 				C520E967DF7CBBC6FBFE032E /* AppCommandBus.swift in Sources */,
 				C604EB7C644F26CCD766F0B8 /* AuthoringView.swift in Sources */,
 				2D26D88B155F63704D82FF27 /* BeaconPolicy.swift in Sources */,
+				17B85566D22C4ABFE6717FBB /* BodyHeading.swift in Sources */,
 				EAED3D7562D130E0A729E12E /* CommandParser.swift in Sources */,
 				58BAFE9E68010A289EC9A83B /* ContentView.swift in Sources */,
 				9690AF9CF20D2C2F02F70BC6 /* DesignSystem.swift in Sources */,
@@ -784,6 +791,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1CF8BFC9D6C8E761D96C511A /* BeaconPolicyTests.swift in Sources */,
+				0A05969DD5B3CD160C5B6C74 /* BodyHeadingTests.swift in Sources */,
 				913E3FEF6D2B3E8FC8A97ABB /* CommandParserTests.swift in Sources */,
 				1FFA070BD5723B4ED54F3D92 /* GlassesPositioningLogicTests.swift in Sources */,
 				A69A562480CA2B3D8A55B97D /* GuidancePolicyTests.swift in Sources */,
