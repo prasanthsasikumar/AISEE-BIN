@@ -42,6 +42,9 @@ enum GuidanceCue: Equatable {
 struct GuidancePolicy {
 
     let thresholds: GuidanceThresholds
+    /// Reassurance cadence; starts at the thresholds' value and is stretched
+    /// while the beacon already gives continuous reassurance.
+    var progressReminderInterval: TimeInterval
 
     /// `nil` until the first evaluation of a route; the route-start announcement
     /// is spoken by the view model, so the reminder clock starts from there.
@@ -51,6 +54,7 @@ struct GuidancePolicy {
 
     init(thresholds: GuidanceThresholds) {
         self.thresholds = thresholds
+        progressReminderInterval = thresholds.progressReminderInterval
     }
 
     /// Clears per-route memory. Call when a new route starts.
@@ -95,7 +99,7 @@ struct GuidancePolicy {
             return .approaching(instruction)
         }
 
-        if now - lastSpeech >= thresholds.progressReminderInterval {
+        if now - lastSpeech >= progressReminderInterval {
             lastSpeechTime = now
             return .progress(instruction)
         }

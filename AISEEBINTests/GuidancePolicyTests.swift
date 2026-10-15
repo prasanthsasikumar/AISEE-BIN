@@ -28,6 +28,14 @@ final class GuidancePolicyTests: XCTestCase {
                        .progress(far))
     }
 
+    func testProgressReminderIntervalCanBeStretched() {
+        policy.progressReminderInterval = 30
+        XCTAssertNil(policy.evaluate(instruction: far, routeEvent: .none, isOffRoute: false, trackingReliable: true, now: 0))
+        XCTAssertNil(policy.evaluate(instruction: far, routeEvent: .none, isOffRoute: false, trackingReliable: true, now: 12.5))
+        XCTAssertEqual(policy.evaluate(instruction: far, routeEvent: .none, isOffRoute: false, trackingReliable: true, now: 30.5),
+                       .progress(far))
+    }
+
     func testNodeReachedIsNeverThrottled() {
         _ = policy.evaluate(instruction: near, routeEvent: .none, isOffRoute: false, trackingReliable: true, now: 1) // spoke just now
         XCTAssertEqual(policy.evaluate(instruction: far, routeEvent: .reachedNode("junction"), isOffRoute: false, trackingReliable: true, now: 1.2),
