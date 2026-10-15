@@ -51,6 +51,42 @@ final class RouteTrackerTests: XCTestCase {
         // 6 m left to the junction, then 6 m + 6 m of edges.
         XCTAssertEqual(t.remainingDistance(from: SIMD2<Float>(0, -2)), 18, accuracy: 0.001)
     }
+
+    // MARK: - Aim point
+
+    func testAimPointLiesLookAheadMetresAlongStraightLeg() {
+        let t = tracker("entrance", "orchid")                 // leg (0,0) -> (0,-8)
+        let aim = t.aimPoint(from: SIMD2<Float>(0.5, -2), lookAhead: 3)!
+        XCTAssertEqual(aim.x, 0, accuracy: 1e-5)               // projected onto the leg
+        XCTAssertEqual(aim.y, -5, accuracy: 1e-5)              // 3 m past the projection (0,-2)
+    }
+
+    func testAimPointCrossesIntoNextLeg() {
+        let t = tracker("entrance", "orchid")
+        // 1 m before the junction; 2 m of look-ahead continue toward tropical (-6,-8).
+        let aim = t.aimPoint(from: SIMD2<Float>(0, -7), lookAhead: 3)!
+        XCTAssertEqual(aim.x, -2, accuracy: 1e-5)
+        XCTAssertEqual(aim.y, -8, accuracy: 1e-5)
+    }
+
+    func testAimPointStopsAtDestinationWhenRouteIsShorter() {
+        let t = tracker("entrance", "restrooms")              // single leg to (6,-2)
+        let aim = t.aimPoint(from: SIMD2<Float>(0, 0), lookAhead: 100)!
+        XCTAssertEqual(aim.x, 6, accuracy: 1e-5)
+        XCTAssertEqual(aim.y, -2, accuracy: 1e-5)
+    }
+
+    func testAimPointProjectsPositionBehindLegStartOntoStart() {
+        let t = tracker("entrance", "orchid")
+        let aim = t.aimPoint(from: SIMD2<Float>(0, 3), lookAhead: 3)!   // behind the entrance
+        XCTAssertEqual(aim.x, 0, accuracy: 1e-5)
+        XCTAssertEqual(aim.y, -3, accuracy: 1e-5)
+    }
+
+    func testAimPointIsNilOnceArrived() {
+        let t = tracker("orchid", "orchid")
+        XCTAssertNil(t.aimPoint(from: .zero, lookAhead: 3))
+    }
 }
 
 final class RouteTrackerNamedTargetTests: XCTestCase {

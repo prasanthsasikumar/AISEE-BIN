@@ -81,4 +81,32 @@ struct RouteTracker {
         }
         return total
     }
+
+    /// A point `lookAhead` metres further along the route than the user's
+    /// projection onto the current leg, or the destination when the route
+    /// ends sooner. A beacon aimed here steers along the path instead of
+    /// swinging toward each node as it is passed. `nil` once arrived.
+    func aimPoint(from position: SIMD2<Float>, lookAhead: Float) -> SIMD2<Float>? {
+        guard let target = targetNode else { return nil }
+        let from = previousNode?.position ?? target.position
+        let leg = target.position - from
+        let lengthSquared = simd_length_squared(leg)
+        let t: Float = lengthSquared > .ulpOfOne ? simd_clamp(simd_dot(position - from, leg) / lengthSquared, 0, 1) : 1
+        var point = from + leg * t
+        var remaining = lookAhead
+        var index = targetIndex
+        var next = target.position
+        while true {
+            let step = simd_distance(point, next)
+            if step >= remaining {
+                guard step > .ulpOfOne else { return next }
+                return point + (next - point) * (remaining / step)
+            }
+            remaining -= step
+            point = next
+            index += 1
+            guard index < path.count else { return next }   // ran out of route: the destination
+            next = path[index].position
+        }
+    }
 }
