@@ -17,6 +17,7 @@ struct GlassesView: View {
 
     private var glasses: GlassesService { viewModel.glasses }
     private var positioning: GlassesPositioning { viewModel.glassesPositioning }
+    private var feed: GlassesFixFeed { viewModel.glassesFeed }
 
     var body: some View {
         NavigationStack {
@@ -177,10 +178,27 @@ struct GlassesView: View {
 
     private var positioningSection: some View {
         Section {
-            Toggle("Use glasses for positioning",
-                   isOn: Binding(get: { viewModel.positioningSource == .glasses },
-                                 set: { viewModel.positioningSource = $0 ? .glasses : .phone }))
-                .disabled(!glasses.isConnected)
+            Picker("Positioning", selection: Binding(get: { viewModel.positioningSource },
+                                                     set: { viewModel.positioningSource = $0 })) {
+                Text("Phone").tag(PositioningSource.phone)
+                Text(GlassesMode.pocket.label).tag(PositioningSource.glasses)
+                Text(GlassesMode.lanyard.label).tag(PositioningSource.lanyard)
+            }
+            .disabled(!glasses.isConnected)
+            if viewModel.positioningSource == .lanyard {
+                LabeledContent("Anchored", value: viewModel.phoneLocalizer.isAnchored ? "yes" : "not yet")
+                LabeledContent("Anchor fixes", value: "\(viewModel.phoneLocalizer.fixes) / \(viewModel.phoneLocalizer.attempts) phone tries")
+                LabeledContent("Glasses fixes", value: "\(feed.fixes) / \(feed.attempts)")
+                LabeledContent("Glasses localizer", value: feed.localizerName.isEmpty ? "—" : feed.localizerName)
+                Stepper(value: Binding(get: { viewModel.phoneLocalizer.streamLatency },
+                                       set: { viewModel.phoneLocalizer.streamLatency = $0 }),
+                        in: 0...1, step: 0.05) {
+                    LabeledContent("Stream latency", value: String(format: "%.2f s", viewModel.phoneLocalizer.streamLatency))
+                }
+                if let error = feed.lastError ?? viewModel.phoneLocalizer.lastError {
+                    Text(error).font(.footnote).foregroundStyle(.secondary)
+                }
+            }
             if viewModel.positioningSource == .glasses {
                 LabeledContent("Status", value: positioning.localizationStatus.label)
                 LabeledContent("Fixes", value: "\(positioning.fixes) / \(positioning.attempts)")
@@ -206,6 +224,8 @@ struct GlassesView: View {
         } footer: {
             if let reason = viewModel.glassesBlockedReason {
                 Text(reason)
+            } else if viewModel.positioningSource == .lanyard {
+                Text("The phone hangs on a lanyard, camera forward: ARKit tracks, and both cameras send fixes. The glasses' heading is not used, only where they are.")
             } else {
                 Text("The phone camera is paused while the glasses position you. Switch back to hand the phone to a helper.")
             }

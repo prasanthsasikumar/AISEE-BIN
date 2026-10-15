@@ -25,11 +25,14 @@ struct DebugInfo {
 
 /// Which half of the app is active. Authoring is for the sighted mapper.
 /// Which camera is telling the app where the visitor is.
-enum PositioningSource: Equatable {
+enum PositioningSource: Hashable {
     /// ARKit on the chest-mounted phone, relocalized into the saved world map.
     case phone
     /// Immersal fixes on the AiSee glasses' video, the phone in a pocket.
     case glasses
+    /// ARKit on a lanyard-worn phone tracks; Immersal fixes from the phone
+    /// camera (full pose) and the glasses (position only) anchor it.
+    case lanyard
 }
 
 enum AppMode: String, CaseIterable, Identifiable {
@@ -85,6 +88,8 @@ final class NavigationViewModel {
     let mapStore: MapStore
     let glasses: GlassesService
     let glassesPositioning: GlassesPositioning
+    /// Lanyard mode: the glasses camera as a second source of fixes.
+    let glassesFeed = GlassesFixFeed()
     /// Positions the phone in a map that has an Immersal alignment but no
     /// ARKit world map (one drawn in the web editor on an Immersal scan).
     let phoneLocalizer = PhoneImmersalLocalizer()
@@ -177,7 +182,7 @@ final class NavigationViewModel {
     var destinations: [NavigationPOI] { engine.destinations }
     var localizationStatus: LocalizationStatus {
         if positioningSource == .glasses { return glassesPositioning.localizationStatus }
-        if phoneAnchoredByImmersal, !phoneLocalizer.isAnchored,
+        if phoneAnchoredByImmersal || positioningSource == .lanyard, !phoneLocalizer.isAnchored,
            arManager.localizationStatus == .trackingReady || arManager.localizationStatus == .initializing {
             return .relocalizing
         }
@@ -186,13 +191,15 @@ final class NavigationViewModel {
     /// The visitor's camera pose in the graph frame, whichever camera it came from.
     var currentTransform: simd_float4x4 {
         if positioningSource == .glasses { return glassesPositioning.cameraTransform }
-        if phoneAnchoredByImmersal { return phoneLocalizer.toGraph(arManager.cameraTransform) ?? matrix_identity_float4x4 }
+        if phoneAnchoredByImmersal || positioningSource == .lanyard {
+            return phoneLocalizer.toGraph(arManager.cameraTransform) ?? matrix_identity_float4x4
+        }
         return arManager.cameraTransform
     }
     /// One line for the screen while Immersal is still finding the phone, so a
     /// tester can tell "no network" from "no match" from "wrong map" on the spot.
     var phoneImmersalSummary: String? {
-        guard positioningSource == .phone, phoneAnchoredByImmersal else { return nil }
+        guard positioningSource == .lanyard || (positioningSource == .phone && phoneAnchoredByImmersal) else { return nil }
         let ids = (baseMap.immersalAlignment?.mapIDs ?? []).map(String.init).joined(separator: ",")
         if ImmersalConfig.token.isEmpty { return "Immersal: no token set (Settings) · map \(ids)" }
         let loc = phoneLocalizer
@@ -289,7 +296,13 @@ final class NavigationViewModel {
         }
         arManager.onPOIAnchorsChanged = { [weak self] positions in self?.applyAnchors(positions) }
         glassesPositioning.onPose = { [weak self] snapshot in self?.handle(snapshot) }
-        glasses.onFrame = { [weak positioning = glassesPositioning] frame in positioning?.consume(frame) }
+        glasses.onFrame = { [weak positioning = glassesPositioning, weak feed = glassesFeed] frame in
+            positioning?.consume(frame)   // pocket mode
+            feed?.consume(frame)          // lanyard mode; a feed that is not running drops it at the claim
+        }
+        glassesFeed.onFix = { [weak self] pose, arrivedAt in
+            self?.phoneLocalizer.offer(glassesFix: pose, arrivedAt: arrivedAt)
+        }
         glasses.onKeyPress = { [weak self] action in self?.handle(keyAction: action) }
         recognizer.onFinalTranscript = { [weak self] text in self?.handle(transcript: text) }
         recognizer.onDidStopListening = { [weak self] in self?.closeGlassesMicrophone() }
@@ -308,6 +321,7 @@ final class NavigationViewModel {
         switch positioningSource {
         case .phone:
             glassesPositioning.stop()
+            glassesFeed.stop()
             glasses.keepStreaming = false
             if let alignment = baseMap.immersalAlignment, alignment.isEditorDrawn, arManager.hasSavedWorldMap {
                 // A map drawn in the editor never had a world map; one on disk
@@ -334,6 +348,7 @@ final class NavigationViewModel {
             }
         case .glasses:
             phoneLocalizer.stop()
+            glassesFeed.stop()
             arManager.pause()
             glassesPositioning.start(alignment: baseMap.immersalAlignment)
             glasses.keepStreaming = true
@@ -346,12 +361,33 @@ final class NavigationViewModel {
                 }
             }
             guidance.speak("Using the glasses. Please look around slowly.", interrupt: true)
+        case .lanyard:
+            guard let alignment = baseMap.immersalAlignment, !ImmersalConfig.mapIDs(for: alignment).isEmpty else {
+                guidance.speak("This map has no Immersal map. Using the phone camera.", interrupt: true)
+                Task { @MainActor [weak self] in self?.positioningSource = .phone }
+                return
+            }
+            glassesPositioning.stop()
+            DiagnosticsLog.write("startPositioning lanyard map=\(baseMap.name) alignment=\(alignment.mapIDs) latency=\(phoneLocalizer.streamLatency)")
+            startARKit(relocalize: false)
+            phoneLocalizer.start(alignment: alignment, recordHistory: true)
+            glassesFeed.start(alignment: alignment)
+            glasses.keepStreaming = true
+            fetchImmersalMapsIfMissing(restart: true)
+            Task { [glasses, guidance] in
+                do {
+                    try await glasses.startStreaming()
+                } catch {
+                    guidance.speak("The glasses camera did not start. \(error.localizedDescription)", interrupt: true)
+                }
+            }
+            guidance.speak("Using the phone and the glasses. Please look around slowly.", interrupt: true)
         }
     }
 
-    /// Follows the glasses: connected means they are on the visitor's face and
-    /// the phone is going into a pocket, so they take over positioning and the
-    /// glasses feed replaces the phone camera; disconnected hands it back.
+    /// Follows the glasses: connected means they are on the visitor's face, so
+    /// the remembered glasses mode (pocket or lanyard) takes over positioning;
+    /// disconnected hands it back to the phone.
     /// The switch in `GlassesView` still overrides either way.
     private func observeGlassesConnection() {
         withObservationTracking {
@@ -360,8 +396,8 @@ final class NavigationViewModel {
             Task { @MainActor in
                 guard let self else { return }
                 if self.glasses.isConnected, self.positioningSource == .phone {
-                    self.positioningSource = .glasses
-                } else if !self.glasses.isConnected, self.positioningSource == .glasses {
+                    self.positioningSource = GlassesMode.load().source
+                } else if !self.glasses.isConnected, self.positioningSource != .phone {
                     self.guidance.speak("Glasses disconnected. Using the phone camera.", interrupt: true)
                     self.positioningSource = .phone
                 }
@@ -371,6 +407,7 @@ final class NavigationViewModel {
     }
 
     private func didChange(positioningSource source: PositioningSource) {
+        if let mode = GlassesMode(source: source) { mode.save() }
         // ARKit pauses under the glasses, so a scan-link walk cannot continue.
         if source == .glasses { scanLinker.stop() }
         stopNavigation()
@@ -469,7 +506,13 @@ final class NavigationViewModel {
     var mapSlug: String { localVersion?.slug ?? ServerConfig.mapSlug }
 
     /// "glasses" or "phone", and where fixes are computed, for result rows.
-    var fieldMode: String { positioningSource == .glasses ? "glasses" : "phone" }
+    var fieldMode: String {
+        switch positioningSource {
+        case .glasses: return "glasses"
+        case .lanyard: return "lanyard"
+        case .phone: return "phone"
+        }
+    }
     var fieldLocalizer: String { positioningSource == .glasses ? glassesPositioning.localizerName : phoneLocalizer.localizerName }
     /// Localization tries and accepted fixes so far in the running session.
     var fieldCounters: (attempts: Int, fixes: Int) {
@@ -495,6 +538,7 @@ final class NavigationViewModel {
         switch positioningSource {
         case .phone:   phoneLocalizer.reselectLocalizer()
         case .glasses: glassesPositioning.reselectLocalizer()
+        case .lanyard: phoneLocalizer.reselectLocalizer(); glassesFeed.reselectLocalizer()
         }
     }
 
@@ -515,6 +559,7 @@ final class NavigationViewModel {
             switch source {
             case .phone:   self.phoneLocalizer.reselectLocalizer()
             case .glasses: self.glassesPositioning.reselectLocalizer()
+            case .lanyard: self.phoneLocalizer.reselectLocalizer(); self.glassesFeed.reselectLocalizer()
             }
         }
     }
@@ -543,6 +588,10 @@ final class NavigationViewModel {
         rebuildEngine()
         if positioningSource == .glasses {
             glassesPositioning.start(alignment: baseMap.immersalAlignment)
+        }
+        if positioningSource == .lanyard {
+            phoneLocalizer.start(alignment: baseMap.immersalAlignment, recordHistory: true)
+            glassesFeed.start(alignment: baseMap.immersalAlignment)
         }
     }
 
@@ -632,7 +681,7 @@ final class NavigationViewModel {
             localVersion = nil
             rebuildEngine()
         }
-        if positioningSource == .glasses || phoneAnchoredByImmersal {
+        if positioningSource != .phone || phoneAnchoredByImmersal {
             startPositioning()
         } else {
             startARKit(relocalize: !discardSavedMap)
@@ -655,7 +704,7 @@ final class NavigationViewModel {
             }
             guidance.stopSpeaking()           // never listen to ourselves
             guidance.play(.nodeReached)       // tactile "I'm listening"
-            if positioningSource == .glasses, glasses.isConnected {
+            if positioningSource != .phone, glasses.isConnected {
                 // The phone is in a pocket: listen through the glasses' microphone.
                 recognizer.startListening(input: .external)
                 do {
@@ -801,7 +850,7 @@ final class NavigationViewModel {
     /// ARKit's snapshot carried into the graph frame when Immersal anchors the
     /// phone; until the first fix the pose is meaningless, so it is unreliable.
     private func anchored(_ snapshot: PoseSnapshot) -> PoseSnapshot {
-        guard positioningSource == .phone, phoneAnchoredByImmersal else { return snapshot }
+        guard positioningSource == .lanyard || (positioningSource == .phone && phoneAnchoredByImmersal) else { return snapshot }
         guard let transform = phoneLocalizer.toGraph(snapshot.cameraTransform) else {
             return PoseSnapshot(cameraTransform: snapshot.cameraTransform, timestamp: snapshot.timestamp,
                                 trackingReliable: false, featurePointCount: snapshot.featurePointCount)
@@ -966,11 +1015,13 @@ final class NavigationViewModel {
             debug.worldMapping = "immersal"
         } else {
             debug.fps = arManager.framesPerSecond
-            debug.trackingState = phoneAnchoredByImmersal
+            let viaImmersal = phoneAnchoredByImmersal || positioningSource == .lanyard
+            debug.trackingState = viaImmersal
                 ? "\(arManager.trackingStateDescription) · immersal \(phoneLocalizer.localizerName) \(phoneLocalizer.fixes)/\(phoneLocalizer.attempts)"
+                  + (positioningSource == .lanyard ? " · glasses \(glassesFeed.fixes)/\(glassesFeed.attempts)" : "")
                 : arManager.trackingStateDescription
             debug.featurePoints = snapshot.featurePointCount
-            debug.worldMapping = phoneAnchoredByImmersal ? (phoneLocalizer.lastError ?? "anchored") : arManager.worldMappingStatus.label
+            debug.worldMapping = viaImmersal ? (phoneLocalizer.lastError ?? "anchored") : arManager.worldMappingStatus.label
         }
         debug.position = NavigationGeometry.planarPosition(of: snapshot.cameraTransform)
         debug.headingDegrees = NavigationGeometry.heading(of: snapshot.cameraTransform) * 180 / .pi
