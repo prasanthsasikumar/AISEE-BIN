@@ -39,6 +39,34 @@ final class PhoneImmersalLocalizer {
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private let claim = Claim()
 
+    /// Fixes offered by the glasses camera in lanyard mode (position only).
+    private(set) var glassesFixes = 0
+    /// Glasses frame → phone latency: how far back in the ARKit history a
+    /// glasses fix is paired. Persisted; tuned on the Glasses screen.
+    var streamLatency: TimeInterval = UserDefaults.standard.object(forKey: "glasses.streamLatency") as? Double ?? 0.2 {
+        didSet { UserDefaults.standard.set(streamLatency, forKey: "glasses.streamLatency") }
+    }
+    @ObservationIgnored private var bootstrap = PositionPairBootstrap()
+    @ObservationIgnored private let history = HistoryBox()
+
+    /// ARKit poses, written on ARKit's thread and read on the main actor.
+    /// Recording is opt-in (lanyard mode) so phone mode pays nothing.
+    private final class HistoryBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var history = PoseHistory()
+        private var enabled = false
+        func set(enabled: Bool) {
+            lock.withLock {
+                self.enabled = enabled
+                if !enabled { history.reset() }
+            }
+        }
+        func record(_ t: simd_float4x4, at time: TimeInterval) {
+            lock.withLock { if enabled { history.record(t, at: time) } }
+        }
+        func pose(at time: TimeInterval) -> simd_float4x4? { lock.withLock { history.pose(at: time) } }
+    }
+
     /// Frames arrive on ARKit's queue; the claim decides, without hopping to
     /// the main actor, whether this one starts a request.
     private final class Claim: @unchecked Sendable {
@@ -64,7 +92,7 @@ final class PhoneImmersalLocalizer {
 
     func toGraph(_ sessionPose: simd_float4x4) -> simd_float4x4? { anchor.toGraph(sessionPose) }
 
-    func start(alignment: ImmersalAlignment?) {
+    func start(alignment: ImmersalAlignment?, recordHistory: Bool = false) {
         stop()
         guard let alignment, !alignment.mapIDs.isEmpty else {
             lastError = "map has no Immersal alignment"
@@ -72,6 +100,9 @@ final class PhoneImmersalLocalizer {
         }
         self.alignment = alignment
         anchor.reset()
+        bootstrap.reset()
+        glassesFixes = 0
+        history.set(enabled: recordHistory)
         attempts = 0
         lastError = nil
         lastFixAt = nil
@@ -106,6 +137,7 @@ final class PhoneImmersalLocalizer {
         guard running else { return }
         running = false
         claim.disarm()
+        history.set(enabled: false)
         Self.logger.notice("stopped after \(self.attempts) attempts, \(self.anchor.fixes) fixes")
         DiagnosticsLog.write("phone-immersal stop attempts=\(attempts) fixes=\(anchor.fixes)")
     }
@@ -113,6 +145,7 @@ final class PhoneImmersalLocalizer {
     /// ARKit delegate thread. Copies what the request needs out of the frame
     /// and returns; nothing of `frame` is retained.
     nonisolated func consume(_ frame: ARFrame, trackingNormal: Bool) {
+        if trackingNormal { history.record(frame.camera.transform, at: frame.timestamp) }
         guard trackingNormal,
               let generation = claim.tryClaim(now: frame.timestamp, minimumInterval: Self.localizeInterval)
         else { return }
@@ -181,6 +214,7 @@ final class PhoneImmersalLocalizer {
         let graphPose = alignment.toGraph(cameraPose: poseInMap, mapID: result.mapID)
         if anchor.update(graphPose: graphPose, sessionPose: sessionPose) {
             lastError = nil
+            bootstrap.reset()
             lastFixAt = capturedAt
             let p = NavigationGeometry.planarPosition(of: graphPose)
             Self.logger.notice("fix \(self.anchor.fixes): graph (\(p.x), \(p.y)) jump \(self.anchor.lastJump) m")
@@ -189,5 +223,41 @@ final class PhoneImmersalLocalizer {
             lastError = String(format: "fix rejected: jumped %.1f m", anchor.lastJump)
             Self.logger.notice("fix rejected: jumped \(self.anchor.lastJump) m")
         }
+    }
+
+    /// A glasses fix in lanyard mode: position only, paired with the session
+    /// pose from when the frame was shot (arrival minus the stream latency).
+    /// With an anchor it nudges the translation; without one it feeds the
+    /// bootstrap until that solves.
+    func offer(glassesFix graphPose: simd_float4x4, arrivedAt: TimeInterval) {
+        guard running else { return }
+        guard let sessionPose = history.pose(at: arrivedAt - streamLatency) else {
+            lastError = "glasses fix: no ARKit pose for that moment"
+            DiagnosticsLog.write("glasses-fix dropped: no session pose within 0.5 s")
+            return
+        }
+        glassesFixes += 1
+        let graphPosition = NavigationGeometry.planarPosition(of: graphPose)
+        if anchor.isAnchored {
+            if anchor.updatePosition(graphPosition: graphPosition, sessionPose: sessionPose) {
+                lastError = nil
+                lastFixAt = arrivedAt
+                DiagnosticsLog.write(String(format: "glasses-fix %d: graph (%.2f, %.2f) jump %.1f m", glassesFixes, graphPosition.x, graphPosition.y, anchor.lastJump))
+            } else {
+                lastError = String(format: "glasses fix rejected: jumped %.1f m", anchor.lastJump)
+                DiagnosticsLog.write(String(format: "glasses-fix rejected: jumped %.1f m", anchor.lastJump))
+            }
+            return
+        }
+        let s = sessionPose.columns.3, g = graphPose.columns.3
+        bootstrap.add(session: SIMD3(s.x, s.y, s.z), graph: SIMD3(g.x, g.y, g.z))
+        DiagnosticsLog.write("glasses-fix bootstrap pair \(bootstrap.pairs.count)")
+        guard let fit = bootstrap.solve() else { return }
+        anchor.install(fit: fit)
+        bootstrap.reset()
+        lastError = nil
+        lastFixAt = arrivedAt
+        DiagnosticsLog.write(String(format: "glasses-fix anchored by bootstrap: yaw %.0f deg t (%.1f, %.1f)", fit.yaw * 180 / .pi, fit.tx, fit.tz))
+        onFirstFix?()
     }
 }
