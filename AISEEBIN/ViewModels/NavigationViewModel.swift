@@ -713,6 +713,9 @@ final class NavigationViewModel {
             pendingDestinationID = nil
             guidance.speak("Navigation stopped.", interrupt: true)
 
+        case .beacon:
+            break   // wired up with the beacon itself
+
         case .unknown:
             unknownCommandCount += 1
             if unknownCommandCount >= 2 {

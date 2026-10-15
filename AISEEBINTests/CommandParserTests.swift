@@ -27,6 +27,20 @@ final class CommandParserTests: XCTestCase {
         XCTAssertEqual(parser.parse("Where am I?"), .whereAmI)
     }
 
+    func testBeepsOnAndOff() {
+        XCTAssertEqual(parser.parse("beeps on"), .beacon(on: true))
+        XCTAssertEqual(parser.parse("turn on the beep guidance"), .beacon(on: true))
+        XCTAssertEqual(parser.parse("beacon on"), .beacon(on: true))
+        XCTAssertEqual(parser.parse("turn off the beeps"), .beacon(on: false))
+        XCTAssertEqual(parser.parse("no beeps"), .beacon(on: false))
+        XCTAssertEqual(parser.parse("mute the beacon"), .beacon(on: false))
+    }
+
+    func testStopBeepsIsNotStop() {
+        XCTAssertEqual(parser.parse("stop beeps"), .beacon(on: false))
+        XCTAssertEqual(parser.parse("stop"), .stop)
+    }
+
     func testWhatsNearby() {
         XCTAssertEqual(parser.parse("what's around me"), .whatsNearby)
         XCTAssertEqual(parser.parse("what is nearby"), .whatsNearby)

@@ -7,13 +7,15 @@ enum VoiceCommand: Equatable {
     case whatsNearby
     case repeatInstruction
     case stop
+    /// Beep guidance on or off.
+    case beacon(on: Bool)
     case unknown
 }
 
 /// Turns free-form transcripts into `VoiceCommand`s. Pure and deterministic.
 ///
 /// Matching strategy, in order:
-/// 1. Global phrases (where am I, nearby, repeat, stop).
+/// 1. Global phrases (where am I, nearby, repeat, beeps on/off, stop).
 /// 2. Best-scoring navigable POI by token overlap with its name and aliases,
 ///    where tokens match on a shared stem (≥ 4 characters) so "orchids" hits
 ///    "Orchid Display". Ties go to the longer name match.
@@ -48,6 +50,12 @@ struct CommandParser {
             return .whatsNearby
         }
         if Self.contains(text, any: ["repeat", "say that again", "say again", "again"]) { return .repeatInstruction }
+        if Self.contains(text, any: ["beep", "beacon"]) {
+            // Before "stop", so "stop beeps" is not "stop".
+            let offWords: Set<String> = ["off", "stop", "no", "disable", "mute", "quiet", "silence", "silent"]
+            let off = Self.tokens(text).contains { offWords.contains($0) }
+            return .beacon(on: !off)
+        }
         if Self.contains(text, any: ["stop", "cancel", "end navigation", "never mind"]) { return .stop }
 
         let queryTokens = Self.tokens(text).filter { !Self.stopWords.contains($0) }
