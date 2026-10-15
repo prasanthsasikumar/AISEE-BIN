@@ -23,6 +23,7 @@
 		14460B305CD9256BE9B93E7C /* ProximityAnnouncer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 265ECD08052BDF5803336C52 /* ProximityAnnouncer.swift */; };
 		1481315E9F439653A036706A /* AiSeeH264Decoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21C552ED5A1C79AC279B5A9B /* AiSeeH264Decoder.swift */; };
 		1AB16387C633B6569529F61C /* NavigationGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF7B9346BA410D9FDF2F6EFD /* NavigationGeometryTests.swift */; };
+		1CF8BFC9D6C8E761D96C511A /* BeaconPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28008B811196FACD04FF216E /* BeaconPolicyTests.swift */; };
 		1F151CA046E6CF088C59B287 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDB9021F1A22A773A3BA02C8 /* SettingsView.swift */; };
 		1F77CBD104CAE305B88D97B6 /* RouteTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A915C41DB6DAE48DA6B759A7 /* RouteTracker.swift */; };
 		1FFA070BD5723B4ED54F3D92 /* GlassesPositioningLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 096480BB907702BBDE476ED1 /* GlassesPositioningLogicTests.swift */; };
@@ -31,6 +32,7 @@
 		2C13C6CDB6F77BB0FC7CD442 /* AiSeePhotoCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3391E515B1906330F464B3A /* AiSeePhotoCapture.swift */; };
 		2C5ADCC772FA300F607AB824 /* FieldTestClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF7F1CF8254CD7AD2A426183 /* FieldTestClient.swift */; };
 		2C8E8E46C19F9BA2DEBA7246 /* ImmersalFrameEncoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56DDEA53927268D0EC20BE7A /* ImmersalFrameEncoderTests.swift */; };
+		2D26D88B155F63704D82FF27 /* BeaconPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 095B99502D63A2F44845F648 /* BeaconPolicy.swift */; };
 		2DA74101C496D08548EFB967 /* ImmersalAnchorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 732C9DF79D60A7D5AD48EB6E /* ImmersalAnchorTests.swift */; };
 		2ECCD0AE96263AB05B9C6D78 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4EE4F65AADED8973A6CB5994 /* Assets.xcassets */; };
 		2FCA36329F4363C831195533 /* ImmersalNative.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDADC1F553BEA6EB01677E44 /* ImmersalNative.swift */; };
@@ -171,6 +173,7 @@
 		05F7839F7B8A1E5CAA24193C /* ProbeSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProbeSession.swift; sourceTree = "<group>"; };
 		061A49BCDCE064003CC9EA08 /* MapDownloadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapDownloadTests.swift; sourceTree = "<group>"; };
 		08DB9C4286DCFDD3203120D0 /* libavformat.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = libavformat.framework; path = Vendor/RTK/libavformat.framework; sourceTree = "<group>"; };
+		095B99502D63A2F44845F648 /* BeaconPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconPolicy.swift; sourceTree = "<group>"; };
 		096480BB907702BBDE476ED1 /* GlassesPositioningLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesPositioningLogicTests.swift; sourceTree = "<group>"; };
 		0E265AF3FD2E64C33B94F472 /* ImmersalMappingClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalMappingClient.swift; sourceTree = "<group>"; };
 		0EC5350A5C237B133D347EF3 /* ImmersalPose.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalPose.swift; sourceTree = "<group>"; };
@@ -185,6 +188,7 @@
 		21C552ED5A1C79AC279B5A9B /* AiSeeH264Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeH264Decoder.swift; sourceTree = "<group>"; };
 		2252BB5498BDD59BE9B2B69B /* OpenAIRealtimeAccess.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenAIRealtimeAccess.framework; path = Vendor/RTK/OpenAIRealtimeAccess.framework; sourceTree = "<group>"; };
 		265ECD08052BDF5803336C52 /* ProximityAnnouncer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximityAnnouncer.swift; sourceTree = "<group>"; };
+		28008B811196FACD04FF216E /* BeaconPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconPolicyTests.swift; sourceTree = "<group>"; };
 		28EA359CE2C1A86BE853EF0E /* NavigationInstructionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationInstructionTests.swift; sourceTree = "<group>"; };
 		2C578835CC242A3C51D0FBB4 /* GlassesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesService.swift; sourceTree = "<group>"; };
 		30B39DE568843C3A29626009 /* PointCloudCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PointCloudCodec.swift; sourceTree = "<group>"; };
@@ -494,6 +498,7 @@
 		C1D49FBDB1DDE281D9B774A3 /* AISEEBINTests */ = {
 			isa = PBXGroup;
 			children = (
+				28008B811196FACD04FF216E /* BeaconPolicyTests.swift */,
 				D1410246899B0ADAEFD12524 /* CommandParserTests.swift */,
 				096480BB907702BBDE476ED1 /* GlassesPositioningLogicTests.swift */,
 				BB3484E049C64F8737394EF7 /* GuidancePolicyTests.swift */,
@@ -553,6 +558,7 @@
 			isa = PBXGroup;
 			children = (
 				91F7A67B2839DB4DB390F6D7 /* ARNavigationManager.swift */,
+				095B99502D63A2F44845F648 /* BeaconPolicy.swift */,
 				A8FBE87F4128640609DC1089 /* CommandParser.swift */,
 				FDF8AD56E8AF2A1B9AB92C5E /* GuidanceManager.swift */,
 				4EC5B2AE569FC940946C603A /* GuidancePolicy.swift */,
@@ -709,6 +715,7 @@
 				C2CFE54B7F0F373CD83ACA22 /* AiSeeTypes.swift in Sources */,
 				C520E967DF7CBBC6FBFE032E /* AppCommandBus.swift in Sources */,
 				C604EB7C644F26CCD766F0B8 /* AuthoringView.swift in Sources */,
+				2D26D88B155F63704D82FF27 /* BeaconPolicy.swift in Sources */,
 				EAED3D7562D130E0A729E12E /* CommandParser.swift in Sources */,
 				58BAFE9E68010A289EC9A83B /* ContentView.swift in Sources */,
 				9690AF9CF20D2C2F02F70BC6 /* DesignSystem.swift in Sources */,
@@ -776,6 +783,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1CF8BFC9D6C8E761D96C511A /* BeaconPolicyTests.swift in Sources */,
 				913E3FEF6D2B3E8FC8A97ABB /* CommandParserTests.swift in Sources */,
 				1FFA070BD5723B4ED54F3D92 /* GlassesPositioningLogicTests.swift in Sources */,
 				A69A562480CA2B3D8A55B97D /* GuidancePolicyTests.swift in Sources */,
