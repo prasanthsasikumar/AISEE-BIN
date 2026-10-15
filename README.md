@@ -40,6 +40,7 @@ Routing is **A\*** over a hand-authored graph of places and the paths between th
 | **ARKit world map** | The phone recognises the room from a saved `ARWorldMap` of visual features, then tracks continuously. | The phone's camera facing forward (chest mount). |
 | **Immersal on the phone** | The phone's camera frames are matched against an Immersal map, and each fix anchors ARKit's tracking. | A map scanned with the Author walk or the Immersal Mapper app. |
 | **Immersal on the glasses** | Frames from the AiSee glasses' camera are matched against the same map; a step counter carries you between fixes. | AiSee glasses. The phone stays in a pocket. |
+| **Lanyard + glasses** | ARKit on the phone tracks at 60 Hz; Immersal fixes from both cameras anchor it to the map (the glasses contribute position only). | AiSee glasses, and the phone on a lanyard with the camera facing forward. |
 
 No beacons, wiring or floor markings in any of them. Immersal matching runs **on the phone** when the map's files are cached, and on Immersal's server otherwise. Settings has a switch: *Auto*, *On phone* or *Immersal server*.
 
@@ -160,6 +161,8 @@ Connect the glasses from **⋯ → Glasses…** on Navigate, or **AiSee Glasses�
 The temple button: **tap** to talk, **double tap** for "where am I", **triple tap** to stop guidance.
 
 The map has to be aligned with Immersal's frame first. A map built with the Author walk, or imported from Immersal in the editor, already is. Glasses positioning also needs the camera's focal length, which a calibration sweep on the Glasses screen finds against the map.
+
+**Lanyard + glasses** (Glasses screen → Positioning): wear the phone on a lanyard with the camera facing forward and the glasses on. ARKit on the phone tracks at 60 Hz; Immersal fixes from both cameras anchor it to the map (the glasses contribute position only, never their heading). The choice is remembered and used the next time the glasses connect. Needs a map with an Immersal alignment; the stream latency used to pair a glasses fix with the phone's pose is adjustable on the same screen.
 
 ### Field testing
 
