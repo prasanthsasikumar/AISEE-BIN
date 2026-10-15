@@ -131,9 +131,12 @@ Everything is spoken and buzzed. The screen is never required.
 | "where am I" | nearest place, distance, and which side |
 | "what's nearby" | up to three places within 10 m, with left / right / ahead |
 | "repeat" | the current instruction again |
+| "beeps on" / "beeps off" | beep guidance (below) on or off |
 | "stop" | guidance ends |
 
 One firm tap means *listening*; a double tap means *heard you*. Listening stops after 4 s of silence. Speech output is cut the moment listening starts, so the app never hears itself. After two unrecognised commands it reads out what you can say.
+
+**Beep guidance** (optional, off by default: Settings → Beep guidance, or say "beeps on") adds a continuous beacon between the spoken prompts: a high tick while you are heading along the route, a low pattern to turn (two short = left, one long = right, panned to that side through the glasses), and silence whenever your position is not known. In glasses mode the phone's gyro carries the heading between Immersal fixes, so a turn is heard at once.
 
 **What it tells you along the way:**
 
