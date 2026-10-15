@@ -55,4 +55,37 @@ final class PositionPairBootstrapTests: XCTestCase {
         XCTAssertTrue(b.pairs.isEmpty)
         XCTAssertNil(b.solve())
     }
+
+    // MARK: - Outliers
+
+    func testStandingStillWithOneGraphOutlierDoesNotSolve() {
+        // ARKit says the wearer barely moved; one Immersal mismatch 5 m away
+        // would give the graph side a 5 m spread and a yaw made of nothing.
+        var b = PositionPairBootstrap()
+        let still: [SIMD3<Float>] = [SIMD3(0, 0, 0), SIMD3(0.1, 0, 0), SIMD3(0.2, 0, -0.1), SIMD3(0.15, 0, -0.05)]
+        for (i, s) in still.enumerated() {
+            b.add(session: s, graph: i == 2 ? graph(s) + SIMD3(5, 0, 0) : graph(s))
+        }
+        XCTAssertNil(b.solve())
+    }
+
+    func testWalkWithOneGraphOutlierDoesNotSolve() {
+        // A real walk, but one fix is 5 m off: the residual gives it away.
+        var b = PositionPairBootstrap()
+        for (i, s) in walk.enumerated() {
+            b.add(session: s, graph: i == 1 ? graph(s) + SIMD3(5, 0, 0) : graph(s))
+        }
+        XCTAssertNil(b.solve())
+    }
+
+    func testKeepsOnlyTheMostRecentPairs() {
+        var b = PositionPairBootstrap()
+        for i in 0..<20 {
+            let s = SIMD3<Float>(Float(i) * 0.5, 0, 0)
+            b.add(session: s, graph: graph(s))
+        }
+        XCTAssertEqual(b.pairs.count, b.maxPairs)
+        XCTAssertEqual(b.pairs.first?.session.x, Float(20 - b.maxPairs) * 0.5, "the oldest pairs are dropped")
+        XCTAssertNotNil(b.solve())
+    }
 }

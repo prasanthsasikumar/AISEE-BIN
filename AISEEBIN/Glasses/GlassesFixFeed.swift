@@ -65,6 +65,10 @@ final class GlassesFixFeed {
         generation += 1
         attempts = 0; fixes = 0
         lastError = nil; lastLatencyMS = nil; lastMapID = nil
+        // Never answer against the previous map's localizer while the new one
+        // is being chosen; a fix through the wrong map would feed the anchor.
+        localizer = nil
+        localizerName = ""
         guard let alignment else {
             lastError = "Map not aligned"
             return
