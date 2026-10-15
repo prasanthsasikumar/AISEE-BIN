@@ -7,8 +7,9 @@ import Foundation
 /// *when* to sound; `BeaconPolicy` makes those.
 ///
 /// Each pattern is one period of audio (beeps then silence) scheduled with
-/// `.loops`, so the cadence is sample-accurate and needs no timer, and a
-/// change of cue is a stop and a new schedule.
+/// `.loops`, so the cadence is sample-accurate and needs no timer. The loop
+/// restarts only when the *pattern* changes; the pan, which moves with every
+/// frame, is set live on the playing node.
 @MainActor
 final class BeaconSynth {
 
@@ -23,10 +24,18 @@ final class BeaconSynth {
     private let offLeftBuffer: AVAudioPCMBuffer
     private let offRightBuffer: AVAudioPCMBuffer
     private let boundaryBuffer: AVAudioPCMBuffer
+    private static let boundarySeconds: TimeInterval = 0.6
 
     private var cue: BeaconCue = .silent
     private var paused = false
     private var observers: [NSObjectProtocol] = []
+    /// Silences the loop when `apply` stops being called: poses have stopped,
+    /// so nothing stands behind the sound.
+    private var watchdog = BeaconWatchdog()
+    private var watchdogTimer: Timer?
+    /// The loop keeps out of the boundary earcon's way until this time.
+    private var holdUntil: TimeInterval = 0
+    private var resumeTask: Task<Void, Never>?
 
     init() {
         let r = Renderer(format: format)
@@ -37,7 +46,7 @@ final class BeaconSynth {
         offLeftBuffer = r.period(1.2, notes: [(0, 0.06, 440), (0.16, 0.06, 440)])
         offRightBuffer = r.period(1.2, notes: [(0, 0.30, 440)])
         // Boundary: three descending notes, once.
-        boundaryBuffer = r.period(0.6, notes: [(0, 0.12, 330), (0.18, 0.12, 277), (0.36, 0.12, 220)])
+        boundaryBuffer = r.period(Self.boundarySeconds, notes: [(0, 0.12, 330), (0.18, 0.12, 277), (0.36, 0.12, 220)])
 
         engine.attach(loop)
         engine.attach(oneShot)
@@ -62,10 +71,16 @@ final class BeaconSynth {
 
     // MARK: - Control
 
-    /// Idempotent: the same cue twice leaves the loop running untouched.
+    /// Once per pose. The same pattern leaves the loop running and only moves
+    /// the pan; a new pattern restarts it.
     func apply(_ cue: BeaconCue) {
-        guard cue != self.cue else { return }
+        watchdog.feed(at: Self.now)
+        let samePattern = cue.pattern == self.cue.pattern
         self.cue = cue
+        if samePattern {
+            loop.pan = cue.pan
+            return
+        }
         restartLoop()
     }
 
@@ -76,8 +91,8 @@ final class BeaconSynth {
         restartLoop()
     }
 
-    /// The corridor earcon, once, centred. The loop stops for it and comes back
-    /// on the next `apply`/`setPaused` change (speech follows, which pauses it).
+    /// The corridor earcon, once, centred. The loop stops for it and resumes
+    /// after it, unless speech has paused the beacon by then.
     func playBoundary() {
         guard ensureRunning() else { return }
         loop.stop()
@@ -85,18 +100,27 @@ final class BeaconSynth {
         oneShot.pan = 0
         oneShot.scheduleBuffer(boundaryBuffer, at: nil, options: [], completionHandler: nil)
         oneShot.play()
+        holdUntil = Self.now + Self.boundarySeconds
+        scheduleResume(after: Self.boundarySeconds)
     }
 
     /// Silence and release the engine (route ended, beacon switched off).
     func stop() {
         cue = .silent
         paused = false
+        holdUntil = 0
+        resumeTask?.cancel()
+        resumeTask = nil
+        stopWatchdog()
+        watchdog.reset()
         loop.stop()
         oneShot.stop()
         if engine.isRunning { engine.stop() }
     }
 
     // MARK: - Internals
+
+    private static var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
 
     private func restart() {
         guard cue != .silent else { return }
@@ -106,22 +130,59 @@ final class BeaconSynth {
     private func restartLoop() {
         loop.stop()
         guard !paused, cue != .silent, ensureRunning() else {
+            stopWatchdog()
             if cue == .silent, engine.isRunning, !oneShot.isPlaying { engine.stop() }
             return
         }
+        let remainingHold = holdUntil - Self.now
+        if remainingHold > 0 {
+            scheduleResume(after: remainingHold)
+            return
+        }
         let buffer: AVAudioPCMBuffer
-        let pan: Float
-        switch cue {
+        switch cue.pattern {
         case .silent:
             return
         case .onCourse:
-            buffer = onCourseBuffer; pan = 0
-        case .offCourse(let side, let p):
-            buffer = side == .left ? offLeftBuffer : offRightBuffer; pan = p
+            buffer = onCourseBuffer
+        case .offCourseLeft:
+            buffer = offLeftBuffer
+        case .offCourseRight:
+            buffer = offRightBuffer
         }
-        loop.pan = pan
+        loop.pan = cue.pan
         loop.scheduleBuffer(buffer, at: nil, options: [.loops], completionHandler: nil)
         loop.play()
+        startWatchdog()
+    }
+
+    private func scheduleResume(after seconds: TimeInterval) {
+        resumeTask?.cancel()
+        resumeTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(Int(seconds * 1000) + 20))
+            guard !Task.isCancelled else { return }
+            self?.restartLoop()
+        }
+    }
+
+    private func startWatchdog() {
+        guard watchdogTimer == nil else { return }
+        watchdogTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkWatchdog() }
+        }
+    }
+
+    private func stopWatchdog() {
+        watchdogTimer?.invalidate()
+        watchdogTimer = nil
+    }
+
+    /// Poses stopped arriving: fall silent. The next `apply` with a pattern
+    /// restarts the loop.
+    private func checkWatchdog() {
+        guard watchdog.isStarved(at: Self.now) else { return }
+        cue = .silent
+        restartLoop()
     }
 
     private func ensureRunning() -> Bool {

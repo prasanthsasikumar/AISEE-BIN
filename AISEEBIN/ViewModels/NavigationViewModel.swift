@@ -118,6 +118,9 @@ final class NavigationViewModel {
     static let beaconProgressReminderInterval: TimeInterval = 30
     @ObservationIgnored private var beaconPolicy = BeaconPolicy()
     @ObservationIgnored private let beacon = BeaconSynth()
+    /// The spoken off-route warning, held back for the boundary earcon;
+    /// cancelled if the route ends or listening starts meanwhile.
+    @ObservationIgnored private var delayedCue: Task<Void, Never>?
 
     // MARK: UI state
 
@@ -613,6 +616,7 @@ final class NavigationViewModel {
         debug.routeNodes = []
         routePath = []
         guidance.stopSpeaking()
+        delayedCue?.cancel()
         beacon.stop()
         beaconPolicy.reset()
     }
@@ -639,6 +643,7 @@ final class NavigationViewModel {
 
     /// Push-to-talk entry point (button, Action Button, Siri "listen").
     func toggleListening() {
+        delayedCue?.cancel()              // a held-back warning must not play into the microphone
         if recognizer.isListening {
             recognizer.stopListening(deliver: true)
             return
@@ -848,9 +853,11 @@ final class NavigationViewModel {
         if case .offRoute = cue, beaconEnabled {
             // The corridor earcon first, in the beacon's own voice; the words follow it.
             beacon.playBoundary()
-            Task { [guidance] in
+            delayedCue?.cancel()
+            delayedCue = Task { [weak self] in
                 try? await Task.sleep(for: .milliseconds(600))
-                guidance.deliver(cue)
+                guard !Task.isCancelled, let self, self.isNavigating, !self.recognizer.isListening else { return }
+                self.guidance.deliver(cue)
             }
         } else {
             guidance.deliver(cue)
@@ -923,6 +930,7 @@ final class NavigationViewModel {
         statusMessage = "Arrived at \(name)."
         debug.subGoal = "arrived"
         routePath = []
+        delayedCue?.cancel()
         beacon.stop()
         beaconPolicy.reset()
     }
