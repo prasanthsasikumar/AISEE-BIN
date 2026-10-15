@@ -127,7 +127,9 @@ struct ImmersalAlignment: Codable, Equatable {
 
     /// Least-squares rigid fit (rotation + translation, no scale) of the
     /// Immersal points onto the graph points — 2D Procrustes.
-    static func fit(pairs: [Pair], mapIDs: [Int]) throws -> ImmersalAlignment {
+    static func fit(pairs: [Pair], mapIDs: [Int],
+                    minimumPairs: Int = ImmersalAlignment.minimumPairs,
+                    minimumSpread: Float = ImmersalAlignment.minimumSpread) throws -> ImmersalAlignment {
         guard pairs.count >= minimumPairs else { throw FitError.tooFewPairs(pairs.count) }
         let spread = boundingDiagonal(pairs.map(\.graph))
         guard spread >= minimumSpread else { throw FitError.tooLittleSpread(spread) }
