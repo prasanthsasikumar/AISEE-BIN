@@ -166,7 +166,7 @@ The map has to be aligned with Immersal's frame first. A map built with the Auth
 
 ### Field testing
 
-**⋯ → Field Test…** is for testers on site. It can **link scans** (walk between two Immersal scans so ARKit measures how they sit relative to each other), **mark** where a place really is, and **check** how far a fix is from where you are standing. Results go to the `ab_field_results` table and logs to storage, so they can be read back without the phone. The Flower Dome guide is in [`docs/field-test-flower-dome.md`](docs/field-test-flower-dome.md).
+**⋯ → Field Test…** is for testers on site. It can **link scans** (walk between two Immersal scans so ARKit measures how they sit relative to each other), **mark** where a place really is, **add** a place that is not on the map yet at the spot you stand on (joined by a path to the place added before it, so one walk on an imported Immersal scan gives a route), and **check** how far a fix is from where you are standing. Results go to the `ab_field_results` table and logs to storage, so they can be read back without the phone. The Flower Dome guide is in [`docs/field-test-flower-dome.md`](docs/field-test-flower-dome.md).
 
 ---
 
@@ -180,7 +180,7 @@ AISEEBIN/
   Managers/       ARKit session, pathfinding, route tracking, guidance, voice, sync, codecs
     Immersal/     REST client, native plugin, map cache, localizer factory, Author-walk capture
   Glasses/        AiSee glasses kit, camera, glasses positioning, fix gate, focal calibration
-  FieldTest/      link scans, mark, check, send log
+  FieldTest/      link scans, mark, add places, check, send log
   Probe/          Immersal vs ARKit measurement harness (see probe/README.md)
   ViewModels/     NavigationViewModel (navigate) · MapAuthoringViewModel (author)
   Views/          ContentView · AuthoringView · SettingsView · LiveMapView · ARPreviewView · DesignSystem
