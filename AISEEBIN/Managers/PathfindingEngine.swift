@@ -1,5 +1,6 @@
 import Foundation
 import GameplayKit
+import OSLog
 import simd
 
 /// A graph node that remembers which POI it represents so that path results can
@@ -30,6 +31,7 @@ struct GuidanceVector: Equatable {
 /// `GKGraphNode2D` already implements the A* cost and heuristic as Euclidean
 /// distance, so `GKGraph.findPath` gives us A* for free.
 final class PathfindingEngine {
+    private static let logger = Logger(subsystem: "com.flowsxr.aiseebin", category: "pathfinding")
 
     let map: NavigationMap
     private let graph = GKGraph()
@@ -47,7 +49,10 @@ final class PathfindingEngine {
 
         for edge in map.edges {
             guard let a = lookup[edge.from], let b = lookup[edge.to] else {
-                assertionFailure("Edge references unknown node: \(edge)")
+                // A server edit can leave a path to a place that was deleted
+                // (flower-dome-1-oct v2, 2026-10-15). The rest of the map still
+                // works; dying here took the app down at every launch.
+                Self.logger.warning("edge to an unknown node skipped: \(edge.from, privacy: .public) → \(edge.to, privacy: .public)")
                 continue
             }
             a.addConnections(to: [b], bidirectional: true)

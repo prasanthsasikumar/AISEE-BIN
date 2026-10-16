@@ -38,6 +38,18 @@ final class PathfindingEngineTests: XCTestCase {
         XCTAssertEqual(nearest.map(engine.name(of:)), "tropical")
     }
 
+    /// A map edited on the server can carry an edge to a place that no longer
+    /// exists (flower-dome-1-oct v2, 2026-10-15). The engine must build without
+    /// it and still route over the edges that are whole.
+    func testEdgeToAMissingNodeIsIgnored() {
+        let a = NavigationPOI(id: "a", name: "A", x: 0, z: 0), b = NavigationPOI(id: "b", name: "B", x: 5, z: 0)
+        let map = NavigationMap(name: "m", pois: [a, b],
+                                edges: [NavigationEdge(from: "a", to: "b"), NavigationEdge(from: "b", to: "gone")])
+        let engine = PathfindingEngine(map: map)
+        XCTAssertEqual(engine.findPath(from: "a", to: "b").map(engine.name(of:)), ["a", "b"])
+        XCTAssertNil(engine.node(named: "gone"))
+    }
+
     func testDestinationsExcludeIntersectionNodes() {
         let ids = engine.destinations.map(\.id)
         XCTAssertFalse(ids.contains("junction"))
