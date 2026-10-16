@@ -18,6 +18,9 @@ struct FieldTestView: View {
     @State private var busy: String?
     @State private var message: String?
     @State private var messageIsError = false
+    @State private var newName = ""
+    @State private var newCategory: POICategory = .destination
+    @State private var connectToPrevious = true
 
     /// Points parked off the route by the editor script until they are marked on site.
     private static let parkedX: Float = -40
@@ -170,14 +173,37 @@ struct FieldTestView: View {
                     Button("Mark") { Task { await mark(p) } }.buttonStyle(.bordered)
                 }
             }
-            if !session.marks.isEmpty {
-                Button("Publish \(session.marks.count) mark\(session.marks.count == 1 ? "" : "s")") { Task { await publishMarks() } }
+            ForEach(session.newPlaces) { p in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(p.name)
+                    Text(String(format: "added at x %.1f z %.1f · %@ · not published yet", p.x, p.z, p.category.label))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .onDelete { removePlaces(at: $0) }
+            TextField("New place name", text: $newName)
+            Picker("Kind", selection: $newCategory) {
+                ForEach(POICategory.allCases) { Text($0.label).tag($0) }
+            }
+            Toggle("Connect to previous place", isOn: $connectToPrevious)
+            Button("Add here") { Task { await addPlace() } }
+                .disabled(newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            if session.hasPending {
+                Button(publishLabel) { Task { await publishPending() } }
             }
         } header: {
-            Text("2 · Mark points")
+            Text("2 · Mark and add points")
         } footer: {
-            Text("Best in phone mode. Stand exactly on the point and keep still while it listens (5 s with the phone, 12 s with the glasses). Publish when done, so the tour and the checks use the real positions.")
+            Text("Best in phone mode. Stand exactly on the point and keep still while it listens (5 s with the phone, 12 s with the glasses). A place that is not on the map yet: type its name, pick its kind and tap Add here; with Connect on, each new place is joined to the one added before it, so one walk gives a route. Swipe a new place to remove it. Publish when done, so the tour and the checks use the real positions.")
         }
+    }
+
+    private var publishLabel: String {
+        var parts: [String] = []
+        let m = session.marks.count, n = session.newPlaces.count
+        if m > 0 { parts.append("\(m) mark\(m == 1 ? "" : "s")") }
+        if n > 0 { parts.append("\(n) new place\(n == 1 ? "" : "s")") }
+        return "Publish " + parts.joined(separator: " and ")
     }
 
     private func markStatus(_ p: NavigationPOI) -> String {
@@ -189,9 +215,9 @@ struct FieldTestView: View {
     /// were taken on; once another version is loaded they no longer fit.
     private func dropStaleMarks() {
         // A publish in progress changes the version itself; it settles the marks when it returns.
-        guard busy == nil, !session.marks.isEmpty, session.marksVersion != version else { return }
-        session.marks = [:]
-        show("The map changed since those marks were taken, so they were cleared. Please mark again.", error: true)
+        guard busy == nil, session.hasPending, session.marksVersion != version else { return }
+        session.marks = [:]; session.newPlaces = []; session.newEdges = []
+        show("The map changed since those marks and places were taken, so they were cleared. Please mark again.", error: true)
     }
 
     private func mark(_ p: NavigationPOI) async {
@@ -203,7 +229,7 @@ struct FieldTestView: View {
         }
         let x = ScanLinkSolver.median(samples.map(\.x)), z = ScanLinkSolver.median(samples.map(\.y))
         let spread = ScanLinkSolver.median(samples.map { hypot($0.x - x, $0.y - z) })
-        if session.marks.isEmpty { session.marksVersion = version }
+        if !session.hasPending { session.marksVersion = version }
         session.marks[p.id] = SIMD2(x, z)
         show(String(format: "%@ measured at x %.2f z %.2f (spread %.2f m from %d readings).", p.name, x, z, spread, samples.count))
         await post(.init(kind: "mark", map_slug: viewModel.mapSlug, map_version: version,
@@ -212,15 +238,61 @@ struct FieldTestView: View {
                                    "readings": .number(Double(samples.count))]))
     }
 
-    private func publishMarks() async {
-        let marks = session.marks
-        let ok = await publish(note: "\(marks.count) point(s) marked on site", edit: { graph in
+    /// A place that is not on the map yet, at the position the app reports
+    /// here: the same listen as a mark, then a new POI (joined to the previous
+    /// new place when Connect is on) kept until Publish.
+    private func addPlace() async {
+        let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        let glasses = viewModel.positioningSource == .glasses
+        let samples = await listen(seconds: glasses ? 12 : 5, label: "Adding \(name)…")
+        guard samples.count >= (glasses ? 2 : 3) else {
+            show("Not enough position readings while adding \(name). Stay still where the app has found you, and try again\(glasses ? ", or add in phone mode" : "").", error: true)
+            return
+        }
+        let x = ScanLinkSolver.median(samples.map(\.x)), z = ScanLinkSolver.median(samples.map(\.y))
+        let spread = ScanLinkSolver.median(samples.map { hypot($0.x - x, $0.y - z) })
+        let taken = Set(map.pois.map(\.id)).union(session.newPlaces.map(\.id))
+        let place = NavigationPOI(id: PlaceAdder.id(for: name, taken: taken), name: name, x: x, z: z, category: newCategory)
+        if !session.hasPending { session.marksVersion = version }
+        if connectToPrevious, let previous = session.newPlaces.last {
+            session.newEdges.append(NavigationEdge(from: previous.id, to: place.id))
+        }
+        session.newPlaces.append(place)
+        newName = ""
+        show(String(format: "%@ added at x %.2f z %.2f (spread %.2f m from %d readings). Publish when the walk is done.", name, x, z, spread, samples.count))
+        await post(.init(kind: "mark", map_slug: viewModel.mapSlug, map_version: version,
+                         mode: viewModel.fieldMode, localizer: viewModel.fieldLocalizer, point_id: place.id, point_name: name,
+                         payload: ["x": .number(Double(x)), "z": .number(Double(z)), "spread_m": .number(Double(spread)),
+                                   "readings": .number(Double(samples.count)), "added": .bool(true),
+                                   "category": .string(newCategory.rawValue)]))
+    }
+
+    /// Removing a place also removes the path through it; the neighbours are
+    /// not joined up, the editor can do that.
+    private func removePlaces(at offsets: IndexSet) {
+        let removed = Set(offsets.map { session.newPlaces[$0].id })
+        session.newPlaces.remove(atOffsets: offsets)
+        session.newEdges.removeAll { removed.contains($0.from) || removed.contains($0.to) }
+        if !session.hasPending { session.marksVersion = nil }
+    }
+
+    /// Marks and new places go out as one new version.
+    private func publishPending() async {
+        let marks = session.marks, places = session.newPlaces, edges = session.newEdges
+        var notes: [String] = []
+        if !marks.isEmpty { notes.append("\(marks.count) point(s) marked on site") }
+        if !places.isEmpty { notes.append("\(places.count) place(s) added on site") }
+        let ok = await publish(note: notes.joined(separator: ", "), edit: { graph in
             for i in graph.pois.indices { if let m = marks[graph.pois[i].id] { graph.pois[i].x = m.x; graph.pois[i].z = m.y } }
+            PlaceAdder.apply(places: places, edges: edges, to: &graph)
         }, row: { version in
             FieldTestClient.Row(kind: "mark", map_slug: viewModel.mapSlug, map_version: version, mode: viewModel.fieldMode,
-                                localizer: viewModel.fieldLocalizer, payload: ["published_marks": .number(Double(marks.count))])
+                                localizer: viewModel.fieldLocalizer,
+                                payload: ["published_marks": .number(Double(marks.count)),
+                                          "published_places": .number(Double(places.count))])
         })
-        if ok { session.marks = [:]; session.marksVersion = nil }
+        if ok { session.marks = [:]; session.newPlaces = []; session.newEdges = []; session.marksVersion = nil }
     }
 
     // MARK: - 3 · Accuracy check
