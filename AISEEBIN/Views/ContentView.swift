@@ -27,6 +27,8 @@ struct ContentView: View {
                               onTestNow: { viewModel.mode = .navigation })
             case .settings:
                 SettingsView(viewModel: viewModel)
+            case .explore:
+                EmptyView() // Explore screens arrive in the next commit.
             }
         }
         .background(viewModel.mode == .navigation ? DS.N.canvas : DS.A.canvas)

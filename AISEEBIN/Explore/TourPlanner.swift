@@ -105,6 +105,21 @@ struct TourPlanner {
         return evaluate(stopIDs: stops, start: plan.startID, end: plan.endID) ?? plan
     }
 
+    /// Planned arrival minute at each stop, then at the end, walking at a stroll
+    /// and staying each stop's `visitMinutes`.
+    func schedule(_ plan: TourPlan) -> [Double] {
+        let byID = Dictionary(map.pois.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let route = [plan.startID] + plan.stopIDs + [plan.endID]
+        var clock: Double = 0
+        var arrivals: [Double] = []
+        for (i, (a, b)) in zip(route, route.dropFirst()).enumerated() {
+            if i > 0 { clock += byID[a]?.visitMinutes ?? 0 }
+            clock += Double(legs.metres(a, b) ?? 0) / Self.strollSpeed / 60
+            arrivals.append(clock)
+        }
+        return arrivals
+    }
+
     // MARK: - Pieces
 
     /// Must see 3, good 2, if there's time 1; a tag matching an interest adds 2,
