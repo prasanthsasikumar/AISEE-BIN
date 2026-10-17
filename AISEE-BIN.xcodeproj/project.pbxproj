@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		014C3C7812EFDEBBCEEEF9F5 /* LocalizerReselectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E556DF97F5DF1F731E0006F7 /* LocalizerReselectionTests.swift */; };
 		0246AAC65D540A1F0769FE4F /* RTKAIDeviceConnection.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8D57E8988C3B58C97A2D8807 /* RTKAIDeviceConnection.framework */; };
+		02F440EB773D8D5B5B8D414C /* AskContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = F162832E061500E098FF2A66 /* AskContext.swift */; };
 		0350E3E61F21F3D1356A8F91 /* RTKAudioConnectSDK.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B5CD47A0E9D56274EC4F805D /* RTKAudioConnectSDK.framework */; };
 		03ECB77ACC60FBB1829D546D /* ScanLinkSolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC925ED0DE3BBD173F125656 /* ScanLinkSolverTests.swift */; };
 		045107E9B6075E1C2D509F9A /* RTKAudioStreaming.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F0189CC38F649B3DDBC7969A /* RTKAudioStreaming.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -27,6 +28,7 @@
 		17B85566D22C4ABFE6717FBB /* BodyHeading.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96F27A83FB797B374089A5B5 /* BodyHeading.swift */; };
 		1AB16387C633B6569529F61C /* NavigationGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF7B9346BA410D9FDF2F6EFD /* NavigationGeometryTests.swift */; };
 		1CF8BFC9D6C8E761D96C511A /* BeaconPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28008B811196FACD04FF216E /* BeaconPolicyTests.swift */; };
+		1D19845FC374F5E14AD4BF3F /* ExploreClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47206E1A2799C8B650F4E05F /* ExploreClient.swift */; };
 		1F151CA046E6CF088C59B287 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDB9021F1A22A773A3BA02C8 /* SettingsView.swift */; };
 		1F77CBD104CAE305B88D97B6 /* RouteTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A915C41DB6DAE48DA6B759A7 /* RouteTracker.swift */; };
 		1FFA070BD5723B4ED54F3D92 /* GlassesPositioningLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 096480BB907702BBDE476ED1 /* GlassesPositioningLogicTests.swift */; };
@@ -64,6 +66,7 @@
 		574398CE194E9D70EAA2A9C0 /* OpenAIRealtimeAccess.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2252BB5498BDD59BE9B2B69B /* OpenAIRealtimeAccess.framework */; };
 		58BAFE9E68010A289EC9A83B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77E1B72F4F53B64E77838144 /* ContentView.swift */; };
 		59E758BD870F8AFA836C4338 /* ProximityAnnouncerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 922A716A95F7EFF263EC528F /* ProximityAnnouncerTests.swift */; };
+		5DF4A00371659A8C0F1B9BB5 /* AskContextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E263A9D1D7FA6C4937BA493B /* AskContextTests.swift */; };
 		63FA5192A7FF32147EF4368E /* GlassesCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD61D73D3FA8E3165ABFB6C5 /* GlassesCamera.swift */; };
 		6A051B975FC3A1C88E319CE1 /* PositionPairBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04458240651BBE6647B1FE00 /* PositionPairBootstrap.swift */; };
 		7354BCDE6D022AF2B1AE9ADE /* NavigationGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8521C6E6D026D6E48CF8B15 /* NavigationGeometry.swift */; };
@@ -83,6 +86,7 @@
 		8A8FACA8783B9D9F847CDDB3 /* LocationDescriberTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3CD1B51F70D82DD4ADB2E6C /* LocationDescriberTests.swift */; };
 		8BD7C527F3C3F9E134FC924E /* ARPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6BB9E273FDF3C1C7D306F56 /* ARPreviewView.swift */; };
 		8C48FD5D39EED67173AB08AC /* ProbeMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8525B61C966C9BB4D71CBA2 /* ProbeMathTests.swift */; };
+		8DB681803CAF46B766D834CE /* FrameGrabber.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1825B617B5E1FC4BF3C0E619 /* FrameGrabber.swift */; };
 		8E1258D21B4AD6A5EA3D6458 /* MapSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 422D20AF3BC61E11863E9258 /* MapSyncService.swift */; };
 		8E15F31D44B4E79CEA016E6B /* ImmersalCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FA9EAC021CD5FAD1356FECF /* ImmersalCaptureTests.swift */; };
 		9127EA5E2B027F932CA1F0DB /* ImmersalLocalizerFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A26AD48F3AE21178241BDF54 /* ImmersalLocalizerFactoryTests.swift */; };
@@ -197,6 +201,7 @@
 		152F81624E8A26CE2AAFE106 /* libswresample.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = libswresample.framework; path = Vendor/RTK/libswresample.framework; sourceTree = "<group>"; };
 		159A0DD7188F2D59AFF25CDB /* ExploreMapFieldsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreMapFieldsTests.swift; sourceTree = "<group>"; };
 		17C3430B4B93AF715FDBD767 /* ScanLinker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanLinker.swift; sourceTree = "<group>"; };
+		1825B617B5E1FC4BF3C0E619 /* FrameGrabber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameGrabber.swift; sourceTree = "<group>"; };
 		1A415DE7CEF30A112BEE4C34 /* AISEEBIN.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AISEEBIN.entitlements; sourceTree = "<group>"; };
 		1C4904BF566FFFC2584485B6 /* VoiceClips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceClips.swift; sourceTree = "<group>"; };
 		1D65966B319CDC6C9333AA58 /* ScanLinkSolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanLinkSolver.swift; sourceTree = "<group>"; };
@@ -224,6 +229,7 @@
 		43F2546231C38CF2AC02B574 /* DiagnosticsLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsLog.swift; sourceTree = "<group>"; };
 		44488FCAC2B5F4FE7DDF9669 /* AiSeeMicrophone.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeMicrophone.swift; sourceTree = "<group>"; };
 		457562D5E3B33F131B5204FF /* FieldTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FieldTestView.swift; sourceTree = "<group>"; };
+		47206E1A2799C8B650F4E05F /* ExploreClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreClient.swift; sourceTree = "<group>"; };
 		4A3E9E698BB47484D5B90BE7 /* AISEEIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISEEIntents.swift; sourceTree = "<group>"; };
 		4EC5B2AE569FC940946C603A /* GuidancePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidancePolicy.swift; sourceTree = "<group>"; };
 		4EE4F65AADED8973A6CB5994 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -309,12 +315,14 @@
 		DD0AAA2F434BF04EF6309461 /* LocationDescriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationDescriber.swift; sourceTree = "<group>"; };
 		DD61D73D3FA8E3165ABFB6C5 /* GlassesCamera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesCamera.swift; sourceTree = "<group>"; };
 		DDB9021F1A22A773A3BA02C8 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		E263A9D1D7FA6C4937BA493B /* AskContextTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskContextTests.swift; sourceTree = "<group>"; };
 		E35653D3A720A5BAFB9DBF6C /* libavutil.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = libavutil.framework; path = Vendor/RTK/libavutil.framework; sourceTree = "<group>"; };
 		E45842AD38368B637A1DCAEC /* FixGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixGate.swift; sourceTree = "<group>"; };
 		E556DF97F5DF1F731E0006F7 /* LocalizerReselectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizerReselectionTests.swift; sourceTree = "<group>"; };
 		EC925ED0DE3BBD173F125656 /* ScanLinkSolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanLinkSolverTests.swift; sourceTree = "<group>"; };
 		ED0A9F795D184C9FCE140CBA /* AiSeeDeviceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeDeviceCoordinator.swift; sourceTree = "<group>"; };
 		F0189CC38F649B3DDBC7969A /* RTKAudioStreaming.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RTKAudioStreaming.framework; path = Vendor/RTK/RTKAudioStreaming.framework; sourceTree = "<group>"; };
+		F162832E061500E098FF2A66 /* AskContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskContext.swift; sourceTree = "<group>"; };
 		F1F95ED4DD35644F26C28B1B /* ImmersalMapDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalMapDownloader.swift; sourceTree = "<group>"; };
 		F237A6DFAC3FB676EB0856AF /* AuthoringView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthoringView.swift; sourceTree = "<group>"; };
 		F40B2897550EAA469F0CED87 /* MapStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapStore.swift; sourceTree = "<group>"; };
@@ -535,6 +543,7 @@
 		C1D49FBDB1DDE281D9B774A3 /* AISEEBINTests */ = {
 			isa = PBXGroup;
 			children = (
+				E263A9D1D7FA6C4937BA493B /* AskContextTests.swift */,
 				28008B811196FACD04FF216E /* BeaconPolicyTests.swift */,
 				0938FA1C5C23CAF8F590F772 /* BodyHeadingTests.swift */,
 				D1410246899B0ADAEFD12524 /* CommandParserTests.swift */,
@@ -601,6 +610,9 @@
 		D64F6D1EE53D05F2C2BCB2CE /* Explore */ = {
 			isa = PBXGroup;
 			children = (
+				F162832E061500E098FF2A66 /* AskContext.swift */,
+				47206E1A2799C8B650F4E05F /* ExploreClient.swift */,
+				1825B617B5E1FC4BF3C0E619 /* FrameGrabber.swift */,
 				2E6436987BFCFE4937BB5FB1 /* TourPlanner.swift */,
 			);
 			path = Explore;
@@ -767,6 +779,7 @@
 				9C1BE1B10C42E598E911EF1B /* AiSeeSequencing.swift in Sources */,
 				C2CFE54B7F0F373CD83ACA22 /* AiSeeTypes.swift in Sources */,
 				C520E967DF7CBBC6FBFE032E /* AppCommandBus.swift in Sources */,
+				02F440EB773D8D5B5B8D414C /* AskContext.swift in Sources */,
 				C604EB7C644F26CCD766F0B8 /* AuthoringView.swift in Sources */,
 				2D26D88B155F63704D82FF27 /* BeaconPolicy.swift in Sources */,
 				C41FF763635A9E8C52E78A78 /* BeaconSynth.swift in Sources */,
@@ -775,12 +788,14 @@
 				58BAFE9E68010A289EC9A83B /* ContentView.swift in Sources */,
 				9690AF9CF20D2C2F02F70BC6 /* DesignSystem.swift in Sources */,
 				2FFDE7F8F85D76EEB248FD74 /* DiagnosticsLog.swift in Sources */,
+				1D19845FC374F5E14AD4BF3F /* ExploreClient.swift in Sources */,
 				2C5ADCC772FA300F607AB824 /* FieldTestClient.swift in Sources */,
 				923A593D3AB89BFE13453371 /* FieldTestSession.swift in Sources */,
 				5668966883FFC37E040A7BBF /* FieldTestView.swift in Sources */,
 				7A4E680AF61823BF493BB8F1 /* FixGate.swift in Sources */,
 				B21D44B250BDA53420770296 /* FocalCalibration.swift in Sources */,
 				B0FE9A66912963DAC418682E /* FocalCalibrationRunner.swift in Sources */,
+				8DB681803CAF46B766D834CE /* FrameGrabber.swift in Sources */,
 				63FA5192A7FF32147EF4368E /* GlassesCamera.swift in Sources */,
 				D53269B6C3B17A42E8A7B200 /* GlassesFixFeed.swift in Sources */,
 				56040B656C749A4E56F4AE7C /* GlassesMode.swift in Sources */,
@@ -844,6 +859,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5DF4A00371659A8C0F1B9BB5 /* AskContextTests.swift in Sources */,
 				1CF8BFC9D6C8E761D96C511A /* BeaconPolicyTests.swift in Sources */,
 				0A05969DD5B3CD160C5B6C74 /* BodyHeadingTests.swift in Sources */,
 				913E3FEF6D2B3E8FC8A97ABB /* CommandParserTests.swift in Sources */,
