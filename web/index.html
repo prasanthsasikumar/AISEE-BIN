@@ -50,6 +50,13 @@
     <h2>Map</h2>
     <label>Name <input id="mapName"></label>
     <div id="mapStats" class="muted small"></div>
+    <details id="explorePanel" class="scan">
+      <summary>Explore tour (sighted visitors)</summary>
+      <label>Tour start <select id="mapTourStart"></select></label>
+      <label>Tour end <select id="mapTourEnd"></select></label>
+      <div class="muted small">Blank start: a place called <code>entrance</code>. Blank end: back at the start.</div>
+      <label>Venue info (used to answer questions) <textarea id="mapVenueInfo" rows="3" placeholder="Opening hours, toilets, café, the dome itself"></textarea></label>
+    </details>
     <details id="scanTools" class="scan">
       <summary>Scan view</summary>
       <div class="muted small">Only points in this height band are drawn. Floor shows the walkable area; the band above it shows walls and furniture.</div>
@@ -107,6 +114,22 @@
       </div>
       <label>Spoken description <textarea id="nodeDetails" rows="3"></textarea></label>
       <label>Aliases (comma separated) <input id="nodeAliases" placeholder="bathroom, toilet"></label>
+      <div id="nodeExplore">
+        <div class="row">
+          <label>Visit minutes <input id="nodeMinutes" type="number" min="0.5" step="0.5" placeholder="3"></label>
+          <label>Highlight
+            <select id="nodeHighlight">
+              <option value="1">Must see</option>
+              <option value="">Good</option>
+              <option value="3">If there's time</option>
+              <option value="0">Not a tour stop</option>
+            </select>
+          </label>
+        </div>
+        <label>Tags (comma separated) <input id="nodeTags" placeholder="orchids, desert, kids"></label>
+        <label>About (used to answer questions) <textarea id="nodeAbout" rows="4"></textarea></label>
+        <label>Photo URL <input id="nodePhoto" placeholder="https://…"></label>
+      </div>
       <div class="row">
         <label>x (m) <input id="nodeX" type="number" step="0.05"></label>
         <label>z (m) <input id="nodeZ" type="number" step="0.05"></label>
@@ -148,6 +171,7 @@
   <div id="status3d" class="muted small"></div>
 </div>
 <script src="immersal.js"></script>
+<script src="explore.js"></script>
 <script src="align.js"></script>
 <script src="app.js"></script>
 </body>
