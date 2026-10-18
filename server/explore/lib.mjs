@@ -121,3 +121,27 @@ export function pruneLogs(dir, now = new Date(), days = 30) {
     if (m && Date.parse(`${m[1]}T00:00:00Z`) < cutoff) fs.unlinkSync(path.join(dir, name));
   }
 }
+
+/**
+ * Streams answer text from Claude's events to the HTTP response. The 200 goes out
+ * with the first words, so an upstream failure before then throws and the caller
+ * can answer 502; a failure after that keeps what was already sent.
+ */
+export async function pipeAnswer(events, res) {
+  let answer = '';
+  try {
+    for await (const event of events) {
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        if (!res.headersSent) {
+          res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+        }
+        answer += event.delta.text;
+        res.write(event.delta.text);
+      }
+    }
+  } catch (err) {
+    if (!answer) throw err;
+    console.error('ask stream broke after', answer.length, 'chars:', err?.message);
+  }
+  return answer;
+}

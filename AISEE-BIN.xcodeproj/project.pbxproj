@@ -56,6 +56,7 @@
 		46CF3317BF2FF1CF68BD5DAF /* GlassesModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E623071865994A1A1FCB1F5 /* GlassesModeTests.swift */; };
 		475A70A66FE1F0B4A3FF88E6 /* MapAuthoringSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B170D7D1B7AA8E6E046364DF /* MapAuthoringSession.swift */; };
 		486495AE9EEA8A17CA983F25 /* PlaceAdder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE5F0D8300A265391C0C9A75 /* PlaceAdder.swift */; };
+		488F0A9064B9205F68CA09ED /* ExploreReviewFixTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1E3F42C27B669F4C5C444F1 /* ExploreReviewFixTests.swift */; };
 		498368D8D2B64DC2E1EBD309 /* libavutil.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E35653D3A720A5BAFB9DBF6C /* libavutil.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		4E9F75AF036A7DAACBFE921D /* VoiceCommandRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFD7F0E186803749AE191EF7 /* VoiceCommandRecognizer.swift */; };
 		4F135C3761D0B9B3A1FE9BAC /* RTKAudioStreaming.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F0189CC38F649B3DDBC7969A /* RTKAudioStreaming.framework */; };
@@ -307,6 +308,7 @@
 		BDADC1F553BEA6EB01677E44 /* ImmersalNative.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalNative.swift; sourceTree = "<group>"; };
 		BF7B9346BA410D9FDF2F6EFD /* NavigationGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationGeometryTests.swift; sourceTree = "<group>"; };
 		BFD7F0E186803749AE191EF7 /* VoiceCommandRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandRecognizer.swift; sourceTree = "<group>"; };
+		C1E3F42C27B669F4C5C444F1 /* ExploreReviewFixTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreReviewFixTests.swift; sourceTree = "<group>"; };
 		C35D224A964A8244E7EB6E27 /* AISEEBINTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AISEEBINTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C67D5122D64844F3C54AE6C6 /* BeaconSynth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconSynth.swift; sourceTree = "<group>"; };
 		C6BB9E273FDF3C1C7D306F56 /* ARPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARPreviewView.swift; sourceTree = "<group>"; };
@@ -562,6 +564,7 @@
 				0938FA1C5C23CAF8F590F772 /* BodyHeadingTests.swift */,
 				D1410246899B0ADAEFD12524 /* CommandParserTests.swift */,
 				159A0DD7188F2D59AFF25CDB /* ExploreMapFieldsTests.swift */,
+				C1E3F42C27B669F4C5C444F1 /* ExploreReviewFixTests.swift */,
 				1E623071865994A1A1FCB1F5 /* GlassesModeTests.swift */,
 				096480BB907702BBDE476ED1 /* GlassesPositioningLogicTests.swift */,
 				BB3484E049C64F8737394EF7 /* GuidancePolicyTests.swift */,
@@ -890,6 +893,7 @@
 				0A05969DD5B3CD160C5B6C74 /* BodyHeadingTests.swift in Sources */,
 				913E3FEF6D2B3E8FC8A97ABB /* CommandParserTests.swift in Sources */,
 				271ABCA1C030BC0525F6DFC8 /* ExploreMapFieldsTests.swift in Sources */,
+				488F0A9064B9205F68CA09ED /* ExploreReviewFixTests.swift in Sources */,
 				46CF3317BF2FF1CF68BD5DAF /* GlassesModeTests.swift in Sources */,
 				1FFA070BD5723B4ED54F3D92 /* GlassesPositioningLogicTests.swift in Sources */,
 				A69A562480CA2B3D8A55B97D /* GuidancePolicyTests.swift in Sources */,
@@ -966,6 +970,7 @@
 				CODE_SIGN_ENTITLEMENTS = AISEEBIN/AISEEBIN.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = ImmersalNativeStubs.c;
+				EXPLORE_TOKEN = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"Vendor/RTK\"",
@@ -1169,6 +1174,7 @@
 				CODE_SIGN_ENTITLEMENTS = AISEEBIN/AISEEBIN.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = ImmersalNativeStubs.c;
+				EXPLORE_TOKEN = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"Vendor/RTK\"",

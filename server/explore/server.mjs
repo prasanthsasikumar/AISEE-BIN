@@ -4,7 +4,7 @@ import http from 'node:http';
 import Anthropic from '@anthropic-ai/sdk';
 import {
   RateLimiter, buildAskSystemPrompt, buildAskContent, buildPlanPrompt, PLAN_SCHEMA,
-  sanitizePlan, appendLog, pruneLogs,
+  sanitizePlan, appendLog, pruneLogs, pipeAnswer,
 } from './lib.mjs';
 
 const env = process.env;
@@ -50,8 +50,7 @@ async function ask(req, res, installId) {
   if (typeof body.question !== 'string' || !body.question.trim()) return send(res, 400, { error: 'question' });
   const started = Date.now();
   let answer = '';
-  let firstByteMS = null;
-  res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-accel-buffering': 'no' });
+  let status = 200;
   try {
     const stream = client.beta.messages.stream({
       model: MODEL,
@@ -61,27 +60,25 @@ async function ask(req, res, installId) {
       messages: [{ role: 'user', content: buildAskContent(body) }],
       ...FALLBACK,
     });
-    for await (const event of stream) {
-      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        if (firstByteMS === null) firstByteMS = Date.now() - started;
-        answer += event.delta.text;
-        res.write(event.delta.text);
-      }
-    }
-    const final = await stream.finalMessage();
-    if (final.stop_reason === 'refusal' && !answer) {
+    answer = await pipeAnswer(stream, res);
+    const final = answer ? null : await stream.finalMessage();
+    if (!answer && final?.stop_reason === 'refusal') {
       answer = "Sorry, I can't help with that one. Ask me about the plants around you.";
-      res.write(answer);
+      send(res, 200, answer, 'text/plain; charset=utf-8');
+    } else if (!answer) {
+      status = 502;
+      send(res, 502, { error: 'empty' });
     }
   } catch (err) {
     console.error('ask failed', err?.status, err?.message);
-    if (!answer) res.write("Sorry, I couldn't answer that just now.");
+    status = 502;
+    if (!res.headersSent) send(res, 502, { error: 'upstream' });
   }
-  res.end();
+  if (!res.writableEnded) res.end();
   appendLog(LOG_DIR, {
-    route: 'ask', installId, mapSlug: body.mapSlug, question: body.question, answer,
+    route: 'ask', status, installId, mapSlug: body.mapSlug, question: body.question, answer,
     places: (body.places ?? []).map(p => p.id), image: Boolean(body.imageJPEGBase64),
-    firstByteMS, totalMS: Date.now() - started,
+    totalMS: Date.now() - started,
   });
 }
 

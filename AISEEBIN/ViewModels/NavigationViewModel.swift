@@ -147,6 +147,8 @@ final class NavigationViewModel {
     /// Explore mode: no spoken cues, beeps or passing commentary; routes still
     /// progress, replan and arrive. Explore speaks for itself.
     var quietGuidance = false
+    /// With `quietGuidance`, still speak route cues (Explore's "Voice directions").
+    var speakCuesWhenQuiet = false
     /// Called with the destination's id when a route arrives.
     @ObservationIgnored var onArrived: ((String) -> Void)?
     /// When set, finished speech goes here instead of the command parser.
@@ -662,7 +664,7 @@ final class NavigationViewModel {
         if let instruction = makeInstruction(from: currentTransform) {
             currentInstruction = instruction
             lastInstruction = instruction
-            if !quietGuidance {
+            if !quietGuidance || speakCuesWhenQuiet {
                 guidance.speak("Starting route to the \(destination.name). \(instruction.spokenText)", interrupt: true)
             }
         } else {
@@ -859,6 +861,14 @@ final class NavigationViewModel {
     }
 
     private func didChange(mode: AppMode, from previous: AppMode) {
+        if previous == .explore {
+            // Hand the session back exactly as Navigate expects it, whichever mode is next.
+            stopNavigation()
+            quietGuidance = false
+            speakCuesWhenQuiet = false
+            onArrived = nil
+            transcriptOverride = nil
+        }
         switch mode {
         case .authoring:
             stopNavigation()
@@ -872,12 +882,6 @@ final class NavigationViewModel {
             Task { await checkForMapUpdate() }
         case .settings, .explore:
             break
-        }
-        if previous == .explore {
-            stopNavigation()
-            quietGuidance = false
-            onArrived = nil
-            transcriptOverride = nil
         }
     }
 
@@ -937,7 +941,7 @@ final class NavigationViewModel {
                                   now: snapshot.timestamp)
         guard let cue, !recognizer.isListening || quietGuidance else { return }
 
-        if quietGuidance {
+        if quietGuidance && !speakCuesWhenQuiet {
             // Explore: act on the cue without saying it.
         } else if case .offRoute = cue, beaconEnabled {
             // The corridor earcon first, in the beacon's own voice; the words follow it.

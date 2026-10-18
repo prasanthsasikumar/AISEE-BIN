@@ -22,6 +22,7 @@ final class ExploreViewModel {
     }
 
     static let failureText = "Sorry, I couldn't answer that just now."
+    static let unwalkableText = "This map's tour can't be walked yet. Please ask a member of staff."
     static let timeChoices: [Double] = [10, 20, 30, 45]
 
     let nav: NavigationViewModel
@@ -36,7 +37,7 @@ final class ExploreViewModel {
     private(set) var clock: VisitClock?
     private(set) var isPlanningFromSpeech = false
     private(set) var message: String?
-    private var skippedOffers: Set<String> = []
+    private var keptOffers: Set<String> = []
 
     private(set) var askState: AskState = .idle
     var isAskOpen = false
@@ -45,9 +46,10 @@ final class ExploreViewModel {
     private enum ListeningFor { case question, plan }
     @ObservationIgnored private var listeningFor: ListeningFor?
 
-    /// Turn-by-turn speech; off by default for sighted visitors.
+    /// Turn-by-turn speech; off by default for sighted visitors. Beeps and
+    /// passing/hazard announcements stay off either way.
     var voiceDirections = false {
-        didSet { nav.quietGuidance = !voiceDirections }
+        didSet { nav.speakCuesWhenQuiet = voiceDirections }
     }
 
     init(nav: NavigationViewModel, client: ExploreClient = ExploreClient()) {
@@ -82,7 +84,8 @@ final class ExploreViewModel {
 
     /// Called when the screen appears: Explore is quiet and plans on the current map.
     func enter() {
-        nav.quietGuidance = !voiceDirections
+        nav.quietGuidance = true
+        nav.speakCuesWhenQuiet = voiceDirections
         if phase == .welcome { planner = TourPlanner(map: nav.displayMap) }
     }
 
@@ -92,7 +95,7 @@ final class ExploreViewModel {
         planner = TourPlanner(map: nav.displayMap)
         budgetMinutes = minutes
         plan = planner.plan(TourRequest(minutes: minutes))
-        message = nil
+        message = plan == nil ? Self.unwalkableText : nil
         if plan != nil { phase = .preview }
     }
 
@@ -110,7 +113,7 @@ final class ExploreViewModel {
             let request = try await client.plan(utterance: utterance, exhibits: planner.candidates)
             budgetMinutes = request.minutes
             plan = planner.plan(request)
-            message = nil
+            message = plan == nil ? Self.unwalkableText : nil
             if plan != nil { phase = .preview }
         } catch {
             message = "Sorry, I didn't catch that. Tap a time instead."
@@ -142,11 +145,12 @@ final class ExploreViewModel {
 
     func start() {
         guard let plan else { return }
-        nav.quietGuidance = !voiceDirections
+        nav.quietGuidance = true
+        nav.speakCuesWhenQuiet = voiceDirections
         nav.onArrived = { [weak self] id in self?.arrived(at: id) }
         clock = VisitClock(plan: plan, schedule: planner.schedule(plan), startedAt: Date())
         stopIndex = 0
-        skippedOffers = []
+        keptOffers = []
         phase = .walking
         goToTarget()
     }
@@ -179,11 +183,11 @@ final class ExploreViewModel {
     /// The stop to offer skipping, if the visitor is running late and has not said no to it.
     func lateOffer(now: Date) -> NavigationPOI? {
         guard phase == .walking, let id = clock?.lateOffer(map: map, now: now, nextIndex: stopIndex),
-              !skippedOffers.contains(id) else { return nil }
+              !keptOffers.contains(id) else { return nil }
         return poi(id)
     }
 
-    func keep(_ id: String) { skippedOffers.insert(id) }
+    func keep(_ id: String) { keptOffers.insert(id) }
 
     func skip(_ id: String) {
         guard var plan, let index = plan.stopIDs.firstIndex(of: id) else { return }
@@ -193,6 +197,8 @@ final class ExploreViewModel {
             self.clock = VisitClock(plan: newPlan, schedule: planner.schedule(newPlan), startedAt: clock.startedAt)
         }
         if index == stopIndex { goToTarget() } else if index < stopIndex { stopIndex -= 1 }
+        // A skip is the answer to being late: start counting lateness again from here.
+        clock?.forgive(now: Date(), nextIndex: stopIndex)
     }
 
     private func goToTarget() {

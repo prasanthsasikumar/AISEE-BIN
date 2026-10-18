@@ -11,6 +11,8 @@ struct VisitClock {
     let schedule: [Double]
     let startedAt: Date
     private var arrivals: [Int: Date] = [:]
+    /// Lateness already accepted (by skipping a stop), in minutes.
+    private var forgiven: Double = 0
 
     init(plan: TourPlan, schedule: [Double], startedAt: Date) {
         self.plan = plan
@@ -20,6 +22,11 @@ struct VisitClock {
 
     mutating func arrived(at stopIndex: Int, now: Date) {
         arrivals[stopIndex] = now
+    }
+
+    /// Accepts the current lateness, so the next offer needs another 3 minutes of slipping.
+    mutating func forgive(now: Date, nextIndex: Int) {
+        forgiven += behindBy(now: now, nextIndex: nextIndex)
     }
 
     func minutesLeft(budget: Double, now: Date) -> Double {
@@ -35,7 +42,7 @@ struct VisitClock {
         if nextIndex < schedule.count {
             behind = max(behind, elapsed(now) - schedule[nextIndex])
         }
-        return max(0, behind)
+        return max(0, behind - forgiven)
     }
 
     /// The id of the lowest-value stop still ahead, once more than 3 minutes behind.

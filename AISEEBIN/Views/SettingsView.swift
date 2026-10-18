@@ -54,6 +54,8 @@ struct SettingsView: View {
         Section {
             Toggle("Start in Explore", isOn: $startInExplore)
             Button("Open Explore now") { viewModel.mode = .explore }
+            LabeledContent("Ask token", value: ExploreConfig.token.isEmpty ? "Missing: questions will fail" : "Set")
+                .foregroundStyle(ExploreConfig.token.isEmpty ? .red : .primary)
         } header: {
             Text("Explore (public visitors)")
         } footer: {

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { RateLimiter, buildAskContent, buildAskSystemPrompt, pruneLogs, logPath, sanitizePlan } from './lib.mjs';
+import { RateLimiter, buildAskContent, buildAskSystemPrompt, pruneLogs, logPath, sanitizePlan, pipeAnswer } from './lib.mjs';
 
 test('rate limiter allows 60 per install per hour, then refuses', () => {
   let now = 0;
@@ -76,4 +76,37 @@ test('sanitizePlan keeps only known exhibit ids and a sane minute count', () => 
   assert.deepEqual(plan, { minutes: 20, interests: ['orchids'], mustSee: ['p1'] });
   assert.equal(sanitizePlan({ minutes: -4, interests: [], mustSee: [] }, []).minutes, 20);
   assert.equal(sanitizePlan({ minutes: 600, interests: [], mustSee: [] }, []).minutes, 180);
+});
+
+function fakeRes() {
+  return { status: null, body: '', writeHead(s) { this.status = s; this.headersSent = true; }, write(t) { this.body += t; }, headersSent: false };
+}
+async function* events(texts, failAfter) {
+  let i = 0;
+  for (const t of texts) {
+    if (failAfter === i++) throw new Error('upstream');
+    yield { type: 'content_block_delta', delta: { type: 'text_delta', text: t } };
+  }
+  if (failAfter === i) throw new Error('upstream');
+}
+
+test('pipeAnswer sends 200 only once text arrives', async () => {
+  const res = fakeRes();
+  const answer = await pipeAnswer(events(['Hi ', 'there.']), res);
+  assert.equal(res.status, 200);
+  assert.equal(res.body, 'Hi there.');
+  assert.equal(answer, 'Hi there.');
+});
+
+test('pipeAnswer throws before any header when upstream fails first', async () => {
+  const res = fakeRes();
+  await assert.rejects(pipeAnswer(events(['x'], 0), res));
+  assert.equal(res.status, null, 'caller can still send 502');
+});
+
+test('pipeAnswer keeps the partial answer when upstream fails midway', async () => {
+  const res = fakeRes();
+  const answer = await pipeAnswer(events(['Half ', 'way'], 1), res);
+  assert.equal(res.status, 200);
+  assert.equal(answer, 'Half ');
 });
