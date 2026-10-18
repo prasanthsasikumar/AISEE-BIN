@@ -17,7 +17,10 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ModeSwitcher(mode: $viewModel.mode)
+            // Explore is for the public: no staff mode switcher (staff leave via the logo).
+            if viewModel.mode != .explore {
+                ModeSwitcher(mode: $viewModel.mode)
+            }
 
             switch viewModel.mode {
             case .navigation:
@@ -28,7 +31,7 @@ struct ContentView: View {
             case .settings:
                 SettingsView(viewModel: viewModel)
             case .explore:
-                EmptyView() // Explore screens arrive in the next commit.
+                ExploreView(nav: viewModel)
             }
         }
         .background(viewModel.mode == .navigation ? DS.N.canvas : DS.A.canvas)

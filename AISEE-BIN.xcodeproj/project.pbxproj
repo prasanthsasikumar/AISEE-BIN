@@ -13,6 +13,7 @@
 		0350E3E61F21F3D1356A8F91 /* RTKAudioConnectSDK.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B5CD47A0E9D56274EC4F805D /* RTKAudioConnectSDK.framework */; };
 		03ECB77ACC60FBB1829D546D /* ScanLinkSolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC925ED0DE3BBD173F125656 /* ScanLinkSolverTests.swift */; };
 		045107E9B6075E1C2D509F9A /* RTKAudioStreaming.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F0189CC38F649B3DDBC7969A /* RTKAudioStreaming.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		071A245D21322AD7679D582C /* ExploreAskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D5062EAF6E9456593C0A79E /* ExploreAskView.swift */; };
 		07304DF33200BE3D6DBD045C /* ProbeLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70152EF34D9E97DF4C741CE6 /* ProbeLog.swift */; };
 		083AC06FF3A59C32C8696908 /* ImmersalMapDownloaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9623757E38AE453BB0634565 /* ImmersalMapDownloaderTests.swift */; };
 		0A05969DD5B3CD160C5B6C74 /* BodyHeadingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0938FA1C5C23CAF8F590F772 /* BodyHeadingTests.swift */; };
@@ -43,6 +44,7 @@
 		2ECCD0AE96263AB05B9C6D78 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4EE4F65AADED8973A6CB5994 /* Assets.xcassets */; };
 		2FCA36329F4363C831195533 /* ImmersalNative.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDADC1F553BEA6EB01677E44 /* ImmersalNative.swift */; };
 		2FFDE7F8F85D76EEB248FD74 /* DiagnosticsLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43F2546231C38CF2AC02B574 /* DiagnosticsLog.swift */; };
+		318C431FA60542BB51A753CF /* ExploreStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9253ED28195630473FB4A65 /* ExploreStyle.swift */; };
 		34BD1D2E46A272EECCBA94BC /* PathfindingEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FEA60DAC23822F2F832ED26 /* PathfindingEngineTests.swift */; };
 		35FDBA0D16CFB735FBDD4F24 /* PlaceAdderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 423DD5B925169E1FF0038AE2 /* PlaceAdderTests.swift */; };
 		37F09F70666F696E32B6F55B /* GlassesPositioning.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97885123C8C5A05ACE0A19CD /* GlassesPositioning.swift */; };
@@ -125,6 +127,7 @@
 		C68FE9D7EC5301E27EC4C929 /* ImmersalLocalizerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC897795AEE21F090FAF5F8B /* ImmersalLocalizerFactory.swift */; };
 		C85F32D60498BE4905507A9D /* ImmersalClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F0B7D19FAD5C3C4FF953A24 /* ImmersalClient.swift */; };
 		CAC76647C882CC3E396895C5 /* GlassesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6FA8490E8C6B82408C82360 /* GlassesView.swift */; };
+		CBAA25470EAAC58F72E23D84 /* ExploreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8C65E7C8774BCB11D8CDAC /* ExploreView.swift */; };
 		CCBA8979BFA8F2A67304764A /* clips in Resources */ = {isa = PBXBuildFile; fileRef = B17CF5132281D5BC845C7C19 /* clips */; };
 		CD305969C1791AC8EA3A7271 /* RTKAudioConnectSDK.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = B5CD47A0E9D56274EC4F805D /* RTKAudioConnectSDK.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CE9120F33268F1B5B3F453B7 /* VisitClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 296F8FFD48FD22A6B360A110 /* VisitClock.swift */; };
@@ -222,6 +225,7 @@
 		28EA359CE2C1A86BE853EF0E /* NavigationInstructionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationInstructionTests.swift; sourceTree = "<group>"; };
 		296F8FFD48FD22A6B360A110 /* VisitClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitClock.swift; sourceTree = "<group>"; };
 		2C578835CC242A3C51D0FBB4 /* GlassesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesService.swift; sourceTree = "<group>"; };
+		2C8C65E7C8774BCB11D8CDAC /* ExploreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreView.swift; sourceTree = "<group>"; };
 		2E6436987BFCFE4937BB5FB1 /* TourPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TourPlanner.swift; sourceTree = "<group>"; };
 		30B39DE568843C3A29626009 /* PointCloudCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PointCloudCodec.swift; sourceTree = "<group>"; };
 		36A460CB1DAF5EF618E9D92D /* PhoneImmersalLocalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneImmersalLocalizer.swift; sourceTree = "<group>"; };
@@ -237,6 +241,7 @@
 		457562D5E3B33F131B5204FF /* FieldTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FieldTestView.swift; sourceTree = "<group>"; };
 		47206E1A2799C8B650F4E05F /* ExploreClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreClient.swift; sourceTree = "<group>"; };
 		4A3E9E698BB47484D5B90BE7 /* AISEEIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISEEIntents.swift; sourceTree = "<group>"; };
+		4D5062EAF6E9456593C0A79E /* ExploreAskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreAskView.swift; sourceTree = "<group>"; };
 		4EC5B2AE569FC940946C603A /* GuidancePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidancePolicy.swift; sourceTree = "<group>"; };
 		4EE4F65AADED8973A6CB5994 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		4FAE97AF5CC1E0AF218453C1 /* MapSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSyncTests.swift; sourceTree = "<group>"; };
@@ -295,6 +300,7 @@
 		B5B9DCE8EC93EFD960A3F301 /* ImmersalMapCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalMapCacheTests.swift; sourceTree = "<group>"; };
 		B5CD47A0E9D56274EC4F805D /* RTKAudioConnectSDK.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RTKAudioConnectSDK.framework; path = Vendor/RTK/RTKAudioConnectSDK.framework; sourceTree = "<group>"; };
 		B8525B61C966C9BB4D71CBA2 /* ProbeMathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProbeMathTests.swift; sourceTree = "<group>"; };
+		B9253ED28195630473FB4A65 /* ExploreStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreStyle.swift; sourceTree = "<group>"; };
 		BA86CE5678D12689FADC8D83 /* ImmersalConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalConfig.swift; sourceTree = "<group>"; };
 		BB3484E049C64F8737394EF7 /* GuidancePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidancePolicyTests.swift; sourceTree = "<group>"; };
 		BCBEEE1EDDE5546252A5554A /* PoseHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoseHistory.swift; sourceTree = "<group>"; };
@@ -621,7 +627,10 @@
 			isa = PBXGroup;
 			children = (
 				F162832E061500E098FF2A66 /* AskContext.swift */,
+				4D5062EAF6E9456593C0A79E /* ExploreAskView.swift */,
 				47206E1A2799C8B650F4E05F /* ExploreClient.swift */,
+				B9253ED28195630473FB4A65 /* ExploreStyle.swift */,
+				2C8C65E7C8774BCB11D8CDAC /* ExploreView.swift */,
 				150740D5A4432A1AED0FA9E8 /* ExploreViewModel.swift */,
 				1825B617B5E1FC4BF3C0E619 /* FrameGrabber.swift */,
 				2E6436987BFCFE4937BB5FB1 /* TourPlanner.swift */,
@@ -800,7 +809,10 @@
 				58BAFE9E68010A289EC9A83B /* ContentView.swift in Sources */,
 				9690AF9CF20D2C2F02F70BC6 /* DesignSystem.swift in Sources */,
 				2FFDE7F8F85D76EEB248FD74 /* DiagnosticsLog.swift in Sources */,
+				071A245D21322AD7679D582C /* ExploreAskView.swift in Sources */,
 				1D19845FC374F5E14AD4BF3F /* ExploreClient.swift in Sources */,
+				318C431FA60542BB51A753CF /* ExploreStyle.swift in Sources */,
+				CBAA25470EAAC58F72E23D84 /* ExploreView.swift in Sources */,
 				B30C2C3F747BCBCA18FB9A29 /* ExploreViewModel.swift in Sources */,
 				2C5ADCC772FA300F607AB824 /* FieldTestClient.swift in Sources */,
 				923A593D3AB89BFE13453371 /* FieldTestSession.swift in Sources */,

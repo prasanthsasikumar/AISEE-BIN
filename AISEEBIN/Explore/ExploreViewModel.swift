@@ -59,11 +59,26 @@ final class ExploreViewModel {
     // MARK: - Map
 
     var map: NavigationMap { nav.displayMap }
-    var hasTour: Bool { planner.startID != nil }
+    /// A start, and somewhere to go: a stop, or an end that is not the start.
+    var hasTour: Bool {
+        planner.startID != nil && (!planner.candidates.isEmpty || planner.endID != planner.startID)
+    }
     var addableStops: [NavigationPOI] {
         planner.candidates.filter { !(plan?.stopIDs.contains($0.id) ?? false) }.sorted { $0.name < $1.name }
     }
     func poi(_ id: String) -> NavigationPOI? { map.pois.first { $0.id == id } }
+
+    /// Every node the whole tour walks through, start to end, for the preview map.
+    var tourPath: [String] {
+        guard let plan else { return [] }
+        let engine = PathfindingEngine(map: map)
+        let route = [plan.startID] + plan.stopIDs + [plan.endID]
+        var path: [String] = [plan.startID]
+        for (a, b) in zip(route, route.dropFirst()) where a != b {
+            path += engine.findPath(from: a, to: b).dropFirst().map(engine.name(of:))
+        }
+        return path
+    }
 
     /// Called when the screen appears: Explore is quiet and plans on the current map.
     func enter() {
@@ -199,6 +214,16 @@ final class ExploreViewModel {
             nav.guidance.speak("That's your visit. Thanks for coming to the Flower Dome.", interrupt: true)
         }
     }
+
+    #if DEBUG
+    /// Simulator screenshots only.
+    func demo(_ phase: String) {
+        choose(minutes: 20)
+        if phase == "complete" { self.phase = .complete }
+        if phase == "walking" { start() }
+        if phase == "arrived", plan?.stopIDs.isEmpty == false { self.phase = .arrived(stopIndex: 0) }
+    }
+    #endif
 
     // MARK: - Asking
 

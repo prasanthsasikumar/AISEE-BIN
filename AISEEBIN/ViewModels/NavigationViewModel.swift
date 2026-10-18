@@ -290,6 +290,9 @@ final class NavigationViewModel {
         // `-startMode author` launch argument opens straight into Authoring (used for screenshots and QA).
         if UserDefaults.standard.string(forKey: "startMode") == "author" {
             self.mode = .authoring
+        } else if UserDefaults.standard.bool(forKey: "explore.startInExplore") {
+            // Settings → "Start in Explore", for phones handed to the public.
+            self.mode = .explore
         }
     }
 

@@ -23,6 +23,7 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 immersalSection
+                exploreSection
                 guidanceSection
                 glassesSection
                 measurementSection
@@ -42,6 +43,21 @@ struct SettingsView: View {
                       mapStore: viewModel.mapStore,
                       places: viewModel.mapStore.loadMap()?.pois ?? SampleGreenhouseMap.map.pois,
                       onAlignmentSaved: { viewModel.reloadMapKeepingSession() })
+        }
+    }
+
+    // MARK: - Explore
+
+    @AppStorage("explore.startInExplore") private var startInExplore = false
+
+    private var exploreSection: some View {
+        Section {
+            Toggle("Start in Explore", isOn: $startInExplore)
+            Button("Open Explore now") { viewModel.mode = .explore }
+        } header: {
+            Text("Explore (public visitors)")
+        } footer: {
+            Text("Phones handed to visitors open straight into Explore. To get back here, press and hold the AiSee logo on the Explore welcome screen for 3 seconds.")
         }
     }
 
