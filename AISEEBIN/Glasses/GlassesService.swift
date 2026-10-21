@@ -58,6 +58,11 @@ final class GlassesService {
     /// the app is in the foreground (every frame, or four a second). Never used for localization — see `onFrame`.
     private(set) var previewImage: UIImage?
     private(set) var framesPerSecond = 0
+    /// What actually arrived over the last second, whatever was asked of the
+    /// encoder: compressed video kbps and keyframes. Nil before the first second.
+    private(set) var receivedKbps: Int?
+    private(set) var keyframesPerSecond: Int?
+    @ObservationIgnored private var secondsLogged = 0
     /// How much later than its best this second's frames arrived, in ms: the
     /// delay queued up between the glasses' encoder and the phone. Nil when the
     /// stream carries no timestamps.
@@ -104,6 +109,8 @@ final class GlassesService {
         private var _onFrame: (@Sendable (AiSeeFrame) -> Void)?
         private var lastPreviewAt: TimeInterval = 0
         private var frameCount = 0
+        private var byteCount = 0
+        private var keyframeCount = 0
         private var fpsWindowStart: TimeInterval = 0
         /// 0 renders every frame; otherwise the minimum gap between previews.
         private var _previewInterval: TimeInterval = 0
@@ -146,22 +153,30 @@ final class GlassesService {
             }
         }
 
-        /// Whether to render a preview now, and once per second the fps figure
-        /// and the lag build-up in milliseconds (nil without stream timestamps).
-        func account(now: TimeInterval, presentationTime: CMTime) -> (renderPreview: Bool, fps: Int?, lagMs: Int??) {
+        struct Second { var fps: Int; var kbps: Int; var keyframes: Int }
+
+        /// Whether to render a preview now, and once per second the frame,
+        /// bitrate and keyframe counts and the lag build-up in milliseconds
+        /// (nil without stream timestamps).
+        func account(now: TimeInterval, frame: AiSeeFrame) -> (renderPreview: Bool, second: Second?, lagMs: Int??) {
             lock.withLock {
                 frameCount += 1
+                byteCount += frame.compressedBytes
+                if frame.isKeyframe { keyframeCount += 1 }
+                let presentationTime = frame.presentationTime
                 if presentationTime.isNumeric {
                     let lag = now - presentationTime.seconds
                     lagSum += lag
                     lagCount += 1
                     lagSecondMin = min(lagSecondMin, lag)
                 }
-                var fps: Int?
+                var second: Second?
                 var lagMs: Int??
                 if now - fpsWindowStart >= 1 {
-                    fps = frameCount
-                    frameCount = 0
+                    let elapsed = max(now - fpsWindowStart, 1)
+                    second = Second(fps: frameCount, kbps: Int(Double(byteCount * 8) / elapsed / 1000),
+                                    keyframes: keyframeCount)
+                    frameCount = 0; byteCount = 0; keyframeCount = 0
                     fpsWindowStart = now
                     if lagCount > 0 {
                         lagRecentMins.append(lagSecondMin)
@@ -175,7 +190,7 @@ final class GlassesService {
                 }
                 let render = _previewVisible && now - lastPreviewAt >= _previewInterval
                 if render { lastPreviewAt = now }
-                return (render, fps, lagMs)
+                return (render, second, lagMs)
             }
         }
     }
@@ -334,7 +349,7 @@ final class GlassesService {
                     guard let self else { return }
                     self.isStreaming = false
                     self.previewImage = nil
-                    self.framesPerSecond = 0
+                    self.framesPerSecond = 0; self.receivedKbps = nil; self.keyframesPerSecond = nil
                     self.lagBuildUpMs = nil
                     if let text { self.lastStreamError = text }
                     self.restartStreamIfWanted()
@@ -367,7 +382,7 @@ final class GlassesService {
         fanout.latest = nil
         isStreaming = false
         previewImage = nil
-        framesPerSecond = 0
+        framesPerSecond = 0; receivedKbps = nil; keyframesPerSecond = nil
         lagBuildUpMs = nil
     }
 
@@ -381,6 +396,28 @@ final class GlassesService {
         try await startStreaming()
     }
 
+    /// A real still from the glasses camera, not a frame of the stream: a
+    /// running stream is stopped for the shot (the kit would otherwise serve
+    /// the latest decoded frame) and started again afterwards.
+    func captureStill() async throws -> Data {
+        let wasStreaming = isStreaming
+        let keep = keepStreaming
+        if wasStreaming { await stopStreaming() }
+        defer {
+            if wasStreaming {
+                Task { [weak self] in
+                    guard let self else { return }
+                    self.keepStreaming = keep
+                    do { try await self.startStreaming() } catch { self.lastStreamError = error.localizedDescription }
+                }
+            }
+        }
+        let started = Date()
+        let jpeg = try await coordinator.capturePhoto()
+        append("still: \(jpeg.count) bytes in \(Int(Date().timeIntervalSince(started) * 1000)) ms")
+        return jpeg
+    }
+
     /// SDK thread. Hands the frame to the localizer and, a few times a second,
     /// renders it for the preview.
     /// The most recent decoded frame, for one-off uses such as calibration.
@@ -390,13 +427,22 @@ final class GlassesService {
         fanout.latest = frame
         fanout.onFrame?(frame)
 
-        let (renderPreview, fps, lagMs) = fanout.account(now: ProcessInfo.processInfo.systemUptime,
-                                                         presentationTime: frame.presentationTime)
-        guard renderPreview || fps != nil else { return }
+        let (renderPreview, second, lagMs) = fanout.account(now: ProcessInfo.processInfo.systemUptime, frame: frame)
+        guard renderPreview || second != nil else { return }
         let image = renderPreview ? frame.image : nil
         Task { @MainActor in
             if let image { self.previewImage = image }
-            if let fps { self.framesPerSecond = fps }
+            if let second {
+                self.framesPerSecond = second.fps
+                self.receivedKbps = second.kbps
+                self.keyframesPerSecond = second.keyframes
+                // Every tenth second into the log, so a field test records what
+                // actually arrived next to its fixes.
+                self.secondsLogged += 1
+                if self.secondsLogged % 10 == 0 {
+                    DiagnosticsLog.write("glasses: stream \(self.streamSettings.size.label) asked \(self.streamSettings.fps) fps \(self.streamSettings.kbps) kbps, got \(second.fps) fps \(second.kbps) kbps \(second.keyframes) keyframes")
+                }
+            }
             if let lagMs { self.lagBuildUpMs = lagMs }
         }
     }

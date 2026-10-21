@@ -40,11 +40,19 @@ struct AiSeeFrame {
     /// The stream's timestamp for this frame (`.invalid` when unknown). Its
     /// clock is the SDK's, not the phone's, so only differences mean anything.
     let presentationTime: CMTime
+    /// Size of the H.264 access unit this frame was decoded from (0 when unknown).
+    let compressedBytes: Int
+    /// Whether that access unit was an IDR frame: the only frames the encoder
+    /// spends real bits on, roughly once a second at the default settings.
+    let isKeyframe: Bool
     private let cache: ImageCache
 
-    init(pixelBuffer: CVPixelBuffer?, presentationTime: CMTime = .invalid) {
+    init(pixelBuffer: CVPixelBuffer?, presentationTime: CMTime = .invalid,
+         compressedBytes: Int = 0, isKeyframe: Bool = false) {
         self.pixelBuffer = pixelBuffer
         self.presentationTime = presentationTime
+        self.compressedBytes = compressedBytes
+        self.isKeyframe = isKeyframe
         self.cache = ImageCache()
     }
 

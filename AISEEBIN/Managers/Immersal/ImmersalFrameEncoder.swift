@@ -154,6 +154,13 @@ enum ImmersalFrameEncoder {
         return gray(drawing: source, targetWidth: w, targetHeight: h, interpolate: w < image.width)
     }
 
+    /// A decoded still (the glasses' photo) reduced to `targetWidth` wide as gray pixels.
+    static func gray(from source: CGImage, targetWidth: Int) -> GrayFrame? {
+        let w = min(max(1, targetWidth), source.width)
+        let h = max(1, source.height * w / source.width)
+        return gray(drawing: source, targetWidth: w, targetHeight: h, interpolate: w < source.width)
+    }
+
     /// 8-bit grayscale PNG of a packed frame, for the cloud localizer and the
     /// diagnostics sample files.
     static func png(from frame: GrayFrame) -> Data? {

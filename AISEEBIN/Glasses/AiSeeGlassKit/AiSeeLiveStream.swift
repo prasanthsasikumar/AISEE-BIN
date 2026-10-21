@@ -139,9 +139,12 @@ final class AiSeeLiveStream: NSObject, LiveStreamSampleReceiving, @unchecked Sen
         }
         guard go else { return }
         defer { lock.withLock { decoding = false } }
+        let bytes = sampleBuffer.totalSampleSize
+        let keyframe = AiSeeH264Decoder.containsIDR(sampleBuffer)
         decoder.decode(sampleBuffer) { [weak self] pixelBuffer, presentationTime in
             guard let self else { return }
-            let frame = AiSeeFrame(pixelBuffer: pixelBuffer, presentationTime: presentationTime)
+            let frame = AiSeeFrame(pixelBuffer: pixelBuffer, presentationTime: presentationTime,
+                                   compressedBytes: bytes, isKeyframe: keyframe)
             let handler: (@Sendable (AiSeeFrame) -> Void)? = self.lock.withLock {
                 guard !self.stopped else { return nil }
                 self._latest = frame

@@ -86,6 +86,10 @@ final class GlassesPositioning {
     private(set) var frameSize: (width: Int, height: Int)?
     /// Where fixes are computed this session: "on device" or "cloud".
     private(set) var localizerName = ""
+    /// Frames the selector turned down this session, and the last sent frame's
+    /// sharpness (`FrameSharpness.score`).
+    private(set) var skippedFrames = 0
+    private(set) var lastSharpness: Float?
 
     var camera = GlassesCamera.load()
 
@@ -107,6 +111,7 @@ final class GlassesPositioning {
     /// Touched on the SDK thread: whether a frame may be claimed right now.
     /// Outside the actor so `consume` can run where the decoder calls it.
     @ObservationIgnored private let claim = FrameClaim()
+    @ObservationIgnored let selector = GlassesFrameSelector()
 
     private final class FrameClaim: @unchecked Sendable {
         private let lock = NSLock()
@@ -133,6 +138,15 @@ final class GlassesPositioning {
         }
 
         func release() { lock.withLock { claimed = false } }
+
+        /// Releases a frame the selector turned down, so another can be tried
+        /// in `retryAfter` rather than a full `minimumInterval` later.
+        func releaseForRetry(minimumInterval: TimeInterval, retryAfter: TimeInterval = 0.1) {
+            lock.withLock {
+                claimed = false
+                lastClaimAt -= max(0, minimumInterval - retryAfter)
+            }
+        }
     }
 
     init(pedometer: WalkedDistanceSource = PedometerDistance(),
@@ -177,7 +191,8 @@ final class GlassesPositioning {
         generation += 1
         gate.reset()
         extrapolator.reset()
-        attempts = 0; fixes = 0; rejectedFixes = 0
+        attempts = 0; fixes = 0; rejectedFixes = 0; skippedFrames = 0; lastSharpness = nil
+        selector.reset(filter: GlassesFrameFilter.load(), now: ProcessInfo.processInfo.systemUptime)
         lastError = nil; lastLatencyMS = nil; lastMapID = nil; secondsSinceFix = nil
         guard alignment != nil else {
             localizationStatus = .limited(reason: "Map not aligned")
@@ -194,7 +209,7 @@ final class GlassesPositioning {
                 ImmersalLocalizeResult(success: false, error: "choosing localizer", mapID: nil, pose: nil, latency: 0, requestBytes: 0)
             }
         }
-        DiagnosticsLog.write("glasses-immersal start maps=\(mapIDs) token=\(ImmersalConfig.token.prefix(6))…")
+        DiagnosticsLog.write("glasses-immersal start maps=\(mapIDs) token=\(ImmersalConfig.token.prefix(6))… frames=\(selector.currentFilter.rawValue)")
         running = true
         claim.arm(generation: generation)
         pedometer.start()
@@ -231,7 +246,9 @@ final class GlassesPositioning {
     /// and everything else happens elsewhere.
     nonisolated func consume(_ frame: AiSeeFrame) {
         let now = ProcessInfo.processInfo.systemUptime
-        guard let generation = claim.tryClaim(now: now, minimumInterval: Self.minimumInterval) else { return }
+        guard selector.admits(isKeyframe: frame.isKeyframe, now: now),
+              let generation = claim.tryClaim(now: now, minimumInterval: Self.minimumInterval) else { return }
+        let source = FrameSource(keyframe: frame.isKeyframe, bytes: frame.compressedBytes)
         guard let buffer = frame.pixelBuffer,
               let image = ImmersalFrameEncoder.copyBGRA(from: buffer) else {
             claim.release()
@@ -245,12 +262,40 @@ final class GlassesPositioning {
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
             let frame = ImmersalFrameEncoder.gray(from: image, targetWidth: Self.sentFrameWidth)
-            await self.localizeCopied(frame, capturedAt: now, walkedAtCapture: walkedAtCapture,
+            let sharpness = frame.map(FrameSharpness.score) ?? 0
+            guard self.selector.admits(sharpness: sharpness, now: now) else {
+                self.claim.releaseForRetry(minimumInterval: Self.minimumInterval)
+                await self.noteSkipped()
+                return
+            }
+            await self.localizeCopied(frame, source: source.with(sharpness: sharpness),
+                                      capturedAt: now, walkedAtCapture: walkedAtCapture,
                                       turnAtCapture: turnAtCapture, generation: generation)
         }
     }
 
-    private func localizeCopied(_ frame: GrayFrame?,
+    /// What the selector knew about a sent frame, for the per-attempt log line.
+    struct FrameSource: Sendable {
+        var keyframe: Bool
+        var bytes: Int
+        var sharpness: Float = 0
+
+        func with(sharpness: Float) -> FrameSource {
+            var copy = self
+            copy.sharpness = sharpness
+            return copy
+        }
+
+        var logText: String {
+            String(format: "sharp=%.0f key=%d kb=%.1f", sharpness, keyframe ? 1 : 0, Double(bytes) / 1000)
+        }
+    }
+
+    private func noteSkipped() {
+        skippedFrames = selector.skippedBlurry + selector.skippedNonKey
+    }
+
+    private func localizeCopied(_ frame: GrayFrame?, source: FrameSource,
                                 capturedAt: TimeInterval, walkedAtCapture: Float, turnAtCapture: Float,
                                 generation: Int) async {
         defer { claim.release() }
@@ -267,21 +312,51 @@ final class GlassesPositioning {
                 try? png.write(to: DiagnosticsLog.url.deletingLastPathComponent().appendingPathComponent("immersal-glasses-last.png"))
             }
         }
+        lastSharpness = source.sharpness
+        skippedFrames = selector.skippedBlurry + selector.skippedNonKey
         let intrinsics = camera.intrinsics(width: frame.width, height: frame.height)
         let result = await localize(frame, intrinsics)
         guard running, generation == self.generation else { return }
-        apply(result, capturedAt: capturedAt, walkedAtCapture: walkedAtCapture, turnAtCapture: turnAtCapture)
+        apply(result, source: source, capturedAt: capturedAt, walkedAtCapture: walkedAtCapture, turnAtCapture: turnAtCapture)
+    }
+
+    /// Localizes one still (the photo-fix test) and, while positioning runs,
+    /// applies a fix like any other. Tries the saved focal length first, then
+    /// a few others, because the still's field of view is unknown. `other`
+    /// stands in when positioning is not running (lanyard or phone mode); its
+    /// fixes are only reported.
+    func localizeStill(_ frame: GrayFrame, focals: [Float],
+                       using other: Localize? = nil) async -> (result: ImmersalLocalizeResult, focalPx: Float) {
+        let localize = running ? self.localize : (other ?? self.localize)
+        let sharpness = FrameSharpness.score(frame)
+        var last = ImmersalLocalizeResult(success: false, error: "no focal", mapID: nil, pose: nil, latency: 0, requestBytes: 0)
+        for focal in focals {
+            let result = await localize(frame, GlassesCamera(focalPx: focal).intrinsics(width: frame.width, height: frame.height))
+            DiagnosticsLog.write(String(format: "glasses-photo %dx%d focal=%.0f sharp=%.0f: %@ map=%d %d ms",
+                                        frame.width, frame.height, focal, sharpness,
+                                        result.success ? "fix" : result.error, result.mapID ?? -1, Int(result.latency * 1000)))
+            last = result
+            if result.success {
+                if running {
+                    apply(result, source: FrameSource(keyframe: true, bytes: frame.pixels.count, sharpness: sharpness),
+                          capturedAt: ProcessInfo.processInfo.systemUptime,
+                          walkedAtCapture: pedometer.walkedMetres, turnAtCapture: turnSource.turn)
+                }
+                return (result, focal)
+            }
+        }
+        return (last, focals.last ?? camera.focalPx)
     }
 
     // MARK: - Applying a fix
 
     private static let logger = Logger(subsystem: "com.flowsxr.aiseebin", category: "positioning")
 
-    private func apply(_ result: ImmersalLocalizeResult, capturedAt: TimeInterval,
+    private func apply(_ result: ImmersalLocalizeResult, source: FrameSource, capturedAt: TimeInterval,
                        walkedAtCapture walked: Float, turnAtCapture turn: Float) {
         attempts += 1
         Self.logger.notice("localize \(self.attempts): \(result.success ? "fix" : result.error, privacy: .public) map=\(result.mapID ?? -1) \(Int(result.latency * 1000)) ms \(result.requestBytes) B")
-        DiagnosticsLog.write("glasses-immersal localize \(attempts): \(result.success ? "fix" : result.error) map=\(result.mapID ?? -1) \(Int(result.latency * 1000)) ms \(result.requestBytes) B walked=\(String(format: "%.1f", walked))")
+        DiagnosticsLog.write("glasses-immersal localize \(attempts): \(result.success ? "fix" : result.error) map=\(result.mapID ?? -1) \(Int(result.latency * 1000)) ms \(result.requestBytes) B walked=\(String(format: "%.1f", walked)) \(source.logText)")
         lastLatencyMS = Int((result.latency * 1000).rounded())
         lastMapID = result.mapID
         guard result.success, let raw = result.pose,

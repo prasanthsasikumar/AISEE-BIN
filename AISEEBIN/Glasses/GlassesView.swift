@@ -14,6 +14,9 @@ struct GlassesView: View {
     @State private var mapIDsText = ImmersalConfig.mapIDsText
     @State private var streamBusy = false
     @State private var streamError: String?
+    @State private var frameFilter = GlassesFrameFilter.load()
+    @State private var photoBusy = false
+    @State private var photoResult: String?
 
     private var glasses: GlassesService { viewModel.glasses }
     private var positioning: GlassesPositioning { viewModel.glassesPositioning }
@@ -111,6 +114,9 @@ struct GlassesView: View {
             if glasses.isStreaming, let lag = glasses.lagBuildUpMs {
                 LabeledContent("Lag build-up", value: "\(lag) ms")
             }
+            if glasses.isStreaming, let kbps = glasses.receivedKbps {
+                LabeledContent("Received", value: "\(kbps) kbps · \(glasses.keyframesPerSecond ?? 0) keyframes/s")
+            }
             if let error = streamError ?? glasses.lastStreamError {
                 Text(error).font(.footnote).foregroundStyle(.red)
             }
@@ -124,19 +130,27 @@ struct GlassesView: View {
                 ForEach([5, 10, 15, 20, 30] as [UInt], id: \.self) { Text("\($0) fps").tag($0) }
             }
             Picker("Bitrate", selection: streamSetting(\.kbps)) {
-                ForEach([250, 500, 1000, 2000] as [UInt], id: \.self) { Text("\($0) kbps").tag($0) }
+                ForEach([250, 500, 1000, 2000, 4000, 6000, 8000] as [UInt], id: \.self) { Text("\($0) kbps").tag($0) }
             }
             Picker("Resolution", selection: streamSetting(\.size)) {
                 ForEach(AiSeeStreamSettings.Size.allCases, id: \.self) { Text($0.label).tag($0) }
             }
             Toggle("Constant bitrate", isOn: streamSetting(\.constantBitrate))
             Toggle("Smooth preview", isOn: Binding(get: { glasses.smoothPreview }, set: { glasses.smoothPreview = $0 }))
+            Button("Fix test: 10 fps · 4000 kbps") {
+                var settings = glasses.streamSettings
+                settings.fps = 10
+                settings.kbps = 4000
+                settings.size = .p720
+                applyStreamSettings(settings)
+            }
+            .disabled(glasses.streamSettings.fps == 10 && glasses.streamSettings.kbps == 4000)
             Button("Reset to defaults") { applyStreamSettings(AiSeeStreamSettings()) }
                 .disabled(glasses.streamSettings == AiSeeStreamSettings())
         } header: {
             Text("Stream tuning")
         } footer: {
-            Text("A running stream restarts to apply a change. Lag build-up is how far behind its best the video is running; a figure that keeps climbing means frames are queuing. Smooth preview shows every frame instead of four a second; turn it off only to save battery with the screen on. 480p is below the 960 px Immersal is sent, so fixes may suffer.")
+            Text("A running stream restarts to apply a change. Received is what actually arrives, whatever was asked for: if it stays near 1000 kbps after asking for more, the glasses ignore the setting. Fewer frames a second gives each frame more of the bitrate; fixes only use one or two a second. Lag build-up is how far behind its best the video is running; a figure that keeps climbing means frames are queuing. Smooth preview shows every frame instead of four a second; turn it off only to save battery with the screen on. 480p is below the 960 px Immersal is sent, so fixes may suffer.")
         }
     }
 
@@ -190,6 +204,7 @@ struct GlassesView: View {
                 LabeledContent("Anchor fixes", value: "\(viewModel.phoneLocalizer.fixes) / \(viewModel.phoneLocalizer.attempts) phone tries")
                 LabeledContent("Glasses fixes", value: "\(feed.fixes) / \(feed.attempts)")
                 LabeledContent("Glasses localizer", value: feed.localizerName.isEmpty ? "—" : feed.localizerName)
+                LabeledContent("Skipped frames", value: "\(feed.skippedFrames)")
                 Stepper(value: Binding(get: { viewModel.phoneLocalizer.streamLatency },
                                        set: { viewModel.phoneLocalizer.streamLatency = $0 }),
                         in: 0...1, step: 0.05) {
@@ -207,6 +222,10 @@ struct GlassesView: View {
                     LabeledContent("Rejected", value: "\(positioning.rejectedFixes)")
                 }
                 LabeledContent("Latency", value: positioning.lastLatencyMS.map { "\($0) ms" } ?? "—")
+                LabeledContent("Skipped frames", value: "\(positioning.skippedFrames)")
+                if let sharpness = positioning.lastSharpness {
+                    LabeledContent("Last sharpness", value: String(format: "%.0f", sharpness))
+                }
                 LabeledContent("Walked", value: String(format: "%.1f m", positioning.walkedMetres))
                 if let age = positioning.secondsSinceFix {
                     LabeledContent("Last fix", value: String(format: "%.0f s ago", age))
@@ -214,6 +233,28 @@ struct GlassesView: View {
                 if let error = positioning.lastError {
                     Text(error).font(.footnote).foregroundStyle(.secondary)
                 }
+            }
+            Picker("Frames sent", selection: $frameFilter) {
+                ForEach(GlassesFrameFilter.allCases, id: \.self) { Text($0.label).tag($0) }
+            }
+            .onChange(of: frameFilter) { _, value in
+                value.save()
+                DiagnosticsLog.write("glasses: frames sent = \(value.rawValue)")
+                positioning.selector.set(filter: value)
+                feed.setFrameFilter(value)
+            }
+            Button {
+                runPhotoFix()
+            } label: {
+                if photoBusy {
+                    HStack { ProgressView(); Text("Taking a still…").padding(.leading, 8) }
+                } else {
+                    Text("Photo fix test")
+                }
+            }
+            .disabled(photoBusy || viewModel.mapAlignment == nil)
+            if let photoResult {
+                Text(photoResult).font(.footnote).foregroundStyle(.secondary)
             }
             ForEach([GlassesService.KeyAction.talk, .whereAmI, .stopGuidance], id: \.label) { action in
                 Label(action.label, systemImage: "button.horizontal.top.press")
@@ -228,6 +269,46 @@ struct GlassesView: View {
                 Text("The phone hangs on a lanyard, camera forward: ARKit tracks, and both cameras send fixes. The glasses' heading is not used, only where they are.")
             } else {
                 Text("The phone camera is paused while the glasses position you. Switch back to hand the phone to a helper.")
+            }
+        }
+    }
+
+    /// Pauses the stream, takes a real still, localizes it at the saved focal
+    /// length and a few others, and keeps the photo for pulling off the phone.
+    private func runPhotoFix() {
+        photoBusy = true
+        photoResult = nil
+        let positioning = self.positioning
+        let fallback = ImmersalLocalizerFactory.make(mapIDs: ImmersalConfig.mapIDs(for: viewModel.mapAlignment),
+                                                     token: ImmersalConfig.token, cache: ImmersalMapCache()).localizer
+        Task {
+            defer { photoBusy = false }
+            do {
+                let jpeg = try await glasses.captureStill()
+                let stamp = Int(Date().timeIntervalSince1970)
+                let dir = DiagnosticsLog.url.deletingLastPathComponent()
+                try? jpeg.write(to: dir.appendingPathComponent("glasses-still-\(stamp).jpg"))
+                guard let image = UIImage(data: jpeg)?.cgImage else {
+                    photoResult = "The still (\(jpeg.count / 1000) KB) did not decode."
+                    return
+                }
+                guard let frame = await Task.detached(operation: {
+                    ImmersalFrameEncoder.gray(from: image, targetWidth: GlassesPositioning.sentFrameWidth)
+                }).value else {
+                    photoResult = "Could not convert the still."
+                    return
+                }
+                let saved = positioning.camera.focalPx
+                let focals = [saved] + [700, 900, 1300].filter { $0 != saved }
+                let (result, focal) = await positioning.localizeStill(frame, focals: focals, using: { f, k in
+                    await fallback.localize(f, intrinsics: k)
+                })
+                let sharpness = FrameSharpness.score(frame)
+                photoResult = String(format: "Still %d×%d, %d KB, sharpness %.0f: %@",
+                                     image.width, image.height, jpeg.count / 1000, sharpness,
+                                     result.success ? String(format: "fix at focal %.0f px", focal) : "no match (\(result.error))")
+            } catch {
+                photoResult = "Still failed: \(error.localizedDescription)"
             }
         }
     }

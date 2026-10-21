@@ -22,6 +22,7 @@ final class GlassesFixFeed {
     /// "on device" or "cloud" for this session.
     private(set) var localizerName = ""
     private(set) var running = false
+    private(set) var skippedFrames = 0
 
     /// A fix: camera pose in the graph frame, and when the frame arrived
     /// (`ProcessInfo.systemUptime`, the same clock as ARKit's frame timestamps).
@@ -33,6 +34,7 @@ final class GlassesFixFeed {
     @ObservationIgnored private var localizer: (any ImmersalLocalizer)?
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private let claim = FrameClaim()
+    @ObservationIgnored private let selector = GlassesFrameSelector()
 
     /// Touched on the SDK thread: whether a frame may be claimed right now.
     private final class FrameClaim: @unchecked Sendable {
@@ -57,13 +59,23 @@ final class GlassesFixFeed {
         }
 
         func release() { lock.withLock { claimed = false } }
+
+        /// Releases a frame the selector turned down, so another can be tried
+        /// in `retryAfter` rather than a full `minimumInterval` later.
+        func releaseForRetry(minimumInterval: TimeInterval, retryAfter: TimeInterval = 0.1) {
+            lock.withLock {
+                claimed = false
+                lastClaimAt -= max(0, minimumInterval - retryAfter)
+            }
+        }
     }
 
     func start(alignment: ImmersalAlignment?) {
         stop()
         self.alignment = alignment
         generation += 1
-        attempts = 0; fixes = 0
+        attempts = 0; fixes = 0; skippedFrames = 0
+        selector.reset(filter: GlassesFrameFilter.load(), now: ProcessInfo.processInfo.systemUptime)
         lastError = nil; lastLatencyMS = nil; lastMapID = nil
         // Never answer against the previous map's localizer while the new one
         // is being chosen; a fix through the wrong map would feed the anchor.
@@ -110,7 +122,9 @@ final class GlassesFixFeed {
     /// SDK decode thread. The same shape as `GlassesPositioning.consume`.
     nonisolated func consume(_ frame: AiSeeFrame) {
         let now = ProcessInfo.processInfo.systemUptime
-        guard let generation = claim.tryClaim(now: now, minimumInterval: GlassesPositioning.minimumInterval) else { return }
+        guard selector.admits(isKeyframe: frame.isKeyframe, now: now),
+              let generation = claim.tryClaim(now: now, minimumInterval: GlassesPositioning.minimumInterval) else { return }
+        let source = GlassesPositioning.FrameSource(keyframe: frame.isKeyframe, bytes: frame.compressedBytes)
         guard let buffer = frame.pixelBuffer,
               let image = ImmersalFrameEncoder.copyBGRA(from: buffer) else {
             claim.release()
@@ -119,11 +133,26 @@ final class GlassesFixFeed {
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
             let gray = ImmersalFrameEncoder.gray(from: image, targetWidth: GlassesPositioning.sentFrameWidth)
-            await self.localize(gray, arrivedAt: now, generation: generation)
+            let sharpness = gray.map(FrameSharpness.score) ?? 0
+            guard self.selector.admits(sharpness: sharpness, now: now) else {
+                self.claim.releaseForRetry(minimumInterval: GlassesPositioning.minimumInterval)
+                await self.noteSkipped()
+                return
+            }
+            await self.localize(gray, source: source.with(sharpness: sharpness), arrivedAt: now, generation: generation)
         }
     }
 
-    private func localize(_ frame: GrayFrame?, arrivedAt: TimeInterval, generation: Int) async {
+    func setFrameFilter(_ filter: GlassesFrameFilter) {
+        selector.set(filter: filter)
+    }
+
+    private func noteSkipped() {
+        skippedFrames = selector.skippedBlurry + selector.skippedNonKey
+    }
+
+    private func localize(_ frame: GrayFrame?, source: GlassesPositioning.FrameSource,
+                          arrivedAt: TimeInterval, generation: Int) async {
         defer { claim.release() }
         guard running, generation == self.generation, let alignment, let localizer else { return }
         guard let frame else {
@@ -137,7 +166,7 @@ final class GlassesFixFeed {
         lastLatencyMS = Int((result.latency * 1000).rounded())
         lastMapID = result.mapID
         Self.logger.notice("localize \(self.attempts): \(result.success ? "fix" : result.error, privacy: .public) map=\(result.mapID ?? -1) \(self.lastLatencyMS ?? 0) ms")
-        DiagnosticsLog.write("glasses-fix localize \(attempts): \(result.success ? "fix" : result.error) map=\(result.mapID ?? -1) \(lastLatencyMS ?? 0) ms \(result.requestBytes) B")
+        DiagnosticsLog.write("glasses-fix localize \(attempts): \(result.success ? "fix" : result.error) map=\(result.mapID ?? -1) \(lastLatencyMS ?? 0) ms \(result.requestBytes) B \(source.logText)")
         guard result.success, let raw = result.pose, let poseInMap = ImmersalPose.cameraPoseInMap(raw) else {
             lastError = result.success ? "malformed pose" : result.error
             if ImmersalConfig.recoverFromRejectedToken(ImmersalConfig.token, error: result.error) {

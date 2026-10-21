@@ -44,6 +44,24 @@ final class AiSeeH264Decoder {
         }
     }
 
+    /// Whether `sample` (AVCC: 4-byte big-endian length before each NAL unit)
+    /// holds an IDR slice, NAL type 5.
+    static func containsIDR(_ sample: CMSampleBuffer) -> Bool {
+        guard let block = sample.dataBuffer else { return false }
+        let length = CMBlockBufferGetDataLength(block)
+        var offset = 0
+        while offset + 5 <= length {
+            var header = [UInt8](repeating: 0, count: 5)
+            guard CMBlockBufferCopyDataBytes(block, atOffset: offset, dataLength: 5, destination: &header) == noErr
+            else { return false }
+            let nalLength = Int(header[0]) << 24 | Int(header[1]) << 16 | Int(header[2]) << 8 | Int(header[3])
+            if header[4] & 0x1F == 5 { return true }
+            guard nalLength > 0 else { return false }
+            offset += 4 + nalLength
+        }
+        return false
+    }
+
     func invalidate() {
         if let session { VTDecompressionSessionInvalidate(session) }
         session = nil
