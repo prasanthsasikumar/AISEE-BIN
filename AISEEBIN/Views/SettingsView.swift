@@ -59,7 +59,7 @@ struct SettingsView: View {
         } header: {
             Text("Explore (public visitors)")
         } footer: {
-            Text("Phones handed to visitors open straight into Explore. To get back here, press and hold the AiSee logo on the Explore welcome screen for 3 seconds.")
+            Text("Phones handed to visitors open straight into Explore. To get back here, tap the AiSee logo at the top of any Explore screen five times quickly.")
         }
     }
 

@@ -22,6 +22,9 @@ struct ExploreAskView: View {
 
             VStack {
                 HStack {
+                    EXLogo(height: 26) { model.exitToStaff() }
+                        .padding(.horizontal, 14).frame(height: 44)
+                        .background(.white.opacity(0.92), in: Capsule())
                     Spacer()
                     Button { model.closeAsk() } label: {
                         Image(systemName: "xmark")

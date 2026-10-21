@@ -89,6 +89,13 @@ final class ExploreViewModel {
         if phase == .welcome { planner = TourPlanner(map: nav.displayMap) }
     }
 
+    /// Five taps on the logo: back to the staff app (Settings). Leaving Explore
+    /// resets navigation in `NavigationViewModel.didChange(mode:from:)`.
+    func exitToStaff() {
+        closeAsk()
+        nav.mode = .settings
+    }
+
     // MARK: - Planning
 
     func choose(minutes: Double) {

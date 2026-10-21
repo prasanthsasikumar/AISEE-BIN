@@ -15,6 +15,75 @@ enum EX {
     static let mapGround = Color(dsHex: 0xE6F4EA)
 }
 
+/// The AiSee logo that tops every Explore screen. Five quick taps hand the phone
+/// back to staff; to a visitor it is just the logo.
+struct EXLogo: View {
+    var height: CGFloat = 30
+    let onUnlock: () -> Void
+    @State private var taps: [Date] = []
+
+    var body: some View {
+        Image("AiSeeLogo")
+            .renderingMode(.template)
+            .resizable().scaledToFit()
+            .foregroundStyle(EX.accent)
+            .frame(height: height)
+            .padding(10).contentShape(Rectangle()).padding(-10)
+            .onTapGesture(perform: tapped)
+            .accessibilityHidden(true)
+    }
+
+    private func tapped() {
+        let now = Date()
+        taps = taps.filter { now.timeIntervalSince($0) < 3 } + [now]
+        guard taps.count >= 5 else { return }
+        taps = []
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        onUnlock()
+    }
+}
+
+/// Logo on the left, an optional pill or button on the right.
+struct EXHeader<Trailing: View>: View {
+    let model: ExploreViewModel
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        HStack(alignment: .center) {
+            EXLogo { model.exitToStaff() }
+            Spacer(minLength: 12)
+            trailing
+        }
+    }
+}
+
+extension EXHeader where Trailing == EmptyView {
+    init(model: ExploreViewModel) { self.init(model: model) { EmptyView() } }
+}
+
+/// A round icon button with a caption under it, for either side of the Ask button.
+struct EXSideButton: View {
+    let systemImage: String
+    let title: String
+    var on = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(on ? .white : EX.inkSecondary)
+                    .frame(width: 56, height: 56)
+                    .background(on ? EX.accent : EX.card, in: Circle())
+                    .overlay(Circle().strokeBorder(on ? .clear : EX.hairline))
+                Text(title).font(.dsFootnote.weight(.semibold)).foregroundStyle(EX.inkSecondary)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 /// The big full-width purple button.
 struct EXPrimaryButton: View {
     let title: String

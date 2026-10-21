@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Explore mode's root: one screen per visit phase, light theme, no staff chrome.
-/// Staff leave with a 3-second press on the AiSee logo on the welcome screen.
+/// Staff leave with five quick taps on the AiSee logo at the top of any screen.
 struct ExploreView: View {
     @State private var model: ExploreViewModel
 
@@ -44,13 +44,7 @@ struct ExploreWelcomeView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Image("AiSeeLogo")
-                .renderingMode(.template)
-                .resizable().scaledToFit()
-                .foregroundStyle(EX.accent)
-                .frame(height: 34)
-                .onLongPressGesture(minimumDuration: 3) { model.nav.mode = .navigation }
-                .accessibilityHidden(true)
+            EXHeader(model: model)
                 .padding(.bottom, 28)
 
             Text("Flower Dome").dsEyebrow(EX.accent)
@@ -141,12 +135,11 @@ struct ExplorePreviewView: View {
     var body: some View {
         let plan = model.plan
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
+            EXHeader(model: model) {
                 Button { model.backToWelcome() } label: {
-                    Label("Change time", systemImage: "chevron.left").font(.dsSubhead.weight(.semibold))
+                    Label("Change time", systemImage: "clock.arrow.circlepath").font(.dsSubhead.weight(.semibold))
                 }
                 .tint(EX.accent)
-                Spacer()
             }
             Text("Your \(Int(model.budgetMinutes))-minute visit").dsEyebrow(EX.accent)
 
@@ -239,10 +232,8 @@ struct ExploreWalkingView: View {
         TimelineView(.periodic(from: .now, by: 10)) { timeline in
             let now = timeline.date
             VStack(alignment: .leading, spacing: 14) {
-                HStack {
+                EXHeader(model: model) {
                     EXPill(systemImage: "timer", text: "\(max(0, Int(model.minutesLeft(now: now).rounded()))) min left")
-                    Spacer()
-                    EXPill(systemImage: "mappin.and.ellipse", text: stopLabel)
                 }
 
                 TourMapView(map: model.map, stopIDs: model.plan?.stopIDs ?? [],
@@ -256,17 +247,19 @@ struct ExploreWalkingView: View {
                 }
                 nextCard
 
-                HStack(alignment: .center) {
-                    Toggle(isOn: $model.voiceDirections) {
-                        Text("Voice directions").font(.dsFootnote).foregroundStyle(EX.inkSecondary)
-                    }
-                    .toggleStyle(.switch).tint(EX.accent).fixedSize()
-                    Spacer()
+                // Equal side columns keep Ask centred whatever the captions say.
+                HStack(alignment: .center, spacing: 0) {
+                    EXSideButton(systemImage: model.voiceDirections ? "speaker.wave.2.fill" : "speaker.slash.fill",
+                                 title: model.voiceDirections ? "Voice on" : "Voice off",
+                                 on: model.voiceDirections) { model.voiceDirections.toggle() }
+                        .accessibilityLabel("Voice directions")
+                        .accessibilityValue(model.voiceDirections ? "On" : "Off")
+                        .frame(maxWidth: .infinity)
                     EXAskButton(listening: false) { model.openAsk() }
-                    Spacer()
-                    Button("End visit") { model.endVisit() }
-                        .font(.dsFootnote.weight(.semibold)).tint(EX.inkMuted)
+                    EXSideButton(systemImage: "flag.checkered", title: "End visit") { model.endVisit() }
+                        .frame(maxWidth: .infinity)
                 }
+                .padding(.top, 4)
                 Text("Tap and ask about anything you see")
                     .font(.dsFootnote).foregroundStyle(EX.inkMuted)
                     .frame(maxWidth: .infinity)
@@ -286,9 +279,9 @@ struct ExploreWalkingView: View {
         return EXCard {
             VStack(alignment: .leading, spacing: 4) {
                 if reliable, model.nav.remainingDistance > 0 {
-                    Text("Next · \(Int(model.nav.remainingDistance.rounded())) m ahead").dsEyebrow(EX.accent)
+                    Text("\(stopLabel) · \(Int(model.nav.remainingDistance.rounded())) m ahead").dsEyebrow(EX.accent)
                 } else {
-                    Text("Next").dsEyebrow(EX.accent)
+                    Text(stopLabel).dsEyebrow(EX.accent)
                 }
                 Text(target?.name ?? "").font(.dsTitle2).foregroundStyle(EX.ink)
                 Text(reliable ? (model.nav.currentInstruction?.bannerText ?? "Follow the purple line.")
@@ -323,7 +316,9 @@ struct ExploreArrivedView: View {
         let poi = id.flatMap(model.poi)
         let isLast = stopIndex + 1 >= (model.plan?.stopIDs.count ?? 0)
         VStack(alignment: .leading, spacing: 16) {
-            EXPill(systemImage: "checkmark.circle.fill", text: "Stop \(stopIndex + 1) of \(model.plan?.stopIDs.count ?? 0)")
+            EXHeader(model: model) {
+                EXPill(systemImage: "checkmark.circle.fill", text: "Stop \(stopIndex + 1) of \(model.plan?.stopIDs.count ?? 0)")
+            }
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     if let photo = poi?.photo, let url = URL(string: photo) {
@@ -360,6 +355,8 @@ struct ExploreCompleteView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            EXHeader(model: model)
+                .padding(.bottom, 12)
             Text("Flower Dome").dsEyebrow(EX.accent)
             Text("That's your visit").font(.dsDisplay).foregroundStyle(EX.ink)
             if let stops = model.plan?.stopIDs, !stops.isEmpty {
