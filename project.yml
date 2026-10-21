@@ -85,6 +85,9 @@ targets:
         # and an iPad-capable app is rejected (90474) for being portrait-only.
         TARGETED_DEVICE_FAMILY: "1"
         "EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]": ImmersalNativeStubs.c
+        # Explore's proxy token (server/explore). Never committed: pass it on the
+        # xcodebuild command line, like IMMERSAL_DEFAULT_TOKEN. Empty = Ask fails (401).
+        EXPLORE_TOKEN: ""
   AISEEBINTests:
     type: bundle.unit-test
     platform: iOS

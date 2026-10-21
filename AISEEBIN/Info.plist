@@ -22,6 +22,8 @@
 	<string>12</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>ExploreToken</key>
+	<string>$(EXPLORE_TOKEN)</string>
 	<key>ImmersalDefaultToken</key>
 	<string>$(IMMERSAL_DEFAULT_TOKEN)</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>

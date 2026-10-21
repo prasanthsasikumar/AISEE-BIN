@@ -38,6 +38,9 @@ enum PositioningSource: Hashable {
 enum AppMode: String, CaseIterable, Identifiable {
     case navigation = "Navigate"
     case authoring = "Author"
+    /// Timed visits and camera questions for sighted visitors (AISEEBIN/Explore).
+    /// Positioning keeps running underneath, as in Settings.
+    case explore = "Explore"
     /// Set-up a sighted helper does once: Immersal credentials, glasses, the
     /// measurement walk. Leaves the session and any guidance running.
     case settings = "Settings"
@@ -138,6 +141,18 @@ final class NavigationViewModel {
     private(set) var statusMessage: String?
     private(set) var debug = DebugInfo()
     var showDebug = false
+
+    // MARK: Explore hooks (session only, never persisted)
+
+    /// Explore mode: no spoken cues, beeps or passing commentary; routes still
+    /// progress, replan and arrive. Explore speaks for itself.
+    var quietGuidance = false
+    /// With `quietGuidance`, still speak route cues (Explore's "Voice directions").
+    var speakCuesWhenQuiet = false
+    /// Called with the destination's id when a route arrives.
+    @ObservationIgnored var onArrived: ((String) -> Void)?
+    /// When set, finished speech goes here instead of the command parser.
+    @ObservationIgnored var transcriptOverride: ((String) -> Void)?
     /// Beep guidance: optional, off by default, persisted. Takes effect mid-route.
     var beaconEnabled: Bool = UserDefaults.standard.bool(forKey: "guidance.beacon") {
         didSet {
@@ -277,6 +292,9 @@ final class NavigationViewModel {
         // `-startMode author` launch argument opens straight into Authoring (used for screenshots and QA).
         if UserDefaults.standard.string(forKey: "startMode") == "author" {
             self.mode = .authoring
+        } else if UserDefaults.standard.bool(forKey: "explore.startInExplore") {
+            // Settings → "Start in Explore", for phones handed to the public.
+            self.mode = .explore
         }
     }
 
@@ -646,9 +664,12 @@ final class NavigationViewModel {
         if let instruction = makeInstruction(from: currentTransform) {
             currentInstruction = instruction
             lastInstruction = instruction
-            guidance.speak("Starting route to the \(destination.name). \(instruction.spokenText)", interrupt: true)
+            if !quietGuidance || speakCuesWhenQuiet {
+                guidance.speak("Starting route to the \(destination.name). \(instruction.spokenText)", interrupt: true)
+            }
         } else {
             finishNavigation(at: destination.name)
+            onArrived?(destination.id)
         }
     }
 
@@ -725,6 +746,10 @@ final class NavigationViewModel {
     }
 
     private func handle(transcript: String) {
+        if let transcriptOverride {
+            transcriptOverride(transcript)
+            return
+        }
         guidance.play(.turnLeft) // short double tap: "got it, thinking"
         let command = commandParser.parse(transcript)
         statusMessage = transcript.isEmpty ? nil : "Heard: “\(transcript)”"
@@ -738,6 +763,11 @@ final class NavigationViewModel {
         case .navigate(let poiID):
             handle(command: .navigate(poiID: poiID))
         }
+    }
+
+    /// Starts a route to a place, waiting for tracking first if need be.
+    func navigate(to poiID: String) {
+        handle(command: .navigate(poiID: poiID))
     }
 
     private func handle(command: VoiceCommand) {
@@ -757,7 +787,9 @@ final class NavigationViewModel {
                 startNavigation()
             } else {
                 pendingDestinationID = poiID
-                guidance.speak("Okay, \(poi.name). Waiting for tracking. Please look around slowly.", interrupt: true)
+                if !quietGuidance {
+                    guidance.speak("Okay, \(poi.name). Waiting for tracking. Please look around slowly.", interrupt: true)
+                }
             }
 
         case .whereAmI:
@@ -829,6 +861,14 @@ final class NavigationViewModel {
     }
 
     private func didChange(mode: AppMode, from previous: AppMode) {
+        if previous == .explore {
+            // Hand the session back exactly as Navigate expects it, whichever mode is next.
+            stopNavigation()
+            quietGuidance = false
+            speakCuesWhenQuiet = false
+            onArrived = nil
+            transcriptOverride = nil
+        }
         switch mode {
         case .authoring:
             stopNavigation()
@@ -837,10 +877,10 @@ final class NavigationViewModel {
         case .navigation:
             // Coming back from Settings changes nothing underneath: the
             // session kept tracking and guidance kept talking.
-            guard previous != .settings else { return }
+            guard previous != .settings, previous != .explore else { return }
             reloadMapAndRestart()
             Task { await checkForMapUpdate() }
-        case .settings:
+        case .settings, .explore:
             break
         }
     }
@@ -869,7 +909,7 @@ final class NavigationViewModel {
 
         if snapshot.trackingReliable {
             startPendingNavigationIfNeeded()
-            announceProximity(position: position, heading: heading)
+            if !quietGuidance { announceProximity(position: position, heading: heading) }
         }
 
         guard isNavigating, var tracker else { return }
@@ -887,7 +927,9 @@ final class NavigationViewModel {
         currentInstruction = instruction
         remainingDistance = tracker.remainingDistance(from: position)
         isOffRoute = snapshot.trackingReliable && tracker.isOffRoute(position: position)
-        updateBeacon(position: position, heading: heading, tracker: tracker, reliable: snapshot.trackingReliable)
+        if !quietGuidance {
+            updateBeacon(position: position, heading: heading, tracker: tracker, reliable: snapshot.trackingReliable)
+        }
         routeLeg = min(tracker.targetIndex + 1, tracker.path.count)
         routeLegCount = tracker.path.count
         debug.subGoal = tracker.targetNode.map(engine.displayName(of:)) ?? "arrived"
@@ -897,9 +939,11 @@ final class NavigationViewModel {
                                   isOffRoute: isOffRoute,
                                   trackingReliable: snapshot.trackingReliable,
                                   now: snapshot.timestamp)
-        guard let cue, !recognizer.isListening else { return }
+        guard let cue, !recognizer.isListening || quietGuidance else { return }
 
-        if case .offRoute = cue, beaconEnabled {
+        if quietGuidance && !speakCuesWhenQuiet {
+            // Explore: act on the cue without saying it.
+        } else if case .offRoute = cue, beaconEnabled {
             // The corridor earcon first, in the beacon's own voice; the words follow it.
             beacon.playBoundary()
             delayedCue?.cancel()
@@ -915,6 +959,7 @@ final class NavigationViewModel {
         switch cue {
         case .arrived(let id):
             finishNavigation(at: selectedDestination?.name ?? id)
+            onArrived?(selectedDestination?.id ?? id)
         case .offRoute:
             replanRoute(from: position)
         default:

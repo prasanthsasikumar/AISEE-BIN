@@ -512,6 +512,7 @@ function renderSidebar() {
   const g = state.graph;
   $('mapName').value = g?.name ?? '';
   $('mapStats').textContent = g ? `${g.pois.length} nodes · ${g.edges.length} edges` : '';
+  renderExploreMap(g);
   renderConnectivity();
   const n = state.selectedNode;
   $('nodePanel').hidden = !n;
@@ -520,6 +521,8 @@ function renderSidebar() {
     $('nodeDetails').value = n.details || ''; $('nodeAliases').value = (n.aliases || []).join(', ');
     $('nodeX').value = n.x.toFixed(2); $('nodeZ').value = n.z.toFixed(2);
     renderRadius(n);
+    $('nodeExplore').hidden = n.category !== 'exhibit';
+    for (const [id, key] of NODE_EXPLORE_FIELDS) $(id).value = ExploreFields.fieldValue(n, key);
     const neighbours = g.edges.filter(e => e.from === n.id || e.to === n.id).map(e => nodeById(e.from === n.id ? e.to : e.from)?.name ?? '?');
     $('nodeEdges').textContent = neighbours.join(', ') || 'none';
   }
@@ -707,7 +710,7 @@ function deleteEdge() { if (state.selectedEdge === null) return; beginChange(); 
 ['nodeName', 'nodeCategory', 'nodeDetails', 'nodeAliases', 'nodeX', 'nodeZ', 'nodeRadius', 'nodeRadiusRange', 'mapName'].forEach(id => $(id).addEventListener('focus', beginChange));
 const bindNode = (id, apply) => $(id).addEventListener('input', () => { if (!state.selectedNode) return; apply(state.selectedNode, $(id).value); state.dirty = true; updateSaveButton(); $('mapStats').textContent = `${state.graph.pois.length} nodes · ${state.graph.edges.length} edges`; draw(); });
 bindNode('nodeName', (n, v) => n.name = v);
-bindNode('nodeCategory', (n, v) => { n.category = v; renderRadius(n); });
+bindNode('nodeCategory', (n, v) => { n.category = v; renderRadius(n); $('nodeExplore').hidden = v !== 'exhibit'; });
 bindNode('nodeRadius', (n, v) => { setRadius(n, v); renderRadius(n); });
 bindNode('nodeRadiusRange', (n, v) => { setRadius(n, v); renderRadius(n); });
 // The slider can be dragged without focusing first; snapshot for undo on press.
@@ -722,6 +725,32 @@ bindNode('nodeAliases', (n, v) => n.aliases = v.split(',').map(s => s.trim()).fi
 bindNode('nodeX', (n, v) => { if (!isNaN(parseFloat(v))) n.x = parseFloat(v); });
 bindNode('nodeZ', (n, v) => { if (!isNaN(parseFloat(v))) n.z = parseFloat(v); });
 $('mapName').addEventListener('input', () => { if (state.graph) { state.graph.name = $('mapName').value; state.dirty = true; updateSaveButton(); } });
+// Explore fields (web/explore.js): empty inputs remove the key.
+const NODE_EXPLORE_FIELDS = [['nodeMinutes', 'minutes'], ['nodeHighlight', 'highlight'], ['nodeTags', 'tags'], ['nodeAbout', 'about'], ['nodePhoto', 'photo']];
+const MAP_EXPLORE_FIELDS = [['mapTourStart', 'tourStart'], ['mapTourEnd', 'tourEnd'], ['mapVenueInfo', 'venueInfo']];
+function renderExploreMap(g) {
+  $('explorePanel').hidden = !g;
+  if (!g) return;
+  const places = g.pois.filter(p => p.category !== 'junction').sort((a, b) => a.name.localeCompare(b.name));
+  for (const id of ['mapTourStart', 'mapTourEnd']) {
+    const sel = $(id);
+    sel.replaceChildren(new Option('—', ''), ...places.map(p => new Option(p.name, p.id)));
+  }
+  for (const [id, key] of MAP_EXPLORE_FIELDS) $(id).value = ExploreFields.fieldValue(g, key);
+}
+for (const [id, key] of NODE_EXPLORE_FIELDS) {
+  $(id).addEventListener('focus', beginChange);
+  bindNode(id, (n, v) => ExploreFields.applyField(n, key, v));
+}
+for (const [id, key] of MAP_EXPLORE_FIELDS) {
+  $(id).addEventListener('focus', beginChange);
+  $(id).addEventListener('input', () => {
+    if (!state.graph) return;
+    ExploreFields.applyField(state.graph, key, $(id).value);
+    state.dirty = true; updateSaveButton();
+  });
+}
+
 $('deleteNode').onclick = deleteNode;
 $('autoConnect').onclick = autoConnectIsolated;
 $('deleteEdge').onclick = deleteEdge;

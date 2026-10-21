@@ -45,6 +45,21 @@ struct NavigationPOI: Identifiable, Hashable, Codable {
     /// Stored as `announceRadius` in the map JSON.
     var customAnnounceRadius: Float?
 
+    // Explore mode (sighted visitors). All optional; written in the web editor.
+    /// Minutes a visitor typically spends here; nil means `visitMinutes`' default.
+    var minutes: Double?
+    /// 1 must see, 2 good, 3 if there's time, 0 not a tour stop; nil means 2.
+    var highlight: Int?
+    /// Interest tags matched against what the visitor says they like.
+    var tags: [String] = []
+    /// Longer facts the guide may use to answer questions about this place.
+    var about: String?
+    /// Optional photo shown on the stop card.
+    var photo: String?
+
+    var visitMinutes: Double { minutes ?? 3 }
+    var highlightLevel: Int { highlight ?? 2 }
+
     init(id: String, name: String, x: Float, z: Float,
          category: POICategory = .destination, details: String? = nil, aliases: [String] = [],
          customAnnounceRadius: Float? = nil) {
@@ -80,6 +95,7 @@ struct NavigationPOI: Identifiable, Hashable, Codable {
     private enum CodingKeys: String, CodingKey {
         case id, name, x, z, category, details, aliases
         case customAnnounceRadius = "announceRadius"
+        case minutes, highlight, tags, about, photo
     }
 
     init(from decoder: Decoder) throws {
@@ -92,6 +108,28 @@ struct NavigationPOI: Identifiable, Hashable, Codable {
         details = try c.decodeIfPresent(String.self, forKey: .details)
         aliases = try c.decodeIfPresent([String].self, forKey: .aliases) ?? []
         customAnnounceRadius = try? c.decodeIfPresent(Float.self, forKey: .customAnnounceRadius)
+        minutes = try? c.decodeIfPresent(Double.self, forKey: .minutes)
+        highlight = try? c.decodeIfPresent(Int.self, forKey: .highlight)
+        tags = (try? c.decodeIfPresent([String].self, forKey: .tags)) ?? []
+        about = try c.decodeIfPresent(String.self, forKey: .about)
+        photo = try c.decodeIfPresent(String.self, forKey: .photo)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(x, forKey: .x)
+        try c.encode(z, forKey: .z)
+        try c.encode(category, forKey: .category)
+        try c.encodeIfPresent(details, forKey: .details)
+        try c.encode(aliases, forKey: .aliases)
+        try c.encodeIfPresent(customAnnounceRadius, forKey: .customAnnounceRadius)
+        try c.encodeIfPresent(minutes, forKey: .minutes)
+        try c.encodeIfPresent(highlight, forKey: .highlight)
+        if !tags.isEmpty { try c.encode(tags, forKey: .tags) }
+        try c.encodeIfPresent(about, forKey: .about)
+        try c.encodeIfPresent(photo, forKey: .photo)
     }
 }
 
@@ -115,6 +153,11 @@ struct NavigationMap: Codable, Equatable {
     /// measured it. Absent on maps that have never been aligned; glasses mode
     /// needs it, phone mode ignores it. The web editor round-trips it untouched.
     var immersalAlignment: ImmersalAlignment?
+    /// Explore mode: where a timed tour starts and ends (POI ids), and general
+    /// venue facts the guide may use. Optional; set in the web editor.
+    var tourStart: String?
+    var tourEnd: String?
+    var venueInfo: String?
 
     init(name: String, pois: [NavigationPOI], edges: [NavigationEdge],
          immersalAlignment: ImmersalAlignment? = nil) {
@@ -124,7 +167,7 @@ struct NavigationMap: Codable, Equatable {
         self.immersalAlignment = immersalAlignment
     }
 
-    private enum CodingKeys: String, CodingKey { case name, pois, edges, immersalAlignment }
+    private enum CodingKeys: String, CodingKey { case name, pois, edges, immersalAlignment, tourStart, tourEnd, venueInfo }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -132,6 +175,9 @@ struct NavigationMap: Codable, Equatable {
         pois = try c.decode([NavigationPOI].self, forKey: .pois)
         edges = try c.decode([NavigationEdge].self, forKey: .edges)
         immersalAlignment = try c.decodeIfPresent(ImmersalAlignment.self, forKey: .immersalAlignment)
+        tourStart = try c.decodeIfPresent(String.self, forKey: .tourStart)
+        tourEnd = try c.decodeIfPresent(String.self, forKey: .tourEnd)
+        venueInfo = try c.decodeIfPresent(String.self, forKey: .venueInfo)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -140,5 +186,8 @@ struct NavigationMap: Codable, Equatable {
         try c.encode(pois, forKey: .pois)
         try c.encode(edges, forKey: .edges)
         try c.encodeIfPresent(immersalAlignment, forKey: .immersalAlignment)
+        try c.encodeIfPresent(tourStart, forKey: .tourStart)
+        try c.encodeIfPresent(tourEnd, forKey: .tourEnd)
+        try c.encodeIfPresent(venueInfo, forKey: .venueInfo)
     }
 }
