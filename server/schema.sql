@@ -29,11 +29,23 @@ drop policy if exists ab_versions_insert on public.ab_map_versions;
 create policy ab_versions_insert on public.ab_map_versions
   for insert to anon, authenticated with check (true);
 
+-- Skips version numbers that already have files in the bucket, not only rows:
+-- a publish that uploaded its world map and then failed leaves `<slug>/v<n>/…`
+-- behind with no row, and the app uploads with x-upsert, so a retry on the same
+-- number was an UPDATE that no storage policy allows (RLS 403). Live since
+-- 2026-10-26.
 create or replace function public.ab_next_version(slug text)
 returns integer
 language sql stable
 as $$
-  select coalesce(max(version), 0) + 1 from public.ab_map_versions where map_slug = slug;
+  select greatest(
+    coalesce((select max(version) from public.ab_map_versions where map_slug = slug), 0),
+    coalesce((select max(substr(split_part(name, '/', 2), 2)::int)
+              from storage.objects
+              where bucket_id = 'aiseebin-maps'
+                and split_part(name, '/', 1) = slug
+                and split_part(name, '/', 2) ~ '^v[0-9]+$'), 0)
+  ) + 1;
 $$;
 
 grant execute on function public.ab_next_version(text) to anon, authenticated;

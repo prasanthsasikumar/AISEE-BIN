@@ -415,16 +415,66 @@ final class MapAuthoringViewModel {
                 errorMessage = "Immersal map not built: \(error.localizedDescription). The ARKit map is being published anyway."
             }
         }
+        await uploadBundle(worldMap: bundle.worldMap, points: bundle.points,
+                           pointCount: lastPointCount ?? 0, note: note, immersalMapID: immersalMapID)
+    }
+
+    /// Publishes the bundle already saved on this phone exactly as it sits on
+    /// disk: no world-map capture, no Immersal step. For a walk whose publish
+    /// failed after the files were written, so it can be sent from anywhere
+    /// without scanning wherever the phone happens to be now.
+    func publishSaved(note: String?) async {
+        guard !nodes.isEmpty else {
+            errorMessage = "The saved scan has no places."
+            return
+        }
+        let worldMap: Data
+        do {
+            worldMap = try mapStore.loadWorldMapData()
+        } catch {
+            errorMessage = "No saved world map on this phone: \(error.localizedDescription)"
+            return
+        }
+        guard let points = mapStore.loadPointCloud() else {
+            errorMessage = "No saved point cloud on this phone."
+            return
+        }
+        isUploading = true
+        defer { isUploading = false }
+        isBusy = true
+        defer {
+            isBusy = false
+            progressStage = nil
+            progressFraction = nil
+            progressStep = nil
+            progressBytesText = nil
+            progressVersion = nil
+        }
+        progressStep = .upload
+        progressFraction = 0
+        let count = points.count / 12
+        lastPointCount = count
+        log("publishSaved: worldmap=\(worldMap.count) bytes, points=\(points.count) bytes, nodes=\(nodes.count)")
+        await uploadBundle(worldMap: worldMap, points: points, pointCount: count, note: note, immersalMapID: nil)
+        if errorMessage == nil, let version = localVersion?.version {
+            publishedVersion = version
+            stage = .done
+        }
+    }
+
+    /// The server half of a publish: both blobs, then the version record.
+    private func uploadBundle(worldMap bundleWorldMap: Data, points: Data, pointCount: Int,
+                              note: String?, immersalMapID: Int?) async {
         // A graph drawn in the editor on an Immersal scan is not in this
         // session's ARKit frame, so a world map from this session would mislead.
-        let worldMap: Data? = session.map.immersalAlignment?.isEditorDrawn == true ? nil : bundle.worldMap
-        progressStage = worldMap == nil ? "Uploading point cloud…" : "Uploading world map (\(Self.format(bundle.worldMap.count)))…"
-        log("upload: starting, worldmap=\(worldMap?.count ?? 0) bytes, points=\(bundle.points.count) bytes")
+        let worldMap: Data? = session.map.immersalAlignment?.isEditorDrawn == true ? nil : bundleWorldMap
+        progressStage = worldMap == nil ? "Uploading point cloud…" : "Uploading world map (\(Self.format(bundleWorldMap.count)))…"
+        log("upload: starting, worldmap=\(worldMap?.count ?? 0) bytes, points=\(points.count) bytes")
         do {
             let saved = try await sync.upload(graph: session.map,
                                               worldMap: worldMap,
-                                              pointCloud: bundle.points,
-                                              pointCount: lastPointCount ?? 0,
+                                              pointCloud: points,
+                                              pointCount: pointCount,
                                               note: note,
                                               slug: targetSlug) { [weak self] progress in
                 guard let self else { return }

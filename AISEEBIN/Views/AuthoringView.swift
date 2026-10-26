@@ -27,11 +27,13 @@ struct AuthoringView: View {
     private enum LastAction: Equatable {
         case save
         case upload(note: String?)
+        case publishSaved(note: String?)
         case importLatest(slug: String)
         var retryLabel: String {
             switch self {
             case .save:         return "Try save again"
             case .upload:       return "Try publish again"
+            case .publishSaved: return "Try publish again"
             case .importLatest: return "Try import again"
             }
         }
@@ -158,6 +160,13 @@ struct AuthoringView: View {
                     if viewModel.mapStore.hasSavedWorldMap {
                         SecondaryRow(icon: "arrow.uturn.forward", title: "Add to the scan on this phone",
                                      detail: "\(viewModel.mapName) · \(viewModel.nodes.count) places") { viewModel.resumeExistingScan() }
+                        if !viewModel.nodes.isEmpty {
+                            SecondaryRow(icon: "icloud.and.arrow.up", title: "Publish the scan on this phone",
+                                         detail: "\(viewModel.mapName) · \(viewModel.nodes.count) places · sends the saved files as they are, no new scanning") {
+                                lastAction = .publishSaved(note: nil)
+                                Task { await viewModel.publishSaved(note: nil) }
+                            }
+                        }
                     }
                     SecondaryRow(icon: "icloud.and.arrow.down", title: "Open a map from the server",
                                  detail: "to add places to an existing map") { showMapPicker = true }
@@ -452,6 +461,7 @@ struct AuthoringView: View {
         switch action {
         case .save:               Task { await viewModel.saveLocally() }
         case .upload(let note):   Task { await viewModel.publish(note: note) }
+        case .publishSaved(let note): Task { await viewModel.publishSaved(note: note) }
         case .importLatest(let slug):
             Task { await viewModel.importLatestFromServer(slug: slug) }
         case nil:                 break
