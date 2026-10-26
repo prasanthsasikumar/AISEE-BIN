@@ -2,174 +2,341 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>AISEE-BIN Map Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" href="assets/aisee-app-icon.png">
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
-<header>
-  <h1>AISEE-BIN <span>map editor</span></h1>
-  <div class="toolbar">
-    <label>Map <select id="slug"><option value="default">Loading…</option></select></label>
-    <button id="refresh" title="Reload maps and versions">↻</button>
-    <button id="importImmersal" title="Open an Immersal scan as a new map, drawn in Immersal's own frame">Import from Immersal…</button>
-    <span class="sep"></span>
-    <button id="modeSelect" class="mode active" title="Select / drag nodes, pan, zoom">Select</button>
-    <button id="modeAdd" class="mode" title="Click on the canvas to add a node">+ Node</button>
-    <button id="modeConnect" class="mode" title="Click two nodes to add or remove an edge">Connect</button>
-    <button id="modePath" class="mode" title="Click along a corridor to lay waypoints; click an existing node to end there; Esc to stop">Path</button>
-    <span class="sep"></span>
-    <button id="undo" title="Undo (⌘Z / Ctrl+Z)" disabled>↶ Undo</button>
-    <button id="redo" title="Redo (⌘⇧Z / Ctrl+Y)" disabled>↷ Redo</button>
-    <span class="sep"></span>
-    <button id="fit" title="Fit view to content">Fit</button>
-    <label class="chk"><input type="checkbox" id="showPoints" checked> points</label>
-    <label class="chk"><input type="checkbox" id="showLabels" checked> labels</label>
-    <button id="open3d" title="Turn the point cloud around in 3D (Esc closes)">3D</button>
-  </div>
-  <div class="toolbar right">
-    <input id="note" placeholder="what changed?" size="18">
-    <button id="save" class="primary" disabled>Save as new version</button>
-  </div>
-</header>
+<body data-view="home">
 
-<main>
-  <aside id="left">
-    <h2>Versions</h2>
-    <ul id="versions" class="list"><li class="muted">Loading…</li></ul>
-    <div id="versionInfo" class="muted small"></div>
-  </aside>
-
-  <section id="canvasWrap">
-    <canvas id="canvas"></canvas>
-    <div id="hint" class="hint">Drag or middle-drag to pan · wheel to zoom · drag a node to move it · Delete removes the selection · ⌘Z undo</div>
-    <div id="coords" class="coords"></div>
-  </section>
-
-  <aside id="right">
-    <h2>Map</h2>
-    <label>Name <input id="mapName"></label>
-    <div id="mapStats" class="muted small"></div>
-    <details id="explorePanel" class="scan">
-      <summary>Explore tour (sighted visitors)</summary>
-      <label>Tour start <select id="mapTourStart"></select></label>
-      <label>Tour end <select id="mapTourEnd"></select></label>
-      <div class="muted small">Blank start: a place called <code>entrance</code>. Blank end: back at the start.</div>
-      <label>Venue info (used to answer questions) <textarea id="mapVenueInfo" rows="3" placeholder="Opening hours, toilets, café, the dome itself"></textarea></label>
-    </details>
-    <details id="scanTools" class="scan">
-      <summary>Scan view</summary>
-      <div class="muted small">Only points in this height band are drawn. Floor shows the walkable area; the band above it shows walls and furniture.</div>
-      <div class="scanRange"><span id="bandLoV">–</span><input id="bandLo" type="range" min="0" max="1000" value="0" aria-label="Lowest height shown"></div>
-      <div class="scanRange"><span id="bandHiV">–</span><input id="bandHi" type="range" min="0" max="1000" value="1000" aria-label="Highest height shown"></div>
-      <div class="scanPresets">
-        <button type="button" data-band="all">Everything</button>
-        <button type="button" data-band="floor">Floor</button>
-        <button type="button" data-band="walls">Walls &amp; furniture</button>
-      </div>
-      <label class="chk"><input type="checkbox" id="density"> density (clusters read as solid shapes)</label>
-      <svg id="heightHist" viewBox="0 0 240 110" role="img" aria-label="Histogram of point heights"></svg>
-    </details>
-    <details id="cloudsPanel" class="scan" hidden>
-      <summary>Immersal maps <span id="cloudCount" class="muted small"></span></summary>
-      <div class="muted small">Line several Immersal scans up into one map. Select a scan, then drag it on the canvas with <b>Move scan</b> (hold Alt/Option to rotate), or nudge it: arrow keys move 10 cm (Shift 1 m), [ and ] turn 1° (Shift 5°). Line up walkways, bed edges and trunks.</div>
-      <ul id="cloudList" class="list clouds"></ul>
-      <button id="addCloud" type="button">+ Add Immersal map…</button>
-      <div id="cloudEdit" hidden>
-        <div class="row radius"><span class="muted small">Turn</span><input id="cloudYawRange" type="range" min="-180" max="180" step="0.5"><input id="cloudYaw" type="number" step="0.5"></div>
-        <div class="row">
-          <label>x (m) <input id="cloudTx" type="number" step="0.05"></label>
-          <label>z (m) <input id="cloudTz" type="number" step="0.05"></label>
-          <label>height (m) <input id="cloudTy" type="number" step="0.05"></label>
+<!-- ================= Maps (home) ================= -->
+<div id="home" class="screen">
+  <header class="bar">
+    <a class="logo" href="#/" title="Maps"><img src="assets/aisee-logo-white.png" alt="AiSee"></a>
+    <div class="titleBlock"><h1>Maps</h1><span>AISEE-BIN map editor</span></div>
+    <span class="grow"></span>
+    <label class="search pill">
+      <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+      <input id="mapSearch" type="search" placeholder="Search maps" aria-label="Search maps">
+    </label>
+    <button id="refreshMaps" class="iconBtn boxed" title="Reload maps from the server" aria-label="Reload maps">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>
+    </button>
+  </header>
+  <main class="homeBody">
+    <h2 class="eyebrow" id="mapCount">Your maps</h2>
+    <div id="mapGrid" class="mapGrid">
+      <div id="newMapCard" class="newMap">
+        <span class="plus"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+        <h3>New map</h3>
+        <p>A map starts with a scan, so you need a phone on site. In the AISEE-BIN app, unlock staff mode and open <strong>Home → New map</strong>.</p>
+        <ol class="steps">
+          <li><span>1</span>Name</li>
+          <li><span>2</span>Walk &amp; mark</li>
+          <li><span>3</span>Publish — then refine it here</li>
+        </ol>
+        <div class="newMapActions">
+          <button id="importImmersal" class="btn" title="Open an Immersal scan as a new map, drawn in Immersal's own frame">Import from Immersal…</button>
+          <button id="newEmptyMap" class="btn quiet">Empty map</button>
         </div>
-        <div class="row">
-          <button id="moveCloud" type="button" class="mode" title="Drag the selected scan on the canvas; Alt/Option-drag rotates it">Move scan</button>
-          <button id="removeCloud" type="button" class="danger">Remove</button>
-        </div>
-        <div id="cloudOverlap" class="muted small"></div>
       </div>
-    </details>
-    <div id="connectivity" class="warn small" hidden></div>
-    <button id="autoConnect" hidden>Auto-connect isolated places</button>
-
-    <div id="nodePanel" hidden>
-      <h2>Node <code id="nodeId"></code></h2>
-      <label>Name <input id="nodeName"></label>
-      <label>Type
-        <select id="nodeCategory">
-          <option value="destination">Destination (navigable)</option>
-          <option value="junction">Junction (routing only)</option>
-          <option value="exhibit">Exhibit (navigable + announced)</option>
-          <option value="hazard">Hazard (announced, warning haptic)</option>
-        </select>
-      </label>
-      <div id="nodeRadiusRow">
-        <label>Announce within <span id="nodeRadiusValue"></span>
-          <div class="row radius">
-            <input id="nodeRadiusRange" type="range" min="0.5" max="10" step="0.25">
-            <input id="nodeRadius" type="number" min="0.5" max="20" step="0.25">
-          </div>
-        </label>
-        <div class="muted small">Spoken when a visitor comes this close. Default 2.5 m. <button id="nodeRadiusReset" class="link">Use default</button></div>
-      </div>
-      <label>Spoken description <textarea id="nodeDetails" rows="3"></textarea></label>
-      <label>Aliases (comma separated) <input id="nodeAliases" placeholder="bathroom, toilet"></label>
-      <div id="nodeExplore">
-        <div class="row">
-          <label>Visit minutes <input id="nodeMinutes" type="number" min="0.5" step="0.5" placeholder="3"></label>
-          <label>Highlight
-            <select id="nodeHighlight">
-              <option value="1">Must see</option>
-              <option value="">Good</option>
-              <option value="3">If there's time</option>
-              <option value="0">Not a tour stop</option>
-            </select>
-          </label>
-        </div>
-        <label>Tags (comma separated) <input id="nodeTags" placeholder="orchids, desert, kids"></label>
-        <label>About (used to answer questions) <textarea id="nodeAbout" rows="4"></textarea></label>
-        <label>Photo URL <input id="nodePhoto" placeholder="https://…"></label>
-      </div>
-      <div class="row">
-        <label>x (m) <input id="nodeX" type="number" step="0.05"></label>
-        <label>z (m) <input id="nodeZ" type="number" step="0.05"></label>
-      </div>
-      <div class="muted small">Edges: <span id="nodeEdges"></span></div>
-      <button id="deleteNode" class="danger">Delete node</button>
     </div>
-
-    <div id="edgePanel" hidden>
-      <h2>Edge</h2>
-      <div id="edgeLabel"></div>
-      <div class="muted small" id="edgeLength"></div>
-      <button id="deleteEdge" class="danger">Delete edge</button>
-    </div>
-
-    <h2>Files</h2>
-    <div class="stack">
-      <button id="exportJSON">Export graph JSON</button>
-      <label class="button">Import graph JSON <input type="file" id="importJSON" accept="application/json" hidden></label>
-      <a id="downloadWorldMap" class="button" download>Download ARWorldMap</a>
-      <a id="downloadPoints" class="button" download>Download point cloud (.f32)</a>
-    </div>
-
-    <h2>Legend</h2>
-    <div class="legend">
-      <span><i style="background:#2f80ed"></i>destination</span>
-      <span><i style="background:#9aa0a6"></i>junction</span>
-      <span><i style="background:#27ae60"></i>exhibit</span>
-      <span><i style="background:#eb5757"></i>hazard</span>
-    </div>
-    <p class="muted small">Top-down view. x runs right, forward (−z) runs up. The origin is where the scan started. Point colours follow height (blue = floor, yellow = high).</p>
-  </aside>
-</main>
-
-<footer id="status">Ready.</footer>
-<div id="view3d" hidden>
-  <div class="v3bar"><strong>3D</strong><span class="muted small">drag to orbit · wheel or pinch to zoom · double-click to reset · height band from Scan view applies</span><span class="spacer"></span><button id="reset3d">Reset view</button><button id="close3d">Close</button></div>
-  <canvas id="canvas3d"></canvas>
-  <div id="status3d" class="muted small"></div>
+  </main>
 </div>
+
+<!-- ================= Editor ================= -->
+<div id="editor" class="screen" hidden>
+  <header class="bar">
+    <a class="logo" href="#/" title="All maps"><img src="assets/aisee-logo-white.png" alt="AiSee — all maps"></a>
+    <button id="mapChip" class="chip" data-menu="mapMenu" data-status="live" aria-haspopup="menu">
+      <i class="dot"></i>
+      <span class="chipText"><span id="chipName">Map</span><span id="chipSub">—</span></span>
+      <svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <span class="vsep wide"></span>
+    <div class="seg wide" role="group" aria-label="Tool">
+      <button data-mode="select" class="active" title="Select and drag places; drag the map to pan"><svg class="ic" viewBox="0 0 24 24"><path d="M4 3l7 17 2.5-6.5L20 11z"/></svg>Select</button>
+      <button data-mode="add" title="Click the map to add a place"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Place</button>
+      <button data-mode="connect" title="Click two places to connect them, or remove their connection"><svg class="ic" viewBox="0 0 24 24"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8 16 16 8"/></svg>Connect</button>
+      <button data-mode="path" title="Click along a corridor to lay waypoints; click a place to end there; Esc to stop"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19c4 0 4-14 8-14s4 14 8 14"/></svg>Path</button>
+    </div>
+    <div class="wide row tight">
+      <button id="undo" class="iconBtn" title="Undo (⌘Z / Ctrl+Z)" aria-label="Undo" disabled><svg class="ic" viewBox="0 0 24 24"><path d="M9 10H5V6"/><path d="M5 10a8 8 0 1 1 3 6"/></svg></button>
+      <button id="redo" class="iconBtn" title="Redo (⌘⇧Z / Ctrl+Y)" aria-label="Redo" disabled><svg class="ic" viewBox="0 0 24 24"><path d="M15 10h4V6"/><path d="M19 10a8 8 0 1 0-3 6"/></svg></button>
+    </div>
+    <div class="wide row">
+      <button id="fit" class="btn" title="Fit the view to the map">Fit</button>
+      <button class="btn" data-menu="viewMenu" aria-haspopup="menu">View<svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+      <button class="btn" data-menu="filesMenu" aria-haspopup="menu">Files<svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+    </div>
+    <span class="grow"></span>
+    <span id="unsaved" class="unsaved wide" hidden><i></i><span id="unsavedText">Unpublished changes</span></span>
+    <button id="publish" class="btn primary" disabled>
+      <svg class="ic" viewBox="0 0 24 24"><path d="M12 16V6M8 10l4-4 4 4M5 19h14"/></svg><span id="publishLabel">Publish</span>
+    </button>
+  </header>
+
+  <main class="editorBody">
+    <aside id="left" class="rail left">
+      <button class="sheetClose" data-close-sheet aria-label="Close">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+      <div class="tabs" role="tablist">
+        <button id="tabPlaces" role="tab" aria-selected="true" class="active">Places <span id="placeCount" class="mono"></span></button>
+        <button id="tabHistory" role="tab" aria-selected="false">History <span id="historyCount" class="mono"></span></button>
+      </div>
+      <div id="placesPane" class="pane">
+        <label class="search field">
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+          <input id="placeSearch" type="search" placeholder="Find a place" aria-label="Find a place">
+        </label>
+        <ul id="placeList" class="placeList"></ul>
+        <div id="connectivity" class="reach ok" hidden>
+          <span id="reachIcon"></span>
+          <span id="reachText">Every place can be reached</span>
+          <button id="autoConnect" class="link warnLink" hidden>Auto-connect</button>
+        </div>
+      </div>
+      <div id="historyPane" class="pane" hidden>
+        <ul id="versions" class="versions"></ul>
+      </div>
+    </aside>
+
+    <section id="canvasWrap">
+      <canvas id="canvas"></canvas>
+      <div id="hint" class="overlay hint"></div>
+      <div id="legend" class="overlay legend">
+        <span><i class="c-destination"></i>Destination</span>
+        <span><i class="c-junction"></i>Junction</span>
+        <span><i class="c-exhibit"></i>Exhibit</span>
+        <span><i class="c-hazard"></i>Hazard</span>
+      </div>
+      <div id="coords" class="overlay coords">x — &nbsp; z —</div>
+      <button id="fitFloat" class="overlay fitFloat narrowOnly" aria-label="Fit the view">Fit</button>
+    </section>
+
+    <aside id="right" class="rail right">
+      <button class="sheetClose" data-close-sheet aria-label="Close">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+
+      <!-- Map (nothing selected) -->
+      <div id="mapPanel" class="panel">
+        <div class="panelHead"><h2>Map</h2><span class="grow"></span><code id="mapSlug" class="mono faint"></code></div>
+        <div class="field"><label for="mapName">Name</label><input id="mapName"></div>
+        <div id="mapStats" class="note"></div>
+        <details id="explorePanel" class="disclosure">
+          <summary>Explore tour <span class="faint">sighted visitors</span></summary>
+          <div class="field"><label for="mapTourStart">Tour start</label><select id="mapTourStart"></select></div>
+          <div class="field"><label for="mapTourEnd">Tour end</label><select id="mapTourEnd"></select></div>
+          <div class="note">Blank start: a place called <code>entrance</code>. Blank end: back at the start.</div>
+          <div class="field"><label for="mapVenueInfo">Venue info (used to answer questions)</label><textarea id="mapVenueInfo" rows="3" placeholder="Opening hours, toilets, café, the dome itself"></textarea></div>
+        </details>
+        <details id="scanTools" class="disclosure">
+          <summary>Scan view</summary>
+          <div class="note">Only points in this height band are drawn. Floor shows the walkable area; the band above it shows walls and furniture.</div>
+          <div class="scanRange"><span id="bandLoV">–</span><input id="bandLo" type="range" min="0" max="1000" value="0" aria-label="Lowest height shown"></div>
+          <div class="scanRange"><span id="bandHiV">–</span><input id="bandHi" type="range" min="0" max="1000" value="1000" aria-label="Highest height shown"></div>
+          <div class="chips">
+            <button type="button" class="btn small" data-band="all">Everything</button>
+            <button type="button" class="btn small" data-band="floor">Floor</button>
+            <button type="button" class="btn small" data-band="walls">Walls &amp; furniture</button>
+          </div>
+          <label class="check"><input type="checkbox" id="density"><span>Density (clusters read as solid shapes)</span></label>
+          <svg id="heightHist" viewBox="0 0 240 110" role="img" aria-label="Histogram of point heights"></svg>
+        </details>
+        <details id="cloudsPanel" class="disclosure" hidden>
+          <summary>Immersal maps <span id="cloudCount" class="faint"></span></summary>
+          <div class="note">Line several Immersal scans up into one map. Select a scan, then drag it on the canvas with <b>Move scan</b> (hold Alt/Option to rotate), or nudge it: arrow keys move 10 cm (Shift 1 m), [ and ] turn 1° (Shift 5°). Line up walkways, bed edges and trunks.</div>
+          <ul id="cloudList" class="cloudList"></ul>
+          <button id="addCloud" type="button" class="btn">+ Add Immersal map…</button>
+          <div id="cloudEdit" hidden>
+            <div class="row"><span class="note">Turn</span><input id="cloudYawRange" class="grow" type="range" min="-180" max="180" step="0.5"><input id="cloudYaw" class="num" type="number" step="0.5" aria-label="Turn (degrees)"></div>
+            <div class="row">
+              <div class="field"><label for="cloudTx">x (m)</label><input id="cloudTx" type="number" step="0.05"></div>
+              <div class="field"><label for="cloudTz">z (m)</label><input id="cloudTz" type="number" step="0.05"></div>
+              <div class="field"><label for="cloudTy">height (m)</label><input id="cloudTy" type="number" step="0.05"></div>
+            </div>
+            <div class="row">
+              <button id="moveCloud" type="button" class="btn" title="Drag the selected scan on the canvas; Alt/Option-drag rotates it">Move scan</button>
+              <button id="removeCloud" type="button" class="btn danger">Remove</button>
+            </div>
+            <div id="cloudOverlap" class="note"></div>
+          </div>
+        </details>
+        <p class="note">Top-down view. x runs right, forward (−z) runs up. The origin is where the scan started. Point colours follow height (blue = floor, yellow = high).</p>
+      </div>
+
+      <!-- Edit place -->
+      <div id="nodePanel" class="panel" hidden>
+        <div class="panelHead"><h2>Edit place</h2><span class="grow"></span><code id="nodeId" class="mono faint"></code></div>
+        <div class="field"><label for="nodeName">Name</label><input id="nodeName"></div>
+        <div class="field">
+          <label>Type</label>
+          <div id="typeGrid" class="typeGrid" role="radiogroup" aria-label="Type">
+            <button data-cat="destination" role="radio"><i class="c-destination"></i>Destination</button>
+            <button data-cat="junction" role="radio"><i class="c-junction"></i>Junction</button>
+            <button data-cat="exhibit" role="radio"><i class="c-exhibit"></i>Exhibit</button>
+            <button data-cat="hazard" role="radio"><i class="c-hazard"></i>Hazard</button>
+          </div>
+          <span id="typeHint" class="typeHint"></span>
+        </div>
+        <div id="nodeRadiusRow" class="field">
+          <label for="nodeRadius">Announce within <span id="nodeRadiusValue" class="lower"></span></label>
+          <div class="row">
+            <input id="nodeRadiusRange" class="grow" type="range" min="0.5" max="10" step="0.25" aria-label="Announce radius">
+            <input id="nodeRadius" class="num" type="number" min="0.5" max="20" step="0.25">
+          </div>
+          <div class="note">Spoken when a visitor comes this close. Default 2.5 m. <button id="nodeRadiusReset" class="link">Use default</button></div>
+        </div>
+        <div class="field">
+          <label for="nodeDetails">Spoken description</label>
+          <textarea id="nodeDetails" rows="3"></textarea>
+          <button id="playDetails" class="link play" title="Read aloud by this browser's voice; the phone's voice sounds different">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7"/></svg>Play aloud
+          </button>
+        </div>
+        <div class="field">
+          <label for="aliasInput">Also called</label>
+          <div id="aliasChips" class="chips">
+            <input id="aliasInput" class="aliasInput" placeholder="+ add" aria-label="Add another name">
+          </div>
+        </div>
+        <div id="nodeExplore">
+          <div class="row">
+            <div class="field"><label for="nodeMinutes">Visit minutes</label><input id="nodeMinutes" type="number" min="0.5" step="0.5" placeholder="3"></div>
+            <div class="field"><label for="nodeHighlight">Highlight</label>
+              <select id="nodeHighlight">
+                <option value="1">Must see</option>
+                <option value="">Good</option>
+                <option value="3">If there's time</option>
+                <option value="0">Not a tour stop</option>
+              </select>
+            </div>
+          </div>
+          <div class="field"><label for="nodeTags">Tags (comma separated)</label><input id="nodeTags" placeholder="orchids, desert, kids"></div>
+          <div class="field"><label for="nodeAbout">About (used to answer questions)</label><textarea id="nodeAbout" rows="4"></textarea></div>
+          <div class="field"><label for="nodePhoto">Photo URL</label><input id="nodePhoto" placeholder="https://…"></div>
+        </div>
+        <div class="field">
+          <label>Connections</label>
+          <ul id="nodeEdges" class="connList"></ul>
+        </div>
+        <div class="row">
+          <label class="coord"><span>x</span><input id="nodeX" type="number" step="0.05" aria-label="x (m)"></label>
+          <label class="coord"><span>z</span><input id="nodeZ" type="number" step="0.05" aria-label="z (m)"></label>
+        </div>
+        <span class="grow"></span>
+        <button id="deleteNode" class="btn danger block"><svg class="ic" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/></svg>Delete place</button>
+      </div>
+
+      <!-- Connection -->
+      <div id="edgePanel" class="panel" hidden>
+        <div class="panelHead"><h2>Connection</h2></div>
+        <div id="edgeLabel" class="edgeLabel"></div>
+        <div id="edgeLength" class="note mono"></div>
+        <span class="grow"></span>
+        <button id="deleteEdge" class="btn danger block"><svg class="ic" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/></svg>Delete connection</button>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Narrow screens: selected place + tools -->
+  <div id="mobileBar" class="mobileBar narrowOnly">
+    <span class="grabber"></span>
+    <div id="mbSummary" class="mbSummary">
+      <i id="mbDot" class="dot"></i>
+      <span class="mbText"><strong id="mbName"></strong><span id="mbMeta" class="mono"></span></span>
+      <button id="mbEdit" class="btn">Edit</button>
+    </div>
+    <div class="mbTools" role="group" aria-label="Tool">
+      <button data-mode="select" class="active"><svg class="ic" viewBox="0 0 24 24"><path d="M4 3l7 17 2.5-6.5L20 11z"/></svg>Select</button>
+      <button data-mode="add"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Place</button>
+      <button data-mode="connect"><svg class="ic" viewBox="0 0 24 24"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8 16 16 8"/></svg>Connect</button>
+      <button data-menu="moreMenu" aria-haspopup="menu"><svg class="ic fill" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>More</button>
+    </div>
+  </div>
+</div>
+
+<footer id="statusBar" class="statusBar">
+  <i class="dot"></i><span id="status">Ready.</span>
+  <span class="grow"></span>
+  <span id="footRight"></span>
+  <img id="footLogo" src="assets/flowsxr-logo-light.svg" alt="FlowsXR">
+</footer>
+
+<!-- ================= Menus ================= -->
+<div id="mapMenu" class="menu" role="menu" hidden>
+  <span class="menuTitle">Switch map</span>
+  <div id="mapMenuList"></div>
+  <hr>
+  <button id="checkVersions" role="menuitem"><svg class="ic" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>Check for new versions</button>
+  <a href="#/" role="menuitem" class="accentItem"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>All maps</a>
+</div>
+
+<div id="viewMenu" class="menu narrowMenu" role="menu" hidden>
+  <span class="menuTitle">View</span>
+  <label class="menuCheck"><input type="checkbox" id="showPoints" checked><span class="box"></span>Point cloud</label>
+  <label class="menuCheck"><input type="checkbox" id="showLabels" checked><span class="box"></span>Labels</label>
+  <label class="menuCheck"><input type="checkbox" id="showDistances" checked><span class="box"></span>Distances</label>
+  <label class="menuCheck"><input type="checkbox" id="showLegend" checked><span class="box"></span>Legend</label>
+  <hr>
+  <button id="open3d" role="menuitem" title="Turn the point cloud around in 3D (Esc closes)"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg>3D view</button>
+</div>
+
+<div id="filesMenu" class="menu narrowMenu" role="menu" hidden>
+  <span class="menuTitle">Files</span>
+  <button id="exportJSON" role="menuitem"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg>Export graph JSON</button>
+  <label class="menuItem" role="menuitem"><svg class="ic" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>Import graph JSON…<input type="file" id="importJSON" accept="application/json" hidden></label>
+  <hr>
+  <a id="downloadWorldMap" role="menuitem" download><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg>Download ARWorldMap<span class="grow"></span><span id="worldMapSize" class="mono faint"></span></a>
+  <a id="downloadPoints" role="menuitem" download><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg>Download point cloud (.f32)</a>
+</div>
+
+<div id="moreMenu" class="menu narrowMenu" role="menu" hidden>
+  <span class="menuTitle">More</span>
+  <button data-mode="path" role="menuitem"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19c4 0 4-14 8-14s4 14 8 14"/></svg>Path</button>
+  <button id="mmUndo" role="menuitem" disabled><svg class="ic" viewBox="0 0 24 24"><path d="M9 10H5V6"/><path d="M5 10a8 8 0 1 1 3 6"/></svg>Undo</button>
+  <button id="mmRedo" role="menuitem" disabled><svg class="ic" viewBox="0 0 24 24"><path d="M15 10h4V6"/><path d="M19 10a8 8 0 1 0-3 6"/></svg>Redo</button>
+  <hr>
+  <button id="mmPlaces" role="menuitem"><svg class="ic" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Places &amp; history</button>
+  <button id="mmMap" role="menuitem"><svg class="ic" viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Map details</button>
+  <button id="mmView" role="menuitem"><svg class="ic" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>View…</button>
+  <button id="mmFiles" role="menuitem"><svg class="ic" viewBox="0 0 24 24"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></svg>Files…</button>
+</div>
+
+<div id="scrim" class="scrim" hidden></div>
+
+<!-- ================= Publish ================= -->
+<dialog id="publishDialog" class="dialog" aria-labelledby="publishTitle">
+  <div class="dialogHead">
+    <div><h2 id="publishTitle">Publish?</h2><p>Visitors get it the next time they open the map.</p></div>
+    <button id="publishClose" class="iconBtn round" aria-label="Close"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <div id="publishStats" class="stats"></div>
+  <ul id="publishChecks" class="checks"></ul>
+  <div class="field">
+    <label for="note">What changed</label>
+    <textarea id="note" rows="2" placeholder="Added Fern Alcove; renamed the orchid bench."></textarea>
+    <span class="note">Shown in History, and on the phone next to the version number.</span>
+  </div>
+  <div id="publishError" class="publishError" hidden></div>
+  <div class="dialogActions">
+    <button id="keepEditing" class="btn big">Keep editing</button>
+    <button id="publishConfirm" class="btn primary big"><svg class="ic" viewBox="0 0 24 24"><path d="M12 16V6M8 10l4-4 4 4M5 19h14"/></svg><span id="publishConfirmLabel">Publish</span></button>
+  </div>
+</dialog>
+
+<!-- ================= 3D ================= -->
+<div id="view3d" hidden>
+  <div class="v3bar"><strong>3D</strong><span class="note">drag to orbit · wheel or pinch to zoom · double-click to reset · height band from Scan view applies</span><span class="grow"></span><button id="reset3d" class="btn">Reset view</button><button id="close3d" class="btn">Close</button></div>
+  <canvas id="canvas3d"></canvas>
+  <div id="status3d" class="note"></div>
+</div>
+
 <script src="immersal.js"></script>
 <script src="explore.js"></script>
 <script src="align.js"></script>
