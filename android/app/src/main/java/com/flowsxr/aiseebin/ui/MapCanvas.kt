@@ -25,14 +25,15 @@ import kotlin.math.sin
  * graph −z (ARKit "ahead" at the origin) up the screen.
  */
 @Composable
-fun MapCanvas(map: NavigationMap, fix: Fix?, modifier: Modifier = Modifier, height: androidx.compose.ui.unit.Dp = 280.dp) {
+fun MapCanvas(map: NavigationMap, fix: Fix?, modifier: Modifier = Modifier, height: androidx.compose.ui.unit.Dp? = 280.dp) {
     val edgeColor = MaterialTheme.colorScheme.outline
     val poiColor = MaterialTheme.colorScheme.primary
     val junctionColor = MaterialTheme.colorScheme.outlineVariant
     val textColor = MaterialTheme.colorScheme.onSurface.toArgbInt()
     val youColor = Color(0xFFE5484D)
 
-    Canvas(modifier.fillMaxWidth().height(height)) {
+    // A null height lets the caller size it (e.g. with a weight).
+    Canvas(modifier.fillMaxWidth().let { if (height != null) it.height(height) else it }) {
         val points = map.pois.map { it.position } + listOfNotNull(fix?.position)
         if (points.isEmpty()) return@Canvas
         var minX = points.minOf { it.x }; var maxX = points.maxOf { it.x }

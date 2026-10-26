@@ -46,6 +46,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     private val cache = ImmersalMapCache(app.filesDir)
     private val mapDir = java.io.File(app.filesDir, "maps")
     val speaker = Speaker(app)
+    val haptics = Haptics(app)
     val glasses = GlassesController(app, viewModelScope)
     /** Debug: a still image fed to positioning in place of glasses frames. */
     @Volatile var frameOverride: com.flowsxr.aiseebin.immersal.GrayImage? = null
@@ -90,6 +91,31 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         // A running session switches straight away.
         if (positioning.state.value.running) { stopPositioning(); startPositioning() }
     }
+
+    /** Staff mode: Home and Settings are reachable. Visitors unlock it with five logo taps. */
+    private val _staff = MutableStateFlow(prefs.getBoolean(KEY_STAFF, false))
+    val staff: StateFlow<Boolean> = _staff
+
+    fun setStaff(on: Boolean) {
+        _staff.value = on
+        prefs.edit().putBoolean(KEY_STAFF, on).apply()
+        append("staff mode ${if (on) "on" else "off"}")
+    }
+
+    /** What a visitor phone opens on. Explore is not on Android yet, so it is always Navigate for now. */
+    enum class VisitorMode { NAVIGATE, EXPLORE }
+
+    private val _visitorMode = MutableStateFlow(
+        runCatching { VisitorMode.valueOf(prefs.getString(KEY_VISITOR, null) ?: "") }.getOrDefault(VisitorMode.NAVIGATE))
+    val visitorMode: StateFlow<VisitorMode> = _visitorMode
+
+    fun setVisitorMode(mode: VisitorMode) {
+        _visitorMode.value = mode
+        prefs.edit().putString(KEY_VISITOR, mode.name).apply()
+    }
+
+    /** Whether all of these Immersal maps are on the phone, for offline localizing. */
+    fun isCached(ids: List<Int>) = ids.isNotEmpty() && ids.all(cache::has)
 
     private val _focalPx = MutableStateFlow(prefs.getFloat(KEY_FOCAL, GlassesCamera.DEFAULT_FOCAL_PX))
     val focalPx: StateFlow<Float> = _focalPx
@@ -482,6 +508,8 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         private const val KEY_FOCAL = "glasses.focalPx"
         private const val KEY_TOKEN = "immersal.token"
         private const val KEY_ANNOUNCE = "announce.places"
+        private const val KEY_STAFF = "staff.mode"
+        private const val KEY_VISITOR = "visitor.mode"
         private const val PARKED_X = -40f
         private const val KEY_LOCALIZER = "immersal.localizerMode"
         private const val STALE_SECONDS = 10
