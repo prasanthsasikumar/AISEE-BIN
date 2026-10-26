@@ -210,11 +210,12 @@ private fun ColumnScope.TalkTile(onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Box(Modifier.size(82.dp).background(Ink.Light, CircleShape), contentAlignment = Alignment.Center) {
-            Icon(AiseeIcons.Pin, null, Modifier.size(42.dp), tint = Ink.Talk)
+        Box(Modifier.size(72.dp).background(Ink.Light, CircleShape), contentAlignment = Alignment.Center) {
+            Icon(AiseeIcons.Pin, null, Modifier.size(38.dp), tint = Ink.Talk)
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Where am I?", style = plex(700, 32, color = Color.White))
+            // "Tap to talk" fits the design's 32 sp; "Where am I?" is longer, so a step down keeps it on one line.
+            Text("Where am I?", style = plex(700, 28, color = Color.White), maxLines = 1, softWrap = false)
             Text("Tap here, or press the button on the glasses.", style = plex(400, 16, 1.45f, color = Ink.OnPrimarySoft))
         }
     }

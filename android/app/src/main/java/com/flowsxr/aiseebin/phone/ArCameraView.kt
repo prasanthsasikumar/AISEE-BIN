@@ -1,7 +1,6 @@
 package com.flowsxr.aiseebin.phone
 
 import android.app.Activity
-import android.opengl.GLSurfaceView
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -23,13 +22,7 @@ fun ArCameraView(camera: ArCamera, onFrame: (Frame) -> Unit, modifier: Modifier 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val renderer = remember(camera) { ArRenderer(camera, onFrame) }
     val view = remember(camera) {
-        GLSurfaceView(activity).apply {
-            preserveEGLContextOnPause = true
-            setEGLContextClientVersion(2)
-            setEGLConfigChooser(8, 8, 8, 8, 16, 0)
-            setRenderer(renderer)
-            renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
-        }
+        GlTextureView(activity, renderer)
     }
     DisposableEffect(lifecycle, camera) {
         fun resume() {

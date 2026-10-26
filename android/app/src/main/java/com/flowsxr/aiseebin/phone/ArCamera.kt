@@ -187,10 +187,11 @@ class ArRenderer(private val camera: ArCamera, private val onFrame: (Frame) -> U
 
     override fun onDrawFrame(gl: GL10?) {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-        val session = camera.session ?: return
+        // No session or a paused one: wait a frame rather than spin the GL thread.
+        val session = camera.session ?: return Thread.sleep(IDLE_MS)
         if (!geometrySet && width > 0) { session.setDisplayGeometry(rotation, width, height); geometrySet = true }
         session.setCameraTextureName(texture)
-        val frame = runCatching { session.update() }.getOrNull() ?: return
+        val frame = runCatching { session.update() }.getOrNull() ?: return Thread.sleep(IDLE_MS)
         if (frame.hasDisplayGeometryChanged()) {
             quad.position(0); uv.position(0)
             frame.transformCoordinates2d(Coordinates2d.OPENGL_NORMALIZED_DEVICE_COORDINATES, quad, Coordinates2d.TEXTURE_NORMALIZED, uv)
@@ -216,6 +217,7 @@ class ArRenderer(private val camera: ArCamera, private val onFrame: (Frame) -> U
     }
 
     private companion object {
+        const val IDLE_MS = 16L
         const val VERTEX = """
             attribute vec4 a_Position;
             attribute vec2 a_TexCoord;
