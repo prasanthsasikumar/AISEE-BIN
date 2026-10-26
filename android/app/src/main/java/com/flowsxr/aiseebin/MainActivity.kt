@@ -27,9 +27,11 @@ private const val DEBUG_ACTION = "com.flowsxr.aiseebin.DEBUG"
 class MainActivity : ComponentActivity() {
     private val model: AppModel by viewModels()
     private var permissionsGranted by mutableStateOf(false)
+    private var cameraGranted by mutableStateOf(false)
 
     private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         permissionsGranted = missingPermissions().isEmpty()
+        cameraGranted = hasCamera()
         model.append("permissions: ${if (permissionsGranted) "granted" else "missing ${missingPermissions()}"}")
         if (permissionsGranted) model.glasses.reconnectLast()
     }
@@ -40,6 +42,7 @@ class MainActivity : ComponentActivity() {
         // A tester walks with this open; keep the screen on while it is in front.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         permissionsGranted = missingPermissions().isEmpty()
+        cameraGranted = hasCamera()
         // Ask for everything not yet granted, including the optional step counter.
         val ungranted = requiredPermissions().filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
@@ -50,7 +53,7 @@ class MainActivity : ComponentActivity() {
             ContextCompat.registerReceiver(this, debugReceiver, IntentFilter(DEBUG_ACTION), ContextCompat.RECEIVER_EXPORTED)
         }
         setContent {
-            AppRoot(model, permissionsGranted,
+            AppRoot(model, permissionsGranted, cameraGranted,
                 requestPermissions = { permissionRequest.launch(requiredPermissions()) },
                 openBluetoothSettings = { startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) },
                 close = ::finish)
@@ -111,6 +114,7 @@ class MainActivity : ComponentActivity() {
     private fun requiredPermissions(): Array<String> = buildList {
         add(Manifest.permission.ACCESS_FINE_LOCATION)
         add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        add(Manifest.permission.CAMERA)
         if (Build.VERSION.SDK_INT >= 29) add(Manifest.permission.ACTIVITY_RECOGNITION)
         if (Build.VERSION.SDK_INT >= 31) {
             add(Manifest.permission.BLUETOOTH_CONNECT)
@@ -122,9 +126,12 @@ class MainActivity : ComponentActivity() {
         }
     }.toTypedArray()
 
+    private fun hasCamera() = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+
     // Step counting is optional: without it the jump filter allows walking pace instead.
+    // The camera is asked for here but only the phone-camera source needs it.
     private fun missingPermissions() = requiredPermissions().filter {
-        it != Manifest.permission.ACTIVITY_RECOGNITION &&
+        it != Manifest.permission.ACTIVITY_RECOGNITION && it != Manifest.permission.CAMERA &&
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
     }
 }

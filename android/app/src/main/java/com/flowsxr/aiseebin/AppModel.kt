@@ -24,6 +24,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import com.flowsxr.aiseebin.phone.ArCamera
+import com.flowsxr.aiseebin.phone.ArSupport
+import com.flowsxr.aiseebin.positioning.PhonePositioning
+import com.flowsxr.aiseebin.positioning.PositioningState
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -57,6 +64,33 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             ?: GlassesFrames.latest()
     }, app.getExternalFilesDir(null), walked = { odometer.walked })
 
+    /** The phone's own camera with ARCore, as iOS uses ARKit when no glasses are worn. */
+    val ar = ArCamera(app)
+    val phone = PhonePositioning(viewModelScope)
+
+    /** Which camera finds the visitor: the phone's (ARCore) or the glasses'. */
+    enum class PositionSource(val label: String) { PHONE("Phone camera"), GLASSES("Glasses") }
+
+    private val _source = MutableStateFlow(
+        runCatching { PositionSource.valueOf(prefs.getString(KEY_SOURCE, null) ?: "") }.getOrDefault(PositionSource.PHONE))
+    val source: StateFlow<PositionSource> = _source
+
+    fun setSource(source: PositionSource) {
+        if (source == _source.value) return
+        val wasRunning = position.value.running
+        stopPositioning()
+        _source.value = source
+        prefs.edit().putString(KEY_SOURCE, source.name).apply()
+        append("position source: ${source.label}")
+        if (wasRunning) startPositioning()
+    }
+
+    /** The active source's positioning, whichever camera it is. */
+    val position: StateFlow<PositioningState> by lazy {
+        combine(_source, positioning.state, phone.state) { s, g, p -> if (s == PositionSource.PHONE) p else g }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, PositioningState())
+    }
+
     /** Speak exhibits and hazards on the way past (iOS ProximityAnnouncer). */
     private val _announcePlaces = MutableStateFlow(prefs.getBoolean(KEY_ANNOUNCE, true))
     val announcePlaces: StateFlow<Boolean> = _announcePlaces
@@ -89,7 +123,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putString(KEY_LOCALIZER, mode.name).apply()
         append("localization set to ${mode.label}")
         // A running session switches straight away.
-        if (positioning.state.value.running) { stopPositioning(); startPositioning() }
+        if (position.value.running) { stopPositioning(); startPositioning() }
     }
 
     /** Staff mode: Home and Settings are reachable. Visitors unlock it with five logo taps. */
@@ -140,28 +174,27 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         // The stream dropping (link loss, player failure, stop) ends positioning too.
         viewModelScope.launch {
             glasses.state.collect { g ->
-                if (g.stream != Stream.PLAYING && frameOverride == null && (positioning.state.value.running || startJob?.isActive == true)) {
+                if (g.stream != Stream.PLAYING && frameOverride == null && _source.value == PositionSource.GLASSES &&
+                    (positioning.state.value.running || startJob?.isActive == true)) {
                     cancelStart()
                     positioning.stop()
                     append("positioning stopped: camera is ${g.stream.name.lowercase()}")
                 }
             }
         }
-        positioning.onFix = { fix ->
-            if (!announcedFirstFix) {
-                announcedFirstFix = true
-                viewModelScope.launch { describe(fix)?.let { speak("Located. $it") } }
-            }
-            val passing = if (_announcePlaces.value) announcer?.update(fix.position, fix.heading).orEmpty() else emptyList()
-            if (passing.isNotEmpty()) viewModelScope.launch {
-                for (a in passing) {
-                    val hazard = a.poi.category == com.flowsxr.aiseebin.map.PoiCategory.HAZARD
-                    append("announce ${a.poi.name} (%.1f m, radius %.1f m)".format(a.distance, a.poi.announceRadius))
-                    if (hazard) buzzWarning()
-                    // Hazards cut in; exhibits wait their turn, as on iOS.
-                    speak(a.spokenText, interrupt = hazard)
-                }
-            }
+        positioning.onFix = ::handleFix
+        phone.onFix = ::handleFix
+        phone.onAttempt = { append(it) }
+        ar.log = { append(it) }
+        viewModelScope.launch {
+            // ARCore may still be checking at start-up.
+            repeat(20) { ar.checkSupport(); if (ar.support.value != ArSupport.CHECKING) return@launch; kotlinx.coroutines.delay(300) }
+        }
+        viewModelScope.launch {
+            ar.support.collect { if (it == ArSupport.UNSUPPORTED && _source.value == PositionSource.PHONE) {
+                append("ARCore not supported on this phone: positioning with the glasses")
+                _source.value = PositionSource.GLASSES
+            } }
         }
         viewModelScope.launch {
             positioning.state.collect { if (!it.running) odometer.stop() }
@@ -170,6 +203,24 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         append("built-in Immersal token: ${if (hasBuiltInToken) "yes" else "no"}")
         refreshMaps()
         glasses.reconnectLast()
+    }
+
+    /** A position from either source: the first is spoken, then places are announced on the way past. */
+    private fun handleFix(fix: Fix) {
+        if (!announcedFirstFix) {
+            announcedFirstFix = true
+            viewModelScope.launch { describe(fix)?.let { speak("Located. $it") } }
+        }
+        val passing = if (_announcePlaces.value) announcer?.update(fix.position, fix.heading).orEmpty() else emptyList()
+        if (passing.isNotEmpty()) viewModelScope.launch {
+            for (a in passing) {
+                val hazard = a.poi.category == com.flowsxr.aiseebin.map.PoiCategory.HAZARD
+                append("announce ${a.poi.name} (%.1f m, radius %.1f m)".format(a.distance, a.poi.announceRadius))
+                if (hazard) buzzWarning()
+                // Hazards cut in; exhibits wait their turn, as on iOS.
+                speak(a.spokenText, interrupt = hazard)
+            }
+        }
     }
 
     // MARK: - Maps
@@ -197,6 +248,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     fun selectMap(slug: String) {
         cancelStart()
         positioning.stop()
+        phone.stop()
         prefs.edit().putString(KEY_MAP, slug).apply()
         _maps.update { it.copy(selectedSlug = slug, map = null, loading = true, status = "Loading $slug…") }
         viewModelScope.launch {
@@ -251,6 +303,11 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                     return@launch
                 }
                 announcer = com.flowsxr.aiseebin.positioning.ProximityAnnouncer(map.pois)
+                if (_source.value == PositionSource.PHONE) {
+                    phone.start(localizer, alignment)
+                    append("positioning started with the phone camera (${localizer.label})")
+                    return@launch
+                }
                 odometer.start()
                 append("walked distance from the ${odometer.source}")
                 positioning.start(localizer, alignment, GlassesCamera(_focalPx.value))
@@ -347,13 +404,14 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     fun stopPositioning() {
         cancelStart()
         positioning.stop()
+        phone.stop()
         append("positioning stopped")
     }
 
     fun whereAmI(trigger: String = "screen") {
-        val fix = positioning.state.value.lastFix
+        val fix = position.value.lastFix
         val text = when {
-            fix == null -> if (positioning.state.value.running) "No position yet. Look around slowly." else "Positioning is off."
+            fix == null -> if (position.value.running) "No position yet. Look around slowly." else "Positioning is off."
             else -> {
                 val age = (System.currentTimeMillis() - fix.atMillis) / 1000
                 val base = describe(fix) ?: "Position known, but this map has no named places."
@@ -396,15 +454,15 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         if (_fieldBusy.value != null) return
         viewModelScope.launch {
             _fieldBusy.value = "Checking at ${poi.name}…"
-            val before = positioning.state.value
+            val before = position.value
             val fixes = mutableListOf<Fix>()
             var last = before.lastFix?.atMillis
             val end = System.currentTimeMillis() + 10_000
             while (System.currentTimeMillis() < end) {
-                positioning.state.value.lastFix?.let { if (it.atMillis != last) { fixes += it; last = it.atMillis } }
+                position.value.lastFix?.let { if (it.atMillis != last) { fixes += it; last = it.atMillis } }
                 kotlinx.coroutines.delay(200)
             }
-            val after = positioning.state.value
+            val after = position.value
             val tries = maxOf(0, after.attempts - before.attempts)
             val payload = org.json.JSONObject().put("target_x", poi.position.x.toDouble()).put("target_z", poi.position.z.toDouble())
                 .put("readings", fixes.size).put("tries", tries).put("fixes", maxOf(0, after.fixes - before.fixes))
@@ -422,7 +480,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             _checks.update { it + (poi.id to summary) }
             append("check ${poi.name}: $summary")
             withContext(Dispatchers.IO) {
-                runCatching { FieldResults.post("check", _maps.value.selectedSlug, "glasses", after.localizer, poi.id, poi.name, payload) }
+                runCatching { FieldResults.post("check", _maps.value.selectedSlug, if (_source.value == PositionSource.PHONE) "phone" else "glasses", after.localizer, poi.id, poi.name, payload) }
                     .onFailure { append("check not uploaded: ${it.message}") }
             }
             _fieldBusy.value = null
@@ -452,6 +510,15 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     fun setAnnouncePlaces(on: Boolean) {
         _announcePlaces.value = on
         prefs.edit().putBoolean(KEY_ANNOUNCE, on).apply()
+    }
+
+    // MARK: - Phone camera
+
+    /** Each ARCore frame (GL thread) feeds phone positioning while it runs. */
+    fun onArFrame(frame: com.google.ar.core.Frame) {
+        if (!phone.state.value.running) return
+        val problem = ArCamera.problem(frame)
+        phone.onFrame(if (problem == null) ArCamera.floorPose(frame) else null, problem, System.currentTimeMillis()) { ArCamera.shot(frame) }
     }
 
     // MARK: - Glasses
@@ -497,6 +564,8 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     override fun onCleared() {
         cancelStart()
         positioning.stop()
+        phone.stop()
+        ar.close()
         glasses.stopStream()
         glasses.release()
         speaker.shutdown()
@@ -509,6 +578,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         private const val KEY_TOKEN = "immersal.token"
         private const val KEY_ANNOUNCE = "announce.places"
         private const val KEY_STAFF = "staff.mode"
+        private const val KEY_SOURCE = "position.source"
         private const val KEY_VISITOR = "visitor.mode"
         private const val PARKED_X = -40f
         private const val KEY_LOCALIZER = "immersal.localizerMode"

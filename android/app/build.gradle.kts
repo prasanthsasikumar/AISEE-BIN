@@ -150,6 +150,8 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-core")
     implementation("com.google.code.gson:gson:2.13.2")
+    // Phone-camera positioning (iOS uses ARKit); optional, so phones without it use the glasses.
+    implementation("com.google.ar:core:1.57.0")
     implementation("com.squareup.okhttp3:okhttp:5.3.2")
 
     testImplementation("junit:junit:4.13.2")

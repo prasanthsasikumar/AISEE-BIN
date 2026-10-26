@@ -36,6 +36,8 @@ data class PositioningState(
     val frameSize: Pair<Int, Int>? = null,
     /** "on-device" or "cloud". */
     val localizer: String? = null,
+    /** Phone camera only: why ARCore is not tracking right now, or null while it is. */
+    val tracking: String? = null,
 )
 
 /**

@@ -40,17 +40,26 @@ import com.flowsxr.aiseebin.glasses.Stream
 import com.flowsxr.aiseebin.map.LocationDescriber
 import com.realsil.sdk.audioconnect.smartwear.live.view.RTKVideoView
 import kotlinx.coroutines.delay
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import com.flowsxr.aiseebin.phone.ArCameraView
 
 /**
- * Navigate, glasses edition (design B and 02): the shared header, a state
- * pill, the glasses' video where iOS shows its camera, a hint, the talk tile
- * and one next-step button. Destinations and guidance come with the routing port.
+ * Navigate (design B and 02): the shared header, a state pill, the camera
+ * (the phone's with ARCore, or the glasses' video), a hint, the talk tile and
+ * one next-step button. Destinations and guidance come with the routing port.
  */
 @Composable
-fun NavigateScreen(model: AppModel, chip: ChipState, onLogo: () -> Unit, onChip: () -> Unit, onSettings: () -> Unit, onConnect: () -> Unit) {
+fun NavigateScreen(model: AppModel, chip: ChipState, cameraAllowed: Boolean, onLogo: () -> Unit, onChip: () -> Unit,
+                   onSettings: () -> Unit, onConnect: () -> Unit, onAllowCamera: () -> Unit) {
     val g by model.glasses.state.collectAsStateWithLifecycle()
     val m by model.maps.collectAsStateWithLifecycle()
-    val p by model.positioning.state.collectAsStateWithLifecycle()
+    val p by model.position.collectAsStateWithLifecycle()
+    val source by model.source.collectAsStateWithLifecycle()
+    val arError by model.ar.error.collectAsStateWithLifecycle()
+    val phone = source == AppModel.PositionSource.PHONE
     val starting by model.starting.collectAsStateWithLifecycle()
     val staff by model.staff.collectAsStateWithLifecycle()
     // Ticks so "Tracking ready" turns back into "Relocalizing…" once the fix goes stale.
@@ -59,6 +68,7 @@ fun NavigateScreen(model: AppModel, chip: ChipState, onLogo: () -> Unit, onChip:
     val map = m.map
     val fix = p.lastFix
     val status = navigateStatus(NavigateInputs(
+        phone = phone, cameraAllowed = cameraAllowed, arError = arError, tracking = p.tracking,
         link = g.link, stream = g.stream,
         mapName = map?.name ?: m.available.firstOrNull { it.slug == m.selectedSlug }?.name,
         mapLoading = m.loading, hasAlignment = !map?.alignment?.mapIds.isNullOrEmpty(),
@@ -67,17 +77,32 @@ fun NavigateScreen(model: AppModel, chip: ChipState, onLogo: () -> Unit, onChip:
         whereText = fix?.let { f -> map?.let { LocationDescriber(it).describe(f.position, f.heading) } },
     ))
 
+    // The phone camera starts positioning by itself once it can, as iOS does; a Stop holds until the next visit.
+    var userStopped by rememberSaveable { mutableStateOf(false) }
+    val phoneReady = phone && cameraAllowed && arError == null && map != null && !map.alignment?.mapIds.isNullOrEmpty() && !m.loading
+    LaunchedEffect(phoneReady, p.running, starting) {
+        if (phoneReady && !p.running && !starting && !userStopped) model.startPositioning()
+    }
+
     Column(Modifier.fillMaxSize().background(Ink.Night)) {
         VisitorHeader(staff, chip, onLogo, onChip, onSettings)
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            DotField(status.tone)
+            if (phone && cameraAllowed) ArCameraView(model.ar, model::onArFrame, Modifier.fillMaxSize())
+            else DotField(status.tone)
             Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 StatePill(status.pill, status.tone, status.pulse)
                 if (m.downloading) DownloadCard(m.available.firstOrNull { it.slug == m.selectedSlug }?.version)
-                val live = g.stream == Stream.STARTING || g.stream == Stream.PLAYING
-                if (live) GlassesVideo(g.stream, g.fps)
-                if (map != null) MapCanvas(map, fix, Modifier.weight(1f).clip(RoundedCornerShape(20.dp)), height = null)
-                else Box(Modifier.weight(1f))
+                if (phone) {
+                    Box(Modifier.weight(1f))
+                    // Staff see the fix on the map over the camera; visitors get the clean view.
+                    if (staff && map != null) MapCanvas(map, fix,
+                        Modifier.clip(RoundedCornerShape(20.dp)).background(Color(0xD917151F)), height = 170.dp)
+                } else {
+                    val live = g.stream == Stream.STARTING || g.stream == Stream.PLAYING
+                    if (live) GlassesVideo(g.stream, g.fps)
+                    if (map != null) MapCanvas(map, fix, Modifier.weight(1f).clip(RoundedCornerShape(20.dp)), height = null)
+                    else Box(Modifier.weight(1f))
+                }
                 HintBanner(status.hint, status.tone)
             }
         }
@@ -86,8 +111,10 @@ fun NavigateScreen(model: AppModel, chip: ChipState, onLogo: () -> Unit, onChip:
                 NextStep.CHOOSE_MAP -> onChip()
                 NextStep.CONNECT -> onConnect()
                 NextStep.START_CAMERA -> model.startCamera()
-                NextStep.START_POSITIONING -> model.startPositioning()
-                NextStep.STOP_POSITIONING -> model.stopPositioning()
+                NextStep.ALLOW_CAMERA -> onAllowCamera()
+                NextStep.USE_GLASSES -> model.setSource(AppModel.PositionSource.GLASSES)
+                NextStep.START_POSITIONING -> { userStopped = false; model.startPositioning() }
+                NextStep.STOP_POSITIONING -> { userStopped = true; model.stopPositioning() }
                 NextStep.NONE -> Unit
             }
         })
@@ -159,7 +186,8 @@ private fun BottomBar(status: NavigateStatus, onWhereAmI: () -> Unit, onStep: ()
             status.action,
             when (status.step) {
                 NextStep.CONNECT -> AiseeIcons.Glasses
-                NextStep.START_CAMERA -> AiseeIcons.Camera
+                NextStep.START_CAMERA, NextStep.ALLOW_CAMERA -> AiseeIcons.Camera
+                NextStep.USE_GLASSES -> AiseeIcons.Glasses
                 NextStep.CHOOSE_MAP -> AiseeIcons.UpDown
                 NextStep.START_POSITIONING, NextStep.STOP_POSITIONING -> AiseeIcons.Walk
                 NextStep.NONE -> AiseeIcons.Spinner

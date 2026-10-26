@@ -1,10 +1,15 @@
-# AISEE-BIN for Android (glasses prototype)
+# AISEE-BIN for Android
 
-A glasses-only visitor app: the AiSee glasses' camera positions the visitor with
-Immersal, and the app answers "where am I" by voice. The phone stays in a pocket;
-its own camera and ARCore are not used, so phones without ARCore (the Huawei
-Nova 5T it was built on) work. Maps are authored on iPhone or in the web editor
-and read from the same Supabase table.
+A visitor app that positions with Immersal and answers "where am I" by voice.
+Two cameras can find the visitor (Settings → Find my position with):
+
+- **Phone camera** (default where ARCore exists, e.g. the OnePlus 6): ARCore
+  tracks the phone and Immersal fixes anchor it to the map, as iOS does with
+  ARKit. Hold the phone up with the app open.
+- **Glasses**: the AiSee glasses' camera; the phone stays in a pocket. Phones
+  without ARCore (the Huawei Nova 5T it was built on) use this.
+
+Maps are authored on iPhone or in the web editor and read from the same Supabase table.
 
 Started 2026-09-29. Out of scope here: routing and turn-by-turn guidance, Author
 mode, and phone-only positioning.
@@ -16,10 +21,11 @@ mode, and phone-only positioning.
 | Glasses link | `glasses/GlassesController.kt` | Realtek SmartWear SDK 1.8.48. Classic-Bluetooth control link, with the camera on the glasses' Wi-Fi hotspot (`WIFI_AP`, RTSP at 192.168.43.1:554). The SDK joins the hotspot with a network request, so the phone's default network is untouched. |
 | Frames | `cpp/aiseebin.cpp`, `glasses/GlassesFrames.kt` | Decoded frames arrive from the SDK's native player (`rtk_player_set_video_frame_callback`, YUV420P). We keep the latest Y plane. |
 | Localizing | `immersal/Localizers.kt` | `AutoLocalizer` uses the cloud (`/localizeb64`) when the default network has internet, and Immersal's on-device plugin otherwise. The on-device path needs the map file, which the app caches when a map is picked. |
+| Phone camera | `phone/ArCamera.kt`, `positioning/PhonePositioning.kt`, `positioning/PlanarAnchor.kt` | iOS `PhoneImmersalLocalizer` + `ImmersalAnchor` on the floor plane. ARCore's largest CPU image up to 1920 wide, scaled to 960 with ARCore's intrinsics, goes to Immersal every 1.2 s; each fix refits a yaw + translation from ARCore's frame to the graph, and every ARCore frame is mapped through it. Jumps over 1.5 m are dropped until three in a row. |
 | Pose → map | `immersal/Immersal.kt`, `map/NavigationMap.kt` | Same conventions as iOS: row-major, CV camera, `ImmersalAlignment`. |
 | "Where am I" | `map/NavigationMap.kt` (`LocationDescriber`), `Speaker.kt` | Same wording as iOS. It triggers on a glasses button press or the on-screen button. |
 | Announcing places | `positioning/Walking.kt` (`ProximityAnnouncer`, `FixGate`), `positioning/Odometer.kt` | Exhibits and hazards are spoken on entering their radius, set per place in the web editor (default 2.5 m). A hazard interrupts speech and buzzes; an exhibit waits its turn. A fix that jumps further than the step counter says you walked is dropped, and the filter re-anchors after 3 in a row. The step counter needs the Physical-activity permission; without it, walking pace is assumed. |
-| Screen | `MainActivity.kt`, `ui/MapCanvas.kt` | One Compose screen: glasses, map, positioning, settings and log. |
+| Screens | `ui/` | The Claude Design v2 look: shared header (five logo taps unlock staff mode), Navigate, map sheet, staff Home, Settings, and Settings → Developer with the test controls and log. |
 
 ## Building
 
@@ -48,7 +54,7 @@ mode, and phone-only positioning.
 adb shell am broadcast -a com.flowsxr.aiseebin.DEBUG -p com.flowsxr.aiseebin --es cmd <command>
 ```
 
-- **Commands:** `connect`, `disconnect`, `camera`, `stopcamera`, `position`, `stopposition`, `whereami`, `devices`, `fakefix --ef x <m> --ef z <m> --ef h <rad>`.
+- **Commands:** `staff --es on true|false`, `connect`, `disconnect`, `camera`, `stopcamera`, `position`, `stopposition`, `whereami`, `devices`, `fakefix --ef x <m> --ef z <m> --ef h <rad>`.
 - **Map:** `map --es slug <slug>`.
 - **Self-test:** `selftest --es pattern flat|noise|file`. `file` reads `files/test.png` from the app's external files directory.
 - **Fake frames:** `fakeframes --es pattern file` feeds positioning a still image in place of the camera.

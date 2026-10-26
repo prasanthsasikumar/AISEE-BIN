@@ -13,6 +13,10 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Step counter for the fix jump filter (runtime permission from Android 10). -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <!-- Phone-camera positioning with ARCore; optional, so ARCore-less phones still install. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.ar" android:required="false" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:name=".AiseeApp"
@@ -23,6 +27,8 @@
         android:theme="@style/Theme.Aisee"
         android:enableOnBackInvokedCallback="true"
         android:usesCleartextTraffic="true">
+
+        <meta-data android:name="com.google.ar.core" android:value="optional" />
 
         <activity
             android:name=".MainActivity"

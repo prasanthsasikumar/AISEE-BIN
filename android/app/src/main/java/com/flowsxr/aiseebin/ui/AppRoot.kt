@@ -42,7 +42,7 @@ private enum class Page { NAVIGATE, HOME, SETTINGS, DEVELOPER }
  * "System back"), the map sheet, dialogs, status-bar icon colour.
  */
 @Composable
-fun AppRoot(model: AppModel, permissionsGranted: Boolean, requestPermissions: () -> Unit, openBluetoothSettings: () -> Unit, close: () -> Unit) {
+fun AppRoot(model: AppModel, permissionsGranted: Boolean, cameraGranted: Boolean, requestPermissions: () -> Unit, openBluetoothSettings: () -> Unit, close: () -> Unit) {
     val staff by model.staff.collectAsStateWithLifecycle()
     val m by model.maps.collectAsStateWithLifecycle()
     val g by model.glasses.state.collectAsStateWithLifecycle()
@@ -79,11 +79,13 @@ fun AppRoot(model: AppModel, permissionsGranted: Boolean, requestPermissions: ()
         }
     }
 
+    val source by model.source.collectAsStateWithLifecycle()
     val chip = chipState(model, m)
     Box(Modifier.fillMaxSize().background(if (dark) Ink.Night else Ink.Paper).safeDrawingPadding()) {
         when (page) {
             Page.NAVIGATE -> VisitorTheme {
-                NavigateScreen(model, chip,
+                NavigateScreen(model, chip, cameraGranted,
+                    onAllowCamera = requestPermissions,
                     onLogo = { if (staff) page = Page.HOME else fiveTaps.tap() },
                     onChip = { mapSheet = true },
                     onSettings = ::openSettings,
@@ -129,19 +131,19 @@ fun AppRoot(model: AppModel, permissionsGranted: Boolean, requestPermissions: ()
         )
     }
 
-    if (!permissionsGranted && !askedPermissions) {
+    if ((!permissionsGranted || (!cameraGranted && source == AppModel.PositionSource.PHONE)) && !askedPermissions) {
         AiseeDialog(
             title = "Allow nearby devices",
-            body = "AISEE-BIN needs Bluetooth, nearby-devices and location permission to reach the glasses.",
+            body = "AISEE-BIN uses the camera to find where you are, and Bluetooth, nearby-devices and location permission to reach the glasses.",
             confirm = "Allow", onConfirm = { askedPermissions = true; requestPermissions() },
             dismiss = "Not now", onDismiss = { askedPermissions = true },
             warning = false,
         )
     }
 
-    // Errors the user should see once: glasses or video failures, and a map that would not load.
+    // Errors the user should see once: glasses or video failures (glasses source only), and a map that would not load.
     val mapError = m.status?.takeIf { it.startsWith("Could not") }
-    val error = g.error ?: mapError
+    val error = g.error?.takeIf { source == AppModel.PositionSource.GLASSES } ?: mapError
     LaunchedEffect(error) { if (error == null) dismissedError = null }
     if (error != null && error != dismissedError) {
         AiseeDialog(

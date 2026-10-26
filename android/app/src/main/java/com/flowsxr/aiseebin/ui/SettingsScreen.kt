@@ -78,6 +78,8 @@ fun SettingsScreen(model: AppModel, staff: Boolean, onDone: () -> Unit, onDevelo
                 AiseeSwitch(announce, model::setAnnouncePlaces)
             }
         }
+        GroupLabel("Find my position with", Modifier.padding(top = 6.dp))
+        SourceCard(model)
         GroupLabel("Smart glasses", Modifier.padding(top = 6.dp))
         GlassesCard(model, openBluetoothSettings)
         if (staff) {
@@ -98,6 +100,24 @@ fun SettingsScreen(model: AppModel, staff: Boolean, onDone: () -> Unit, onDevelo
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SourceCard(model: AppModel) {
+    val source by model.source.collectAsStateWithLifecycle()
+    val ar by model.ar.support.collectAsStateWithLifecycle()
+    val sources = AppModel.PositionSource.entries
+    StaffCard {
+        Segmented(sources.map { it.label }, sources.indexOf(source),
+            sources.map { it != AppModel.PositionSource.PHONE || ar == com.flowsxr.aiseebin.phone.ArSupport.SUPPORTED }) {
+            model.setSource(sources[it])
+        }
+        Text(when {
+            ar == com.flowsxr.aiseebin.phone.ArSupport.UNSUPPORTED -> "This phone can't track itself (no ARCore), so the glasses are used."
+            source == AppModel.PositionSource.PHONE -> "Hold the phone up: its camera recognises the space, as on iPhone. Keep the app open."
+            else -> "The glasses' camera recognises the space; the phone can stay in a pocket."
+        }, style = plex(400, 13, 1.4f, color = Ink.Muted))
     }
 }
 
@@ -239,11 +259,14 @@ private fun MapDetails(model: AppModel) {
 
 @Composable
 private fun PositioningDetails(model: AppModel) {
-    val p by model.positioning.state.collectAsStateWithLifecycle()
+    val p by model.position.collectAsStateWithLifecycle()
     val m by model.maps.collectAsStateWithLifecycle()
     val spoken by model.spoken.collectAsStateWithLifecycle()
     StaffCard {
+        val source by model.source.collectAsStateWithLifecycle()
+        Detail("Source", source.label)
         Detail("Running", if (p.running) "yes" else "no")
+        p.tracking?.let { Detail("Tracking", it) }
         p.localizer?.let { Detail("Localizer", it) }
         if (p.running || p.attempts > 0) {
             Detail("Fixes", "${p.fixes} of ${p.attempts}" + if (p.rejected > 0) " · ${p.rejected} rejected" else "")
@@ -267,9 +290,9 @@ private fun FieldTest(model: AppModel) {
     val m by model.maps.collectAsStateWithLifecycle()
     val checks by model.checks.collectAsStateWithLifecycle()
     val busy by model.fieldBusy.collectAsStateWithLifecycle()
-    val p by model.positioning.state.collectAsStateWithLifecycle()
+    val p by model.position.collectAsStateWithLifecycle()
     StaffCard {
-        Note("Stand on a marked point and tap I'm here: for 10 seconds the app records the glasses' positions and how far they are from the point. Results go to the team's server.")
+        Note("Stand on a marked point and tap I'm here: for 10 seconds the app records the positions and how far they are from the point. Results go to the team's server.")
         val points = remember(m.map) { model.markedPoints() }
         when {
             m.map == null -> Note("Load a map first.")
