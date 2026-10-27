@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Explore mode's root: one screen per visit phase, light theme, no staff chrome.
-/// Staff leave with five quick taps on the AiSee logo at the top of any screen.
+/// Explore mode's root: one screen per visit phase, light theme, under the
+/// shared header. Staff leave with five quick taps on its AiSee logo.
 struct ExploreView: View {
     @State private var model: ExploreViewModel
 
@@ -44,9 +44,6 @@ struct ExploreWelcomeView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            EXHeader(model: model)
-                .padding(.bottom, 28)
-
             Text("Flower Dome").dsEyebrow(EX.accent)
             Text("How much time do you have?")
                 .font(.dsDisplay)
@@ -355,8 +352,6 @@ struct ExploreCompleteView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            EXHeader(model: model)
-                .padding(.bottom, 12)
             Text("Flower Dome").dsEyebrow(EX.accent)
             Text("That's your visit").font(.dsDisplay).foregroundStyle(EX.ink)
             if let stops = model.plan?.stopIDs, !stops.isEmpty {

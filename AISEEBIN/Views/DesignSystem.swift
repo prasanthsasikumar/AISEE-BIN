@@ -133,6 +133,13 @@ enum DS {
         }
     }
 
+    // MARK: - Brand
+
+    enum Brand {
+        /// The logo tile in the shared header.
+        static let tile = Color(dsHex: 0x9B87E8)
+    }
+
     // MARK: - Radii
 
     enum R {
@@ -184,53 +191,5 @@ extension View {
     /// Uppercase tracked label used for section eyebrows.
     func dsEyebrow(_ color: Color) -> some View {
         font(.dsCaption).textCase(.uppercase).kerning(1.2).foregroundStyle(color)
-    }
-}
-
-/// Navigate / Author switcher. Chrome follows the mode it is sitting on:
-/// dark over the Navigate camera, light over the Author tool.
-struct ModeSwitcher: View {
-    @Binding var mode: AppMode
-
-    var body: some View {
-        HStack(spacing: 4) {
-            ForEach(AppMode.allCases) { candidate in
-                let isOn = candidate == mode
-                Button { mode = candidate } label: {
-                    Text(candidate.rawValue)
-                        .font(isOn ? .dsHeadline : .dsBody)
-                        .foregroundStyle(ink(on: isOn))
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                        .background(fill(on: isOn), in: RoundedRectangle(cornerRadius: DS.R.segment, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(isOn ? [.isSelected, .isButton] : .isButton)
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 6)
-        .padding(.bottom, 12)
-        .background(mode == .navigation ? DS.N.canvas : DS.A.canvas)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Mode")
-    }
-
-    // Navigate is the dark palette; Author and Settings share the light one.
-    private func ink(on selected: Bool) -> Color {
-        switch (mode == .navigation, selected) {
-        case (true, true):   return DS.A.ink
-        case (true, false):  return DS.N.inkTertiary
-        case (false, true):  return DS.N.ink
-        case (false, false): return DS.A.inkTertiary
-        }
-    }
-
-    private func fill(on selected: Bool) -> Color {
-        switch (mode == .navigation, selected) {
-        case (true, true):   return DS.N.ink
-        case (true, false):  return DS.N.segmentTrack
-        case (false, true):  return DS.A.ink
-        case (false, false): return DS.A.segmentIdleBg
-        }
     }
 }

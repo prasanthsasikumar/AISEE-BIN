@@ -38,8 +38,9 @@ final class GuidanceManager: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlaye
     @ObservationIgnored private let fallbackImpact = UIImpactFeedbackGenerator(style: .heavy)
     @ObservationIgnored private let fallbackNotification = UINotificationFeedbackGenerator()
 
-    /// Speech rate slightly below default reads more clearly over greenhouse noise.
-    @ObservationIgnored private let voiceRate: Float = AVSpeechUtteranceDefaultSpeechRate * 0.92
+    /// Settings → Speaking rate. Normal is slightly below the system default,
+    /// which reads more clearly over greenhouse noise.
+    private var voiceRate: Float { AVSpeechUtteranceDefaultSpeechRate * SpeakingRate.current.scale }
 
     override init() {
         super.init()
@@ -271,6 +272,26 @@ final class GuidanceManager: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlaye
             fallbackNotification.notificationOccurred(.success)
         case .offRoute:
             fallbackNotification.notificationOccurred(.warning)
+        }
+    }
+}
+
+/// Visitor setting for the system voice. Recorded clips keep their own pace.
+enum SpeakingRate: String, CaseIterable, Identifiable {
+    case slower, normal, faster
+
+    static let key = "guidance.speakingRate"
+    static var current: SpeakingRate {
+        UserDefaults.standard.string(forKey: key).flatMap(SpeakingRate.init(rawValue:)) ?? .normal
+    }
+
+    var id: String { rawValue }
+    var label: String { rawValue.capitalized }
+    var scale: Float {
+        switch self {
+        case .slower: return 0.8
+        case .normal: return 0.92
+        case .faster: return 1.08
         }
     }
 }

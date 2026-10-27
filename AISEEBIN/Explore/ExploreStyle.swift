@@ -43,14 +43,14 @@ struct EXLogo: View {
     }
 }
 
-/// Logo on the left, an optional pill or button on the right.
+/// An optional pill or button on the right. The logo and map chip sit above
+/// it in the app's shared header, which also carries the five-tap unlock.
 struct EXHeader<Trailing: View>: View {
     let model: ExploreViewModel
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
         HStack(alignment: .center) {
-            EXLogo { model.exitToStaff() }
             Spacer(minLength: 12)
             trailing
         }

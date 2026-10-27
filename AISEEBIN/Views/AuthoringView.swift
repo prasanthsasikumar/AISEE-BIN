@@ -1,26 +1,31 @@
 import SwiftUI
 
-/// Author mode, per artboards 07–11 of the Claude Design canvas.
+/// New map / edit map, artboards E–G (and 08–11) of the Claude Design canvas:
+/// 1 Name, 2 Walk & mark, 3 Publish, each with one question and one primary
+/// action, under the shared header (logo top-left goes back to Home).
 ///
 /// Light, dense and calm — a pro tool. It is used standing up in daylight with a
 /// sighted eye on it the whole time, which is why it is the opposite surface to
-/// Navigate. Telemetry stays monospaced and boxed so it reads as instrument data.
+/// Navigate. Telemetry sits behind ··· so it never competes with the steps.
 struct AuthoringView: View {
     @State private var viewModel: MapAuthoringViewModel
     @State private var showMarkSheet = false
     @State private var editingNode: NavigationPOI?
     @State private var connectingFrom: NavigationPOI?
-    @State private var showMapPicker = false
     @State private var showGuide = false
     @State private var showProbe = false
-    /// Set when switching maps would discard unsaved marks; the alert confirms it.
-    @State private var mapPendingSwitch: RemoteMapSummary?
+    @State private var showScanDetails = false
+    @State private var confirmLeave = false
+    @State private var enteredFlow = false
     /// Set when starting a new scan would discard the scan on this phone.
     @State private var pendingNewScanName: String?
     @State private var newMapName = ""
     @State private var publishNote = ""
     /// Remembered so the error card can offer the right retry.
     @State private var lastAction: LastAction?
+    let entry: AuthoringEntry
+    /// Back to the staff Home screen.
+    let onHome: () -> Void
     /// Switches the app to Navigate on the map just published.
     let onTestNow: () -> Void
 
@@ -28,27 +33,29 @@ struct AuthoringView: View {
         case save
         case upload(note: String?)
         case publishSaved(note: String?)
-        case importLatest(slug: String)
         var retryLabel: String {
             switch self {
             case .save:         return "Try save again"
             case .upload:       return "Try publish again"
             case .publishSaved: return "Try publish again"
-            case .importLatest: return "Try import again"
             }
         }
     }
 
-    init(arManager: ARNavigationManager, mapStore: MapStore, onTestNow: @escaping () -> Void = {}) {
+    init(arManager: ARNavigationManager, mapStore: MapStore, entry: AuthoringEntry = .newMap,
+         onHome: @escaping () -> Void = {}, onTestNow: @escaping () -> Void = {}) {
         _viewModel = State(initialValue: MapAuthoringViewModel(arManager: arManager, mapStore: mapStore))
+        self.entry = entry
+        self.onHome = onHome
         self.onTestNow = onTestNow
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            Stepper(stage: viewModel.stage) { showGuide = true }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 12)
+            header
+            Stepper(stage: viewModel.stage)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 14)
             switch viewModel.stage {
             case .start:   startStage
             case .walk:    walkStage
@@ -57,42 +64,24 @@ struct AuthoringView: View {
             }
         }
         .background(DS.A.canvas)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if viewModel.stage == .walk { walkActionBar }
-        }
+        .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
         .overlay { errorCard }
         .onAppear {
-            if !viewModel.guideSeen { showGuide = true }
+            guard !enteredFlow else { return }
+            enteredFlow = true
+            if entry == .continueScan, viewModel.mapStore.hasSavedMap {
+                viewModel.resumeExistingScan()
+            } else if !viewModel.guideSeen {
+                showGuide = true
+            }
         }
         .sheet(isPresented: $showGuide, onDismiss: { viewModel.guideSeen = true }) {
             AuthorGuideSheet()
-        }
-        .sheet(isPresented: $showMapPicker) {
-            ServerMapPicker(viewModel: viewModel) { map in
-                showMapPicker = false
-                // Re-fetching the map you are already on cannot lose anything;
-                // switching to a different one replaces the whole local bundle.
-                if viewModel.hasUnsavedChanges && map.slug != viewModel.targetSlug {
-                    mapPendingSwitch = map
-                } else {
-                    startImport(of: map)
-                }
-            }
         }
         .fullScreenCover(isPresented: $showProbe) {
             ProbeView(arManager: viewModel.arManager,
                       mapStore: viewModel.mapStore,
                       places: viewModel.nodes)
-        }
-        .alert("Discard unsaved marks?", isPresented: .constant(mapPendingSwitch != nil),
-               presenting: mapPendingSwitch) { map in
-            Button("Discard and import", role: .destructive) {
-                mapPendingSwitch = nil
-                startImport(of: map)
-            }
-            Button("Cancel", role: .cancel) { mapPendingSwitch = nil }
-        } message: { map in
-            Text("Importing “\(map.name)” replaces this bundle's world map and marked nodes. Marks you have not published will be lost.")
         }
         .alert("Replace the scan on this phone?", isPresented: .constant(pendingNewScanName != nil),
                presenting: pendingNewScanName) { name in
@@ -103,6 +92,15 @@ struct AuthoringView: View {
             Button("Cancel", role: .cancel) { pendingNewScanName = nil }
         } message: { _ in
             Text("This deletes the local world map and marked places. Versions already on the server are kept.")
+        }
+        .alert("Leave without saving?", isPresented: $confirmLeave) {
+            Button("Save draft and leave") {
+                Task { await keepAsDraft() }
+            }
+            Button("Leave without saving", role: .destructive, action: onHome)
+            Button("Keep mapping", role: .cancel) {}
+        } message: {
+            Text("Places marked since the last save are only in memory. Saving captures the scan so you can continue later.")
         }
         .sheet(isPresented: $showMarkSheet) {
             NodeForm(title: "Mark this spot",
@@ -127,65 +125,160 @@ struct AuthoringView: View {
         }
     }
 
-    // MARK: - Stage 1: start
+    // MARK: - Header
+
+    private var header: some View {
+        AppHeader(surface: .light, logo: AppLogo(isStaff: true, onHome: leave)) {
+            switch viewModel.stage {
+            case .start:
+                HeaderTitle(surface: .light, title: "New map")
+            case .walk:
+                HeaderTitle(surface: .light, title: viewModel.mapName,
+                            subtitle: viewModel.hasUnsavedChanges ? "\(viewModel.nodes.count) places · not saved yet" : "Draft saved on this phone",
+                            subtitleIcon: viewModel.hasUnsavedChanges ? "circle.dashed" : "checkmark",
+                            subtitleTint: viewModel.hasUnsavedChanges ? DS.A.warnText : DS.A.okText)
+            case .publish:
+                HeaderTitle(surface: .light, title: viewModel.mapName,
+                            subtitle: "Draft · \(viewModel.nodes.count) places")
+            case .done:
+                HeaderTitle(surface: .light, title: viewModel.mapName,
+                            subtitle: "Published v\(viewModel.publishedVersion ?? viewModel.localVersion?.version ?? 0)",
+                            subtitleIcon: "checkmark", subtitleTint: DS.A.okText)
+            }
+        } trailing: {
+            switch viewModel.stage {
+            case .start:
+                textButton("Cancel", action: onHome)
+            case .walk:
+                walkMenu
+            case .publish:
+                Button { viewModel.backToWalking() } label: {
+                    HStack(spacing: 4) { Image(systemName: "chevron.left"); Text("Back") }
+                        .font(.dsHeadline).foregroundStyle(DS.A.lavender)
+                        .frame(minHeight: 44)
+                }
+                .disabled(viewModel.isBusy)
+            case .done:
+                textButton("Home", action: onHome)
+            }
+        }
+    }
+
+    private func textButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .font(.dsHeadline).foregroundStyle(DS.A.lavender)
+            .frame(minHeight: 44)
+            .disabled(viewModel.isBusy)
+    }
+
+    /// Everything the walk does not need on screen: telemetry, scan options, help.
+    private var walkMenu: some View {
+        Menu {
+            Toggle("Show Scan Details", isOn: $showScanDetails)
+            Toggle("Also Capture Immersal Map", isOn: Binding(get: { viewModel.immersalScanEnabled },
+                                                             set: { viewModel.immersalScanEnabled = $0 }))
+            Divider()
+            Button("Continue Existing Scan (relocalize)") { viewModel.resumeExistingScan() }
+                .disabled(!viewModel.mapStore.hasSavedWorldMap)
+            if viewModel.mapStore.hasSavedWorldMap, !viewModel.nodes.isEmpty, !viewModel.hasUnsavedChanges {
+                Button("Publish Saved Scan As Is") {
+                    lastAction = .publishSaved(note: nil)
+                    Task { await viewModel.publishSaved(note: nil) }
+                }
+            }
+            Button("Save Draft Now") { Task { await keepAsDraft(thenLeave: false) } }
+                .disabled(viewModel.nodes.isEmpty)
+            Button("How Authoring Works") { showGuide = true }
+            Divider()
+            Button("Start Fresh Scan", role: .destructive) { pendingNewScanName = viewModel.mapName }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.dsHeadline.weight(.bold))
+                .foregroundStyle(DS.A.ink)
+                .frame(width: AppLogo.size, height: AppLogo.size)
+                .background(DS.A.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .dsStroke(DS.A.hairline, 1.5, radius: 14)
+        }
+        .disabled(viewModel.isBusy)
+        .accessibilityLabel("Scan options")
+    }
+
+    /// Logo tap: Home, but never silently dropping marks that exist only in memory.
+    private func leave() {
+        if viewModel.hasUnsavedChanges, !viewModel.isBusy { confirmLeave = true } else { onHome() }
+    }
+
+    private func keepAsDraft(thenLeave: Bool = true) async {
+        lastAction = .save
+        let saved = await viewModel.saveLocally()
+        if saved != nil, thenLeave { onHome() }
+    }
+
+    // MARK: - Stage 1: name
 
     private var startStage: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("New map").font(.dsTitle2).foregroundStyle(DS.A.ink)
-                    Text("Name the place, then walk it once: scan as you go, mark each spot a visitor would stop at, and publish before you leave.")
-                        .font(.dsSubhead).foregroundStyle(DS.A.inkSecondary)
-                    TextField("Map name, e.g. Gardens by the Bay", text: $newMapName)
-                        .font(.dsBody)
-                        .padding(14)
-                        .background(DS.A.inset, in: RoundedRectangle(cornerRadius: DS.R.field, style: .continuous))
-                        .dsStroke(DS.A.hairline, 1.5, radius: DS.R.field)
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("What area are you mapping?").font(.dsTitle).foregroundStyle(DS.A.ink)
+                    Text("Visitors will see this name in the map chip.")
+                        .font(.dsCallout).foregroundStyle(DS.A.inkTertiary)
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Map name").dsEyebrow(DS.A.inkTertiary)
+                    TextField("e.g. Cloud Forest", text: $newMapName)
+                        .font(.dsTitle3.weight(.regular))
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 60)
+                        .background(DS.A.card, in: RoundedRectangle(cornerRadius: DS.R.field, style: .continuous))
+                        .dsStroke(DS.A.lavender, 2, radius: DS.R.field)
                         .autocorrectionDisabled()
-                    PrimaryButton(title: "Start scanning", icon: "camera.viewfinder", enabled: !newMapName.trimmingCharacters(in: .whitespaces).isEmpty) {
-                        let name = newMapName.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if viewModel.mapStore.hasSavedWorldMap || !viewModel.nodes.isEmpty {
-                            pendingNewScanName = name
-                        } else {
-                            viewModel.startNewScan(named: name)
+                        .submitLabel(.go)
+                        .onSubmit(startScanning)
+                        .accessibilityLabel("Map name")
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Before you start").font(.dsHeadline).foregroundStyle(DS.A.ink)
+                    ForEach(Array(Self.beforeYouStart.enumerated()), id: \.offset) { i, rule in
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Text("\(i + 1)").font(.dsSubhead.weight(.bold)).foregroundStyle(DS.A.lavender)
+                            Text(rule).font(.dsSubhead).foregroundStyle(DS.A.inkSecondary)
                         }
                     }
                 }
-                .padding(20)
-                .background(DS.A.card, in: RoundedRectangle(cornerRadius: DS.R.card, style: .continuous))
-                .dsStroke(DS.A.hairline, 1.5, radius: DS.R.card)
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(DS.A.card, in: RoundedRectangle(cornerRadius: DS.R.row, style: .continuous))
+                .dsStroke(DS.A.hairline, 1.5, radius: DS.R.row)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Or").dsEyebrow(DS.A.inkTertiary).padding(.horizontal, 4)
-                    if viewModel.mapStore.hasSavedWorldMap {
-                        SecondaryRow(icon: "arrow.uturn.forward", title: "Add to the scan on this phone",
-                                     detail: "\(viewModel.mapName) · \(viewModel.nodes.count) places") { viewModel.resumeExistingScan() }
-                        if !viewModel.nodes.isEmpty {
-                            SecondaryRow(icon: "icloud.and.arrow.up", title: "Publish the scan on this phone",
-                                         detail: "\(viewModel.mapName) · \(viewModel.nodes.count) places · sends the saved files as they are, no new scanning") {
-                                lastAction = .publishSaved(note: nil)
-                                Task { await viewModel.publishSaved(note: nil) }
-                            }
-                        }
-                    }
-                    SecondaryRow(icon: "icloud.and.arrow.down", title: "Open a map from the server",
-                                 detail: "to add places to an existing map") { showMapPicker = true }
-                    SecondaryRow(icon: "questionmark.circle", title: "How authoring works",
-                                 detail: "four rules, one minute") { showGuide = true }
-                }
                 if viewModel.showsProgress {
                     PublishProgressCard(stage: viewModel.progressStage, step: viewModel.progressStep,
                                         fraction: viewModel.progressFraction, bytesText: viewModel.progressBytesText,
                                         version: viewModel.progressVersion, showsChecklist: viewModel.isUploading)
                 }
-                if let message = viewModel.statusMessage {
-                    NoticeBanner(icon: "checkmark", text: message, style: .success)
-                }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
         }
-        .onAppear { if newMapName.isEmpty, viewModel.mapName != MapAuthoringViewModel.defaultMapName { newMapName = viewModel.mapName } }
+    }
+
+    private static let beforeYouStart: [AttributedString] = [
+        "Stand at the entrance visitors use.",
+        "Walk the visitor route slowly, phone upright.",
+        (try? AttributedString(markdown: "Tap **Mark here** at every place visitors should be able to reach."))
+            ?? "Tap Mark here at every place visitors should be able to reach.",
+    ]
+
+    private var trimmedNewName: String { newMapName.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    private func startScanning() {
+        let name = trimmedNewName
+        guard !name.isEmpty else { return }
+        if viewModel.mapStore.hasSavedWorldMap || !viewModel.nodes.isEmpty {
+            pendingNewScanName = name
+        } else {
+            viewModel.startNewScan(named: name)
+        }
     }
 
     // MARK: - Stage 2: walk and mark
@@ -194,49 +287,11 @@ struct AuthoringView: View {
         VStack(spacing: 0) {
             ScanPreview(viewModel: viewModel,
                         isCompact: !viewModel.nodes.isEmpty,
-                        onImport: { showMapPicker = true },
-                        onContinue: { viewModel.resumeExistingScan() },
-                        onFreshScan: { pendingNewScanName = viewModel.mapName })
-                .padding(.horizontal, 20)
-                .padding(.bottom, 10)
-            coverageRow
-                .padding(.horizontal, 20)
-                .padding(.bottom, 10)
+                        showDetails: showScanDetails)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
             placesList
         }
-    }
-
-    /// One bar for how well the space is covered, with the Immersal photo count beside it.
-    private var coverageRow: some View {
-        let fraction = viewModel.coverageFraction
-        return HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("Coverage").dsEyebrow(DS.A.inkTertiary)
-                    Spacer()
-                    Text("\(Int(fraction * 100))%").font(.dsMonoTiny.weight(.semibold)).foregroundStyle(DS.A.inkSecondary)
-                }
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(DS.A.inset)
-                        Capsule().fill(fraction >= 0.6 ? DS.A.okText : DS.A.lavender).frame(width: geo.size.width * fraction)
-                    }
-                }
-                .frame(height: 8)
-            }
-            if viewModel.scanner.running || viewModel.scanner.captured > 0 {
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(viewModel.scanner.uploaded)/\(viewModel.scanner.captured)").font(.dsHeadline).monospacedDigit().foregroundStyle(DS.A.ink)
-                    Text(viewModel.scanner.tooFast ? "slow down" : "photos").font(.dsMonoTiny)
-                        .foregroundStyle(viewModel.scanner.tooFast ? DS.A.warnText : DS.A.inkTertiary)
-                }
-            }
-        }
-        .padding(14)
-        .background(DS.A.card, in: RoundedRectangle(cornerRadius: DS.R.field, style: .continuous))
-        .dsStroke(DS.A.hairline, 1.5, radius: DS.R.field)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Coverage \(Int(fraction * 100)) percent")
     }
 
     private var placesList: some View {
@@ -280,14 +335,17 @@ struct AuthoringView: View {
                     }
                 } header: {
                     HStack {
-                        Text("\(viewModel.mapName) · \(viewModel.nodes.count) places").dsEyebrow(DS.A.inkTertiary)
+                        Text("Marked (\(viewModel.nodes.count))").dsEyebrow(DS.A.inkTertiary)
                         Spacer()
                         Text("swipe row for actions").font(.dsMonoTiny).foregroundStyle(DS.A.inkMuted)
                     }
                     .padding(.horizontal, 2)
                     .padding(.bottom, 6)
                 }
-                .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 4, trailing: 20))
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+            }
+            if let message = viewModel.statusMessage {
+                Text(message).font(.dsFootnote).foregroundStyle(DS.A.inkTertiary).plainRow()
             }
         }
         .listStyle(.plain)
@@ -297,7 +355,49 @@ struct AuthoringView: View {
         .environment(\.defaultMinListHeaderHeight, 0)
     }
 
-    private var walkActionBar: some View {
+    // MARK: - Bottom bar: one primary action per step
+
+    @ViewBuilder
+    private var bottomBar: some View {
+        switch viewModel.stage {
+        case .start:
+            barContainer {
+                PrimaryButton(title: "Start scanning", icon: "chevron.right", iconTrailing: true,
+                              enabled: !trimmedNewName.isEmpty, action: startScanning)
+            }
+        case .walk:
+            barContainer { walkActions }
+        case .publish:
+            barContainer {
+                VStack(spacing: 6) {
+                    PrimaryButton(title: viewModel.isBusy ? "Publishing…" : "Publish map", icon: "square.and.arrow.up",
+                                  enabled: viewModel.canUpload && !viewModel.isBusy) {
+                        let trimmed = publishNote.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let note = trimmed.isEmpty ? nil : trimmed
+                        lastAction = .upload(note: note)
+                        Task { await viewModel.publish(note: note) }
+                    }
+                    Button("Keep as draft") { Task { await keepAsDraft() } }
+                        .font(.dsHeadline).foregroundStyle(DS.A.lavender)
+                        .frame(minHeight: 44)
+                        .disabled(viewModel.isBusy)
+                }
+            }
+        case .done:
+            EmptyView()
+        }
+    }
+
+    private func barContainer<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        content()
+            .padding(.horizontal, 20)
+            .padding(.top, 14)
+            .padding(.bottom, 12)
+            .background(DS.A.card)
+            .overlay(alignment: .top) { Rectangle().fill(DS.A.hairline).frame(height: 1) }
+    }
+
+    private var walkActions: some View {
         HStack(spacing: 10) {
             Button {
                 showMarkSheet = true
@@ -326,69 +426,74 @@ struct AuthoringView: View {
                     Text("Done").font(.dsHeadline)
                     Image(systemName: "chevron.right").font(.dsHeadline)
                 }
-                .foregroundStyle(viewModel.nodes.isEmpty ? DS.A.inkDisabled : DS.A.ink)
-                .padding(.horizontal, 16)
+                .foregroundStyle(doneEnabled ? .white : DS.A.inkDisabled)
+                .padding(.horizontal, 22)
                 .frame(height: Self.actionBarHeight)
-                .background(DS.A.inset, in: RoundedRectangle(cornerRadius: DS.R.row, style: .continuous))
-                .dsStroke(DS.A.hairline, 1.5, radius: DS.R.row)
+                .background(doneEnabled ? DS.A.ink : DS.A.inset, in: RoundedRectangle(cornerRadius: DS.R.row, style: .continuous))
             }
             .buttonStyle(.plain)
             .fixedSize()
-            .disabled(viewModel.nodes.isEmpty || viewModel.isBusy)
+            .disabled(!doneEnabled)
             .accessibilityLabel("Finished walking")
         }
         .fixedSize(horizontal: false, vertical: true)
-        .padding(.horizontal, 20)
-        .padding(.top, 14)
-        .padding(.bottom, 12)
-        .background(DS.A.card)
-        .overlay(alignment: .top) { Rectangle().fill(DS.A.hairline).frame(height: 1) }
     }
+
+    private var doneEnabled: Bool { !viewModel.nodes.isEmpty && !viewModel.isBusy }
 
     // MARK: - Stage 3: publish
 
     private var publishStage: some View {
-        ScrollView {
+        let exhibits = viewModel.nodes.filter { $0.category == .exhibit }
+        let hazards = viewModel.nodes.filter { $0.category == .hazard }
+        let undescribed = exhibits.filter { ($0.details ?? "").trimmingCharacters(in: .whitespaces).isEmpty }
+        let nextVersion = (viewModel.localVersion?.version ?? 0) + 1
+        return ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Ready to publish?").font(.dsTitle2).foregroundStyle(DS.A.ink)
-                    ChecklistRow(ok: !viewModel.nodes.isEmpty,
-                                 text: "\(viewModel.nodes.count) place\(viewModel.nodes.count == 1 ? "" : "s") marked")
-                    ChecklistRow(ok: viewModel.unconnectedPlaces.isEmpty,
-                                 text: viewModel.unconnectedPlaces.isEmpty ? "All places connected by paths"
-                                       : "\(viewModel.unconnectedPlaces.count) place\(viewModel.unconnectedPlaces.count == 1 ? "" : "s") not connected: \(viewModel.unconnectedPlaces.map(\.name).joined(separator: ", "))")
-                    if !viewModel.unconnectedPlaces.isEmpty {
-                        Button("Connect them to the nearest place") { viewModel.connectUnconnected() }
-                            .font(.dsSubhead.weight(.semibold)).foregroundStyle(DS.A.lavender)
-                    }
-                    ChecklistRow(ok: viewModel.coverageFraction >= 0.6,
-                                 text: "Scan coverage \(Int(viewModel.coverageFraction * 100))%\(viewModel.coverageFraction < 0.6 ? " · walk a little more for a reliable map" : "")")
-                    if viewModel.scanner.captured > 0 {
-                        ChecklistRow(ok: viewModel.scanner.queued == 0 && viewModel.scanner.failed == 0,
-                                     text: "Immersal photos: \(viewModel.scanner.uploaded) of \(viewModel.scanner.captured) uploaded\(viewModel.scanner.queued > 0 ? " · \(viewModel.scanner.queued) still sending" : "")\(viewModel.scanner.failed > 0 ? " · \(viewModel.scanner.failed) failed" : "")")
-                    }
-                    TextField("What changed? (optional)", text: $publishNote)
-                        .font(.dsBody)
-                        .padding(14)
-                        .background(DS.A.inset, in: RoundedRectangle(cornerRadius: DS.R.field, style: .continuous))
-                        .dsStroke(DS.A.hairline, 1.5, radius: DS.R.field)
-                    PrimaryButton(title: viewModel.isBusy ? "Publishing…" : "Publish \(viewModel.mapName)", icon: "icloud.and.arrow.up",
-                                  enabled: viewModel.canUpload && !viewModel.isBusy) {
-                        let trimmed = publishNote.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let note = trimmed.isEmpty ? nil : trimmed
-                        lastAction = .upload(note: note)
-                        Task { await viewModel.publish(note: note) }
-                    }
-                    Text("Uploads the ARKit map, the places and paths, and asks Immersal to build its map from the photos. Stay on this screen until it says published.")
-                        .font(.dsMonoTiny).foregroundStyle(DS.A.inkMuted)
-                    Button { viewModel.backToWalking() } label: {
-                        Label("Back to walking", systemImage: "chevron.left").font(.dsSubhead.weight(.semibold)).foregroundStyle(DS.A.inkSecondary)
-                    }
-                    .disabled(viewModel.isBusy)
+                Text("Ready to publish?").font(.dsTitle).foregroundStyle(DS.A.ink)
+
+                HStack(spacing: 10) {
+                    statTile(viewModel.nodes.count, viewModel.nodes.count == 1 ? "place" : "places")
+                    statTile(exhibits.count, exhibits.count == 1 ? "exhibit" : "exhibits")
+                    statTile(hazards.count, hazards.count == 1 ? "hazard" : "hazards")
                 }
-                .padding(20)
-                .background(DS.A.card, in: RoundedRectangle(cornerRadius: DS.R.card, style: .continuous))
-                .dsStroke(DS.A.hairline, 1.5, radius: DS.R.card)
+
+                VStack(spacing: 0) {
+                    checkRow(ok: viewModel.coverageFraction >= 0.6,
+                             text: viewModel.coverageFraction >= 0.6 ? "Scan quality is good"
+                                   : "Scan coverage \(Int(viewModel.coverageFraction * 100))% · walk a little more for a reliable map",
+                             fix: viewModel.coverageFraction >= 0.6 ? nil : ("Walk", { viewModel.backToWalking() }))
+                    Divider().overlay(DS.A.hairline)
+                    checkRow(ok: undescribed.isEmpty,
+                             text: exhibits.isEmpty ? "No exhibits to describe"
+                                   : undescribed.isEmpty ? "Every exhibit has a description"
+                                   : "No description: \(undescribed.map(\.name).joined(separator: ", "))",
+                             fix: undescribed.first.map { first in ("Fix", { editingNode = first }) })
+                    ForEach(viewModel.unconnectedPlaces) { place in
+                        Divider().overlay(DS.A.hairline)
+                        checkRow(ok: false, text: "“\(place.name)” isn’t connected to the route",
+                                 fix: ("Fix", { viewModel.connectUnconnected() }))
+                    }
+                    if viewModel.scanner.captured > 0 {
+                        Divider().overlay(DS.A.hairline)
+                        let photosOK = viewModel.scanner.queued == 0 && viewModel.scanner.failed == 0
+                        checkRow(ok: photosOK,
+                                 text: "Immersal photos: \(viewModel.scanner.uploaded) of \(viewModel.scanner.captured) uploaded\(viewModel.scanner.queued > 0 ? " · \(viewModel.scanner.queued) still sending" : "")\(viewModel.scanner.failed > 0 ? " · \(viewModel.scanner.failed) failed" : "")",
+                                 fix: nil)
+                    }
+                }
+                .background(DS.A.card, in: RoundedRectangle(cornerRadius: DS.R.row, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: DS.R.row, style: .continuous))
+                .dsStroke(DS.A.hairline, 1.5, radius: DS.R.row)
+
+                TextField("What changed? (optional)", text: $publishNote)
+                    .font(.dsBody)
+                    .padding(14)
+                    .background(DS.A.card, in: RoundedRectangle(cornerRadius: DS.R.field, style: .continuous))
+                    .dsStroke(DS.A.hairline, 1.5, radius: DS.R.field)
+
+                Text("Publishing uploads the world map and makes it v\(nextVersion) on the server. Visitors can choose it from the map chip straight away. Stay on this screen until it says published.")
+                    .font(.dsSubhead).foregroundStyle(DS.A.inkTertiary)
 
                 if viewModel.showsProgress {
                     PublishProgressCard(stage: viewModel.progressStage, step: viewModel.progressStep,
@@ -399,6 +504,39 @@ struct AuthoringView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
         }
+    }
+
+    private func statTile(_ value: Int, _ caption: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(value)").font(.dsTitle).foregroundStyle(DS.A.ink)
+            Text(caption).font(.dsFootnote).foregroundStyle(DS.A.inkTertiary)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DS.A.card, in: RoundedRectangle(cornerRadius: DS.R.field, style: .continuous))
+        .dsStroke(DS.A.hairline, 1.5, radius: DS.R.field)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func checkRow(ok: Bool, text: String, fix: (String, () -> Void)?) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: ok ? "checkmark" : "exclamationmark.triangle")
+                .font(.dsHeadline)
+                .foregroundStyle(ok ? DS.A.okText : DS.A.warnIcon)
+                .frame(width: 22)
+            Text(text).font(.dsCallout).foregroundStyle(ok ? DS.A.ink : DS.A.warnText)
+            Spacer(minLength: 4)
+            if let fix {
+                Button(fix.0, action: fix.1)
+                    .font(.dsHeadline).foregroundStyle(DS.A.lavender)
+                    .frame(minHeight: 44)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(ok ? Color.clear : DS.A.warnBg)
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Stage 4: done
@@ -421,7 +559,7 @@ struct AuthoringView: View {
                     }
                     PrimaryButton(title: "Test it now", icon: "location.fill", enabled: true, action: onTestNow)
                     SecondaryRow(icon: "ruler", title: "Measure accuracy", detail: "Immersal vs ARKit walk on this map") { showProbe = true }
-                    SecondaryRow(icon: "plus.circle", title: "Start another map", detail: "keeps this one on the server") { viewModel.startAnother() }
+                    SecondaryRow(icon: "house", title: "Back to Home", detail: "every map, and new ones", action: onHome)
                 }
                 .padding(20)
                 .background(DS.A.card, in: RoundedRectangle(cornerRadius: DS.R.card, style: .continuous))
@@ -450,11 +588,6 @@ struct AuthoringView: View {
         }
     }
 
-    private func startImport(of map: RemoteMapSummary) {
-        lastAction = .importLatest(slug: map.slug)
-        Task { await viewModel.importLatestFromServer(slug: map.slug) }
-    }
-
     private func retryLastAction() {
         let action = lastAction
         viewModel.errorMessage = nil
@@ -462,8 +595,6 @@ struct AuthoringView: View {
         case .save:               Task { await viewModel.saveLocally() }
         case .upload(let note):   Task { await viewModel.publish(note: note) }
         case .publishSaved(let note): Task { await viewModel.publishSaved(note: note) }
-        case .importLatest(let slug):
-            Task { await viewModel.importLatestFromServer(slug: slug) }
         case nil:                 break
         }
     }
@@ -471,57 +602,48 @@ struct AuthoringView: View {
 
 // MARK: - Guided-flow pieces
 
-/// Three steps across the top: the current one filled, the ones behind it ticked.
+/// Three equal columns with full labels, so "Walk & mark" is never cut off:
+/// a bar over each, filled up to the current step.
 private struct Stepper: View {
     let stage: MapAuthoringViewModel.Stage
-    let onHelp: () -> Void
 
     private var index: Int {
         switch stage { case .start: return 0; case .walk: return 1; case .publish, .done: return 2 }
     }
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(alignment: .top, spacing: 8) {
             ForEach(Array(["Name", "Walk & mark", "Publish"].enumerated()), id: \.offset) { i, title in
-                let done = i < index, current = i == index
-                HStack(spacing: 6) {
-                    Image(systemName: done ? "checkmark.circle.fill" : "\(i + 1).circle\(current ? ".fill" : "")")
-                    Text(title).lineLimit(1).minimumScaleFactor(0.8)
+                VStack(alignment: .leading, spacing: 8) {
+                    Capsule()
+                        .fill(i <= index ? DS.A.lavender : DS.A.lavenderTrack)
+                        .frame(height: 5)
+                    Text("\(i + 1) \(title)")
+                        .font(.dsSubhead.weight(i == index ? .semibold : .regular))
+                        .foregroundStyle(i == index ? DS.A.ink : DS.A.inkTertiary)
+                        .lineLimit(1).minimumScaleFactor(0.8)
                 }
-                .font(.dsSubhead.weight(current ? .semibold : .regular))
-                .foregroundStyle(current ? DS.A.ink : (done ? DS.A.okText : DS.A.inkTertiary))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                // The current step keeps its full label; the others share what is left.
-                .fixedSize(horizontal: current, vertical: false)
-                .frame(maxWidth: current ? nil : .infinity)
-                .background(current ? DS.A.card : .clear, in: Capsule())
-                .dsStroke(current ? DS.A.hairline : .clear, 1.5, radius: 22)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Button(action: onHelp) {
-                Image(systemName: "questionmark.circle").font(.dsHeadline).foregroundStyle(DS.A.inkTertiary)
-                    .frame(width: 36, height: 36)
-            }
-            .accessibilityLabel("How authoring works")
         }
-        .padding(4)
-        .background(DS.A.inset, in: Capsule())
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Step \(index + 1) of 3")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Step \(index + 1) of 3, \(["Name", "Walk and mark", "Publish"][index])")
     }
 }
 
 private struct PrimaryButton: View {
     let title: String
     let icon: String
+    var iconTrailing = false
     let enabled: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: icon).font(.dsTitle3.weight(.semibold))
+                if !iconTrailing { Image(systemName: icon).font(.dsTitle3.weight(.semibold)) }
                 Text(title).font(.dsTitle3.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.75)
+                if iconTrailing { Image(systemName: icon).font(.dsHeadline.weight(.semibold)) }
             }
             .foregroundStyle(enabled ? .white : DS.A.inkDisabled)
             .frame(maxWidth: .infinity)
@@ -616,110 +738,6 @@ struct AuthorGuideSheet: View {
     }
 }
 
-/// Lists every map on the server so the mapper can pull down one that is not the
-/// bundle they happen to be carrying. Shows the newest version of each map; the
-/// download itself is the slow part, so this stays a metadata-only listing.
-struct ServerMapPicker: View {
-    let viewModel: MapAuthoringViewModel
-    let onPick: (RemoteMapSummary) -> Void
-
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if viewModel.isListingMaps && viewModel.availableMaps.isEmpty {
-                    loading
-                } else if let error = viewModel.mapListError, viewModel.availableMaps.isEmpty {
-                    message(icon: "exclamationmark.triangle.fill",
-                            title: "Could not reach the server",
-                            detail: error)
-                } else if viewModel.availableMaps.isEmpty {
-                    message(icon: "tray",
-                            title: "No maps on the server yet",
-                            detail: "Publish this one from the Upload button and it will appear here.")
-                } else {
-                    list
-                }
-            }
-            .background(DS.A.canvas)
-            .navigationTitle("Import from server")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-        }
-        .task { await viewModel.loadAvailableMaps() }
-    }
-
-    private var list: some View {
-        List {
-            ForEach(viewModel.availableMaps) { map in
-                Button { onPick(map) } label: { row(map) }
-                    .buttonStyle(.plain)
-                    .plainRow()
-            }
-        }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-    }
-
-    private func row(_ map: RemoteMapSummary) -> some View {
-        let isCurrent = map.slug == viewModel.targetSlug
-        return HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    Text(map.name).font(.dsHeadline).foregroundStyle(DS.A.ink)
-                    if isCurrent {
-                        Text("CURRENT")
-                            .font(.dsCaption).kerning(1.1)
-                            .foregroundStyle(DS.A.lavenderDeep)
-                            .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(DS.A.lavenderBg, in: Capsule())
-                    }
-                }
-                Text("v\(map.version) · \(map.source.rawValue) · \(map.pointCount) pts")
-                    .font(.dsFootnote.monospaced()).foregroundStyle(DS.A.inkTertiary)
-                Text(map.createdAt.formatted(date: .abbreviated, time: .shortened))
-                    .font(.dsFootnote).foregroundStyle(DS.A.inkMuted)
-            }
-            Spacer(minLength: 8)
-            Image(systemName: "icloud.and.arrow.down")
-                .font(.dsHeadline).foregroundStyle(DS.A.lavender)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DS.A.card, in: RoundedRectangle(cornerRadius: DS.R.row, style: .continuous))
-        .dsStroke(isCurrent ? DS.A.hairlineLav : DS.A.hairline, 1.5, radius: DS.R.row)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(map.name), version \(map.version), \(map.pointCount) points\(isCurrent ? ", current map" : "")")
-        .accessibilityHint("Downloads this map and replaces the one on this device")
-    }
-
-    private var loading: some View {
-        VStack(spacing: 12) {
-            ProgressView().tint(DS.A.lavender)
-            Text("Listing maps…").font(.dsSubhead).foregroundStyle(DS.A.inkTertiary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private func message(icon: String, title: String, detail: String) -> some View {
-        VStack(spacing: 10) {
-            Image(systemName: icon).font(.dsTitle3).foregroundStyle(DS.A.inkMuted)
-            Text(title).font(.dsHeadline).foregroundStyle(DS.A.ink)
-            Text(detail)
-                .font(.dsSubhead).foregroundStyle(DS.A.inkTertiary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
 private extension View {
     /// Strips List chrome so rows can carry the canvas's own card styling.
     func plainRow() -> some View {
@@ -731,26 +749,82 @@ private extension View {
 
 // MARK: - Scan preview
 
-/// Camera with the scan telemetry over it, plus the scan menu.
+/// Camera with a plain-language scan-quality pill and the coverage bar over it.
+/// The raw telemetry shows only when asked for from the ··· menu.
 struct ScanPreview: View {
     let viewModel: MapAuthoringViewModel
     let isCompact: Bool
-    let onImport: () -> Void
-    let onContinue: () -> Void
-    let onFreshScan: () -> Void
+    let showDetails: Bool
 
     private var telemetryTint: Color {
         viewModel.mappingStatus.isSaveable ? DS.N.okText : DS.N.accent
     }
 
+    private enum Quality { case good, fair, poor, starting }
+
+    private var quality: Quality {
+        switch viewModel.mappingStatus {
+        case .mapped:    return .good
+        case .extending: return .fair
+        case .limited:   return .poor
+        default:         return .starting
+        }
+    }
+
     var body: some View {
         ARPreviewView(session: viewModel.arManager.session, showFeaturePoints: true)
-            .frame(height: isCompact ? 160 : 240)
+            .frame(height: isCompact ? 180 : 260)
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay(alignment: .topLeading) { telemetry.padding(14) }
-            .overlay(alignment: .topTrailing) { menu.padding(14) }
-            // The coverage bar under the preview carries the walk's progress;
-            // the old per-frame feature bar here measured only what was in view.
+            .overlay(alignment: .topLeading) {
+                VStack(alignment: .leading, spacing: 8) {
+                    qualityPill
+                    if showDetails { telemetry }
+                }
+                .padding(14)
+            }
+            .overlay(alignment: .bottom) { coverage.padding(14) }
+    }
+
+    private var qualityPill: some View {
+        let (text, icon, ink, fill, stroke): (String, String, Color, Color, Color) = {
+            switch quality {
+            case .good:     return ("Scan quality good", "checkmark", DS.N.okText, DS.N.okBg, DS.N.okStroke)
+            case .fair:     return ("Scan quality fair · keep going", "arrow.triangle.2.circlepath", DS.N.warnText, DS.N.warnBg, DS.N.warnStroke)
+            case .poor:     return ("Keep scanning slowly", "exclamationmark.triangle.fill", DS.N.warnText, DS.N.warnBg, DS.N.warnStroke)
+            case .starting: return ("Starting the scan…", "hourglass", DS.N.inkTertiary, DS.N.raised, DS.N.hairline)
+            }
+        }()
+        return Label(text, systemImage: icon)
+            .font(.dsSubhead.weight(.semibold))
+            .foregroundStyle(ink)
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(fill.opacity(0.92), in: Capsule())
+            .overlay(Capsule().strokeBorder(stroke, lineWidth: 1.5))
+            .accessibilityLabel(text)
+    }
+
+    /// How much of the walk has been done, with the Immersal photo count beside it.
+    private var coverage: some View {
+        let fraction = viewModel.coverageFraction
+        return HStack(spacing: 10) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(DS.N.ink.opacity(0.22))
+                    Capsule().fill(fraction >= 0.6 ? DS.N.okText : DS.N.accent).frame(width: geo.size.width * fraction)
+                }
+            }
+            .frame(height: 8)
+            Text("\(Int(fraction * 100))%")
+                .font(.dsMonoTiny.weight(.semibold))
+                .foregroundStyle(fraction >= 0.6 ? DS.N.okText : DS.N.accent)
+            if viewModel.scanner.running || viewModel.scanner.captured > 0 {
+                Text(viewModel.scanner.tooFast ? "slow down" : "\(viewModel.scanner.uploaded)/\(viewModel.scanner.captured) photos")
+                    .font(.dsMonoTiny.weight(.semibold))
+                    .foregroundStyle(viewModel.scanner.tooFast ? DS.N.warnText : DS.N.inkTertiary)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Coverage \(Int(fraction * 100)) percent")
     }
 
     private var telemetry: some View {
@@ -769,48 +843,6 @@ struct ScanPreview: View {
         .dsStroke(DS.N.ink.opacity(0.2), radius: 12)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Scan status: \(viewModel.arManager.localizationStatus.label), mapping \(viewModel.mappingStatus.label), \(viewModel.arManager.featurePointCount) feature points")
-    }
-
-    private var menu: some View {
-        Menu {
-            Button("Import Map From Server…", action: onImport)
-            Button("Continue Existing Scan (relocalize)", action: onContinue)
-                .disabled(!viewModel.mapStore.hasSavedWorldMap)
-            Divider()
-            Toggle("Also Capture Immersal Map", isOn: Binding(get: { viewModel.immersalScanEnabled },
-                                                             set: { viewModel.immersalScanEnabled = $0 }))
-            Button("Start Fresh Scan", role: .destructive, action: onFreshScan)
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.dsHeadline.weight(.bold))
-                .foregroundStyle(DS.N.ink)
-                .frame(width: 44, height: 44)
-                .background(DS.N.ink.opacity(0.16), in: Circle())
-                .overlay(Circle().strokeBorder(DS.N.ink.opacity(0.3), lineWidth: 1))
-        }
-        .disabled(viewModel.isBusy)
-        .accessibilityLabel("Scan options")
-    }
-
-    /// Rough scan quality: how far the feature count has come toward a map that
-    /// relocalizes reliably.
-    private var scanQuality: some View {
-        let fraction = min(1, Double(viewModel.arManager.featurePointCount) / 3500)
-        return HStack(spacing: 10) {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(DS.N.ink.opacity(0.22))
-                    Capsule().fill(DS.N.warnText).frame(width: geo.size.width * fraction)
-                }
-            }
-            .frame(height: 8)
-
-            Text("SCAN \(Int(fraction * 100))%")
-                .font(.dsMonoTiny.weight(.semibold))
-                .foregroundStyle(DS.N.warnText)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Scan quality \(Int(fraction * 100)) percent")
     }
 }
 
