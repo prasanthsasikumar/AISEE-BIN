@@ -9,3 +9,6 @@ Vendor/Immersal/libPosePlugin.a
 
 # Plan-execution scratch (superpowers)
 .superpowers/
+
+# Zip of design/dashboard made for upload to Claude Design (same files)
+design/*.zip
