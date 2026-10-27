@@ -36,15 +36,29 @@ enum PositioningSource: Hashable {
 }
 
 enum AppMode: String, CaseIterable, Identifiable {
+    /// Visitor start screen for everyone: talk, or pick "Plan my visit"
+    /// (Explore) or "Take me somewhere" (Navigate).
+    case welcome = "Welcome"
     case navigation = "Navigate"
-    case authoring = "Author"
     /// Timed visits and camera questions for sighted visitors (AISEEBIN/Explore).
-    /// Positioning keeps running underneath, as in Settings.
+    /// Positioning keeps running underneath.
     case explore = "Explore"
-    /// Set-up a sighted helper does once: Immersal credentials, glasses, the
-    /// measurement walk. Leaves the session and any guidance running.
-    case settings = "Settings"
+    /// Staff start screen: every map, and the way into a new one.
+    case home = "Home"
+    /// The new-map / edit-map flow, for the sighted mapper.
+    case authoring = "Author"
     var id: String { rawValue }
+
+    /// What a visitor's phone opens into; staff set it per phone in Settings.
+    var isVisitorMode: Bool { self == .welcome || self == .navigation || self == .explore }
+}
+
+/// How the authoring flow was entered from Home.
+enum AuthoringEntry: Equatable {
+    /// Step 1: name a new map.
+    case newMap
+    /// Straight to walking, adding to the scan already on this phone.
+    case continueScan
 }
 
 /// Server synchronisation state shown in the status area.
@@ -168,6 +182,37 @@ final class NavigationViewModel {
     var mode: AppMode = .navigation {
         didSet { if mode != oldValue { didChange(mode: mode, from: oldValue) } }
     }
+    /// Staff mode: Home, authoring and the developer settings. Off, the phone
+    /// shows visitors only their mode; five taps on the logo turn it on.
+    var isStaff: Bool = UserDefaults.standard.bool(forKey: "staff.mode") {
+        didSet { UserDefaults.standard.set(isStaff, forKey: "staff.mode") }
+    }
+    /// What this phone hands visitors: the welcome screen with both paths
+    /// (the default), or straight into Navigate or Explore.
+    var visitorMode: AppMode = NavigationViewModel.storedVisitorMode {
+        didSet {
+            let raw = visitorMode == .explore ? "explore" : visitorMode == .navigation ? "navigate" : "both"
+            UserDefaults.standard.set(raw, forKey: "visitor.mode")
+        }
+    }
+    private static var storedVisitorMode: AppMode {
+        switch UserDefaults.standard.string(forKey: "visitor.mode") {
+        case "explore":  return .explore
+        case "navigate": return .navigation
+        default:         return .welcome
+        }
+    }
+    /// What a visitor said on the welcome screen that Explore should plan
+    /// from ("I have 20 minutes"); Explore takes it when it appears.
+    var pendingVisitRequest: String?
+    /// Read by AuthoringView when it appears.
+    var authoringEntry: AuthoringEntry = .newMap
+    /// Published maps on the server, for Home and the map chip. Empty until listed.
+    private(set) var serverMaps: [RemoteMapSummary] = []
+    private(set) var isListingMaps = false
+    private(set) var mapListError: String?
+    /// The slug being switched to, while its download runs.
+    private(set) var switchingToSlug: String?
     var positioningSource: PositioningSource = .phone {
         didSet { if positioningSource != oldValue { didChange(positioningSource: positioningSource) } }
     }
@@ -289,12 +334,20 @@ final class NavigationViewModel {
         self.proximityAnnouncer = ProximityAnnouncer(pois: initialMap.pois)
         self.localVersion = mapStore.loadVersion()
 
+        // Phones set up before the shared header used "Start in Explore".
+        let defaults = UserDefaults.standard
+        if defaults.string(forKey: "visitor.mode") == nil, defaults.bool(forKey: "explore.startInExplore") {
+            defaults.set("explore", forKey: "visitor.mode")
+            self.visitorMode = .explore
+        }
         // `-startMode author` launch argument opens straight into Authoring (used for screenshots and QA).
-        if UserDefaults.standard.string(forKey: "startMode") == "author" {
+        if defaults.string(forKey: "startMode") == "author" {
+            self.isStaff = true
             self.mode = .authoring
-        } else if UserDefaults.standard.bool(forKey: "explore.startInExplore") {
-            // Settings → "Start in Explore", for phones handed to the public.
-            self.mode = .explore
+        } else if defaults.string(forKey: "startMode") == "home" || isStaff {
+            self.mode = .home
+        } else {
+            self.mode = visitorMode
         }
     }
 
@@ -445,12 +498,103 @@ final class NavigationViewModel {
 
     // MARK: - Server sync
 
+    /// Lists the maps on the server for Home and the map chip.
+    func loadServerMaps() async {
+        isListingMaps = true
+        mapListError = nil
+        defer { isListingMaps = false }
+        do {
+            serverMaps = try await sync.availableMaps()
+        } catch {
+            mapListError = error.localizedDescription
+        }
+    }
+
+    /// Replaces the map on this phone with the newest version of another
+    /// published map, and restarts positioning on it.
+    func switchMap(to slug: String) async {
+        guard switchingToSlug == nil else { return }
+        switchingToSlug = slug
+        defer { switchingToSlug = nil }
+        stopNavigation()
+        syncState = .checking
+        do {
+            guard let remote = try await sync.latestVersion(slug: slug) else {
+                syncState = .failed("that map has no published version")
+                return
+            }
+            syncState = .downloading(remote.version)
+            try await install(remote)
+            syncState = .upToDate(remote.version)
+        } catch {
+            syncState = .failed(error.localizedDescription)
+        }
+    }
+
+    /// The welcome screen's talk button. Its answer picks the path.
+    func listenOnWelcome() {
+        if !recognizer.isListening {
+            transcriptOverride = { [weak self] text in self?.handleWelcome(transcript: text) }
+        }
+        toggleListening()
+    }
+
+    /// A time or a tour goes to Explore's planner; anything else ("take me to
+    /// the orchids", "where am I?") is a Navigate command.
+    func handleWelcome(transcript: String) {
+        transcriptOverride = nil
+        let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        if Self.isVisitRequest(text) {
+            pendingVisitRequest = text
+            mode = .explore
+        } else {
+            mode = .navigation
+            handle(transcript: text)
+        }
+    }
+
+    /// "I have 20 minutes", "half an hour", "show me around", "plan a tour".
+    nonisolated static func isVisitRequest(_ text: String) -> Bool {
+        let t = text.lowercased()
+        let patterns = [#"\b(minute|minutes|min|mins|hour|hours)\b"#,
+                        #"\b(tour|visit|highlights|show me around|plan)\b"#,
+                        #"\bwhat should i see\b"#]
+        return patterns.contains { t.range(of: $0, options: .regularExpression) != nil }
+    }
+
+    /// Five taps on the logo: staff mode on, straight to Home.
+    func unlockStaff() {
+        isStaff = true
+        mode = .home
+    }
+
+    /// Settings → Exit staff mode: back to what visitors see.
+    func exitStaffMode() {
+        isStaff = false
+        mode = visitorMode
+    }
+
+    /// Home's row actions. Entering authoring stops guidance in `didChange`.
+    func openAuthoring(_ entry: AuthoringEntry) {
+        authoringEntry = entry
+        mode = .authoring
+    }
+
+    /// A visitor on a "both paths" phone, away from the welcome screen.
+    var canReturnToWelcome: Bool {
+        !isStaff && visitorMode == .welcome && (mode == .navigation || mode == .explore)
+    }
+
+    /// Whether the map on this phone has never been published (a draft).
+    var isLocalDraft: Bool { mapStore.hasSavedMap && localVersion == nil }
+
     /// Fetches the newest map version from the server and installs it when it
     /// is newer than the local bundle. Silent when offline.
     func checkForMapUpdate() async {
         syncState = .checking
         do {
-            guard let remote = try await sync.latestVersion(slug: localVersion?.slug ?? ServerConfig.mapSlug) else {
+            guard let remote = try await sync.latestVersion(slug: localVersion?.slug ?? (mapStore.hasSavedMap ? ServerConfig.mapSlug : ServerConfig.starterMapSlug)) else {
                 syncState = mapStore.hasSavedMap ? .upToDate(localVersion?.version ?? 0) : .offlineSample
                 return
             }
@@ -474,8 +618,10 @@ final class NavigationViewModel {
         syncProgress = 0
         syncBytesText = nil
         defer { syncBytesText = nil }
+        // Another map's files are never reusable.
+        let isOtherMap = localVersion.map { $0.slug != remote.mapSlug } ?? true
         if let path = remote.worldmapPath {
-            let needsWorldMap = !mapStore.hasSavedWorldMap || remote.source == .ios || localVersion == nil
+            let needsWorldMap = !mapStore.hasSavedWorldMap || remote.source == .ios || isOtherMap
             if needsWorldMap {
                 try mapStore.saveWorldMapData(try await sync.download(path: path) { [weak self] p in
                     self?.syncProgress = p.fraction * 0.9
@@ -484,13 +630,13 @@ final class NavigationViewModel {
             }
         }
         syncProgress = 0.9
-        if let path = remote.pointcloudPath, remote.source == .ios || mapStore.loadPointCloud() == nil {
+        if let path = remote.pointcloudPath, remote.source == .ios || isOtherMap || mapStore.loadPointCloud() == nil {
             try mapStore.savePointCloud(try await sync.download(path: path) { [weak self] p in
                 self?.syncProgress = 0.9 + p.fraction * 0.1
             })
         }
         syncProgress = 1
-        if remote.worldmapPath == nil, remote.graph.immersalAlignment != nil {
+        if remote.worldmapPath == nil, remote.graph.immersalAlignment != nil || isOtherMap {
             // Drawn on an Immersal scan: ARKit must start fresh and let Immersal
             // anchor it, not hunt for the previous map's world map forever.
             try arManager.deleteSavedWorldMap()
@@ -875,13 +1021,17 @@ final class NavigationViewModel {
             recognizer.stopListening(deliver: false)
             guidance.stopSpeaking()
         case .navigation:
-            // Coming back from Settings changes nothing underneath: the
-            // session kept tracking and guidance kept talking.
-            guard previous != .settings, previous != .explore else { return }
+            // Coming from Explore or Home changes nothing underneath: the
+            // session kept tracking. Authoring may have replaced the map.
+            guard previous == .authoring else { return }
             reloadMapAndRestart()
             Task { await checkForMapUpdate() }
-        case .settings, .explore:
-            break
+        case .explore, .home:
+            if previous == .authoring { reloadMapAndRestart() }
+        case .welcome:
+            // Back to the start: whatever path was running ends here.
+            stopNavigation()
+            if previous == .authoring { reloadMapAndRestart() }
         }
     }
 

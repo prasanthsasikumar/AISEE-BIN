@@ -19,6 +19,8 @@ enum ServerConfig {
     static let blobCacheControl = "public, max-age=31536000, immutable"
     /// Slug used by bundles authored before maps could be named.
     static let mapSlug = "default"
+    /// The map a phone with no map of its own downloads first.
+    static let starterMapSlug = "labeltransfertest"
     static let editorURL = URL(string: "https://aiseebin.flowsxr.com")!
 
     /// Turns a map name into a server slug, matching the web editor's rule

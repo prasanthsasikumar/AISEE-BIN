@@ -7,11 +7,14 @@
 const SUPABASE_URL = 'https://djfpemdkeguztyuerxqc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_hEk_pFTUws4X_SL7QKiFUA_DeFU9-YL';
 const BUCKET = 'aiseebin-maps';
-const CATEGORY_COLORS = { destination: '#2f80ed', junction: '#9aa0a6', exhibit: '#27ae60', hazard: '#eb5757' };
+// Same dots as the phone apps' place types.
+const CATEGORY_COLORS = { destination: '#5B7CFA', junction: '#8E8AA3', exhibit: '#1FA97A', hazard: '#E0524A' };
+const colorOf = p => CATEGORY_COLORS[p.category] || CATEGORY_COLORS.destination;
 
 // ---------- state ----------
 const state = {
-  slug: 'default',
+  slug: null,
+  maps: [],               // newest version of every map, for Maps and the map chip
   versions: [],
   current: null,          // loaded version row
   graph: null,            // editable copy of graph JSON
@@ -34,6 +37,8 @@ const state = {
   selectedCloud: null,    // Immersal map id of the scan being lined up
   history: [],            // graph snapshots for undo
   future: [],             // graph snapshots for redo
+  draftSavedAt: null,     // when the unpublished edits were last kept in this browser
+  waypointsOpen: false,   // the Waypoints group in Places is expanded
 };
 
 // ---------- undo / redo ----------
@@ -74,13 +79,35 @@ function redo() {
 }
 
 function updateUndoButtons() {
-  $('undo').disabled = !state.history.length;
-  $('redo').disabled = !state.future.length;
+  $('undo').disabled = $('mmUndo').disabled = !state.history.length;
+  $('redo').disabled = $('mmRedo').disabled = !state.future.length;
+}
+
+/// Undo steps that changed something (focusing a field records one that may not).
+function changeCount() {
+  let n = 0;
+  for (let i = 0; i < state.history.length; i++) if (state.history[i] !== (state.history[i + 1] ?? snapshot())) n++;
+  return n;
 }
 
 const $ = id => document.getElementById(id);
 const canvas = $('canvas');
 const ctx = canvas.getContext('2d');
+
+// ---------- formatting and icons ----------
+const fmtInt = n => Math.round(n).toLocaleString('en-US').replace(/,/g, '\u202f');
+const fmtCoord = v => v.toFixed(2).replace('-', '−');
+const shortDate = iso => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+const timeOnly = iso => new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+const dateTime = iso => `${shortDate(iso)}, ${timeOnly(iso)}`;
+const svgIcon = body => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`;
+const ICON = {
+  check: svgIcon('<path d="M20 6 9 17l-5-5"/>'),
+  warn: svgIcon('<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.01"/>'),
+  x: svgIcon('<path d="M6 6l12 12M18 6 6 18"/>'),
+  chevron: svgIcon('<path d="M9 6l6 6-6 6"/>'),
+};
+const ICON_PHONE = svgIcon('<rect x="6" y="2" width="12" height="20" rx="2"/>');
 
 // ---------- Supabase helpers ----------
 const headers = { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` };
@@ -116,44 +143,189 @@ async function fetchMaybeGzipped(url) {
   return new Response(inflated).arrayBuffer();
 }
 
-const NEW_MAP = '__new__';
+// ---------- maps (home) ----------
+/// One card per map: its newest version, plus that version's places and
+/// connections for the thumbnail (fetched for those rows only).
+async function loadMaps() {
+  const rows = await rest('ab_map_versions?select=id,map_slug,version,source,created_at,node_count,name:graph->>name&order=map_slug.asc,version.desc');
+  const latest = new Map();
+  for (const r of rows) if (!latest.has(r.map_slug)) latest.set(r.map_slug, r);
+  const maps = [...latest.values()];
+  if (maps.length) {
+    const shapes = await rest(`ab_map_versions?id=in.(${maps.map(m => m.id).join(',')})&select=id,pois:graph->pois,edges:graph->edges`).catch(() => []);
+    const byId = new Map(shapes.map(s => [s.id, s]));
+    for (const m of maps) { const s = byId.get(m.id); m.pois = Array.isArray(s?.pois) ? s.pois : []; m.edges = Array.isArray(s?.edges) ? s.edges : []; }
+  }
+  maps.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  state.maps = maps;
+  renderHome(); renderMapMenu();
+  if (document.body.dataset.view === 'home') setStatus(`Connected to server · ${maps.length} map${maps.length === 1 ? '' : 's'}`);
+}
 
-/// Fills the Map dropdown with every slug that has at least one version, labelled
-/// by the map's name (`graph.name`) from its newest version. The slug stays the
-/// option's value: it is the server key, while the name is what people call it.
-async function loadSlugs() {
-  const rows = await rest('ab_map_versions?select=map_slug,version,name:graph->>name&order=map_slug.asc,version.desc');
-  const names = new Map();   // slug -> name from its highest version
-  for (const r of rows) if (!names.has(r.map_slug)) names.set(r.map_slug, r.name || null);
-  if (!names.has(state.slug)) names.set(state.slug, state.graph?.name ?? null);
-  const sel = $('slug'); sel.innerHTML = '';
-  [...names.keys()].sort().forEach(slug => {
-    const o = document.createElement('option');
-    o.value = slug;
-    const name = names.get(slug);
-    // Show the slug too when it differs, so the server key stays discoverable.
-    o.textContent = !name ? slug : (name.toLowerCase() === slug ? name : `${name} (${slug})`);
-    sel.appendChild(o);
+const mapName = m => m.name || m.map_slug;
+const newMapCard = $('newMapCard');
+
+function renderHome() {
+  const q = $('mapSearch').value.trim().toLowerCase();
+  const shown = state.maps.filter(m => !q || mapName(m).toLowerCase().includes(q) || m.map_slug.includes(q));
+  $('mapCount').textContent = `Your maps (${state.maps.length})`;
+  $('mapGrid').replaceChildren(...shown.map(mapCard), newMapCard);
+}
+
+function mapCard(m) {
+  const card = document.createElement('article');
+  const current = m.map_slug === state.slug && !!state.graph;
+  card.className = 'mapCard' + (current ? ' current' : '');
+  const draft = readDraft(m.map_slug);
+  const places = m.pois.filter(p => p.category !== 'junction').length;
+  card.innerHTML = `<div class="thumb">${thumbSVG(m)}${draft
+      ? '<span class="badge draft">Unpublished edits</span>'
+      : `<span class="badge live">${ICON.check}Published</span>`}</div>
+    <div class="cardBody"><div><h3></h3><p></p></div><button class="btn">Edit map</button></div>`;
+  card.querySelector('h3').textContent = mapName(m);
+  card.querySelector('p').textContent = `v${m.version} · ${places} place${places === 1 ? '' : 's'} · edited ${shortDate(m.created_at)}`;
+  card.querySelector('button').setAttribute('aria-label', `Edit ${mapName(m)}`);
+  card.onclick = () => openMap(m.map_slug);
+  return card;
+}
+
+/// The route graph drawn small: connections as lines, places as dots in their type colour.
+function thumbSVG(m) {
+  const pois = m.pois.filter(p => Number.isFinite(p.x) && Number.isFinite(p.z));
+  if (!pois.length) return '<span class="thumbEmpty">No places yet</span>';
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const p of pois) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); }
+  const W = 300, H = 170, pad = 24;
+  const s = Math.min((W - 2 * pad) / Math.max(1, maxX - minX), (H - 2 * pad) / Math.max(1, maxZ - minZ));
+  const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
+  const X = x => (W / 2 + (x - cx) * s).toFixed(1), Y = z => (H / 2 + (z - cz) * s).toFixed(1);
+  const byId = new Map(pois.map(p => [p.id, p]));
+  const lines = m.edges.map(e => { const a = byId.get(e.from), b = byId.get(e.to); return a && b ? `<line x1="${X(a.x)}" y1="${Y(a.z)}" x2="${X(b.x)}" y2="${Y(b.z)}"/>` : ''; }).join('');
+  const dots = pois.map(p => `<circle cx="${X(p.x)}" cy="${Y(p.z)}" r="${p.category === 'junction' ? 2.5 : 4.5}" fill="${colorOf(p)}"/>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><g stroke="#C8C2DC" stroke-opacity=".45" stroke-width="1.5" stroke-linecap="round">${lines}</g><g stroke="#0F0D16" stroke-width="1.5">${dots}</g></svg>`;
+}
+
+function renderMapMenu() {
+  const box = $('mapMenuList'); box.replaceChildren();
+  const maps = [...state.maps].sort((a, b) => mapName(a).localeCompare(mapName(b)));
+  if (!maps.some(m => m.map_slug === state.slug) && state.graph) maps.unshift({ map_slug: state.slug, name: state.graph.name, version: null });
+  for (const m of maps) {
+    const b = document.createElement('button'); b.setAttribute('role', 'menuitem');
+    const current = m.map_slug === state.slug;
+    if (current) b.className = 'current';
+    b.innerHTML = `${current ? ICON.check : ''}<span class="grow"></span><span class="mono">${m.version ? `v${m.version}` : 'new'}</span>`;
+    b.insertBefore(document.createTextNode(m.map_slug === state.slug && state.graph?.name ? state.graph.name : mapName(m)), b.querySelector('.grow'));
+    b.onclick = () => { closeMenus(); openMap(m.map_slug); };
+    box.appendChild(b);
+  }
+}
+
+// ---------- routing: #/ is Maps, #/map/<slug> the editor ----------
+function openMap(slug) { const h = `#/map/${encodeURIComponent(slug)}`; if (location.hash === h) route(); else location.hash = h; }
+
+function route() {
+  const m = location.hash.match(/^#\/map\/(.+)$/);
+  if (m) enterMap(decodeURIComponent(m[1])); else showView('home');
+}
+
+function showView(view) {
+  saveDraftNow(); closeMenus(); closeSheets();
+  document.body.dataset.view = view;
+  $('home').hidden = view !== 'home'; $('editor').hidden = view !== 'editor';
+  if (view === 'home') {
+    renderHome(); renderFooterRight();
+    loadMaps().catch(e => setStatus(`Could not load maps: ${e.message}`, true));
+  } else {
+    resize(); renderFooterRight();
+  }
+}
+
+async function enterMap(slug) {
+  if (slug === state.slug && state.graph) { showView('editor'); return; }
+  if (!leaveMapOk()) { history.replaceState(null, '', state.graph ? `#/map/${encodeURIComponent(state.slug)}` : '#/'); route(); return; }
+  resetMapState(slug);
+  showView('editor'); renderSidebar(); draw();
+  try { await loadVersions(); } catch (e) { setStatus(`Could not load ${slug}: ${e.message}`, true); }
+}
+
+function resetMapState(slug) {
+  Object.assign(state, {
+    slug, current: null, versions: [], graph: null, points: null, pendingPoints: null, pointsBitmap: null, heights: null, band: null,
+    dirty: false, history: [], future: [], clouds: new Map(), selectedCloud: null, draftSavedAt: null,
+    selectedNode: null, selectedEdge: null, connectFrom: null, pathFrom: null,
   });
-  const o = document.createElement('option'); o.value = NEW_MAP; o.textContent = '+ New map…'; sel.appendChild(o);
-  sel.value = state.slug;
+  updateUndoButtons(); renderScanTools(); setMode('select');
+}
+
+/// Unpublished edits live on as a draft, so leaving a map only loses an
+/// Immersal import, whose point cloud is too big to keep in the browser.
+function leaveMapOk() {
+  if (!state.dirty) return true;
+  if (state.pendingPoints) return confirm('This Immersal import has not been published, and it cannot be kept as a draft. Leave it?');
+  saveDraftNow();
+  return true;
+}
+
+// ---------- drafts ----------
+// Edits are kept in this browser per map, the same as Walk & mark on the phone:
+// closing the tab or switching maps loses nothing, and visitors see none of it
+// until Publish.
+const DRAFT_PREFIX = 'aiseebin-draft:';
+function readDraft(slug) { try { return JSON.parse(localStorage.getItem(DRAFT_PREFIX + slug)); } catch { return null; } }
+function clearDraft(slug = state.slug) { clearTimeout(draftTimer); try { localStorage.removeItem(DRAFT_PREFIX + slug); } catch {} state.draftSavedAt = null; renderFooterRight(); }
+let draftTimer = null;
+function scheduleDraft() { clearTimeout(draftTimer); draftTimer = setTimeout(saveDraftNow, 600); }
+function saveDraftNow() {
+  clearTimeout(draftTimer);
+  if (!state.dirty || !state.graph || state.pendingPoints) return;
+  const savedAt = new Date().toISOString();
+  try {
+    localStorage.setItem(DRAFT_PREFIX + state.slug, JSON.stringify({ baseId: state.current?.id ?? null, baseVersion: state.current?.version ?? null, savedAt, graph: state.graph }));
+    state.draftSavedAt = savedAt;
+  } catch { state.draftSavedAt = null; }
+  renderFooterRight();
+}
+
+function offerDraft(baseId, label) {
+  const draft = readDraft(state.slug);
+  if (!draft || (draft.baseId ?? null) !== baseId || !draft.graph) return false;
+  if (!confirm(`You have unpublished edits to ${label} from ${dateTime(draft.savedAt)}. Restore them?`)) { clearDraft(); return false; }
+  state.graph = draft.graph; state.graph.pois ??= []; state.graph.edges ??= [];
+  state.dirty = true; state.draftSavedAt = draft.savedAt;
+  return true;
+}
+
+// ---------- versions ----------
+async function fetchVersions() {
+  // `node_count` is a computed column (see server/schema.sql): it gives History
+  // its "N places" without dragging every version's whole graph across the wire.
+  state.versions = await rest(`ab_map_versions?map_slug=eq.${encodeURIComponent(state.slug)}&select=id,version,source,note,point_count,created_at,worldmap_path,pointcloud_path,node_count&order=version.desc`);
+  renderVersions(); renderHeader();
 }
 
 async function loadVersions() {
-  setStatus('Loading versions…');
-  // `node_count` is a computed column (see server/schema.sql): it gives the sidebar
-  // its "N nodes" without dragging every version's whole graph across the wire.
-  state.versions = await rest(`ab_map_versions?map_slug=eq.${encodeURIComponent(state.slug)}&select=id,version,source,note,point_count,created_at,worldmap_path,pointcloud_path,node_count&order=version.desc`);
-  renderVersions();
-  setStatus(state.versions.length ? `${state.versions.length} version(s).` : 'No versions yet. Upload one from the app in Authoring mode.');
-  if (state.versions.length && !state.current) await loadVersion(state.versions[0]);
+  setStatus('Loading versions…', false, true);
+  state.loading = true;
+  try { await fetchVersions(); } finally { state.loading = false; }
+  if (!state.versions.length) {
+    if (!state.graph && !offerDraft(null, 'this new map')) state.graph = { name: state.slug, pois: [], edges: [] };
+    renderSidebar(); updateSaveButton(); fitView(); draw();
+    setStatus('Not published yet. Publish a scan from the phone (New map → step 3), or add places here and publish.');
+    return;
+  }
+  setStatus(`${state.versions.length} version(s).`);
+  if (!state.current) {
+    // A draft reopens on the version it was made from, so the restore offer applies.
+    const draft = readDraft(state.slug);
+    await loadVersion(state.versions.find(v => v.id === draft?.baseId) || state.versions[0]);
+  }
 }
 
 async function loadVersion(row) {
-  if (state.dirty && !confirm('Discard unsaved changes?')) return;
+  if (state.dirty) { if (!confirm('Discard your unpublished edits?')) return; clearDraft(); state.dirty = false; }
   // The version list is fetched without `graph`, so pull it for the one being opened.
   if (!row.graph) {
-    setStatus(`Loading v${row.version}…`);
+    setStatus(`Loading v${row.version}…`, false, true);
     const [full] = await rest(`ab_map_versions?id=eq.${encodeURIComponent(row.id)}&select=graph`);
     if (!full) { setStatus(`Version ${row.version} has gone missing.`, true); return; }
     row.graph = full.graph;
@@ -161,36 +333,37 @@ async function loadVersion(row) {
   state.current = row;
   state.graph = JSON.parse(JSON.stringify(row.graph));
   state.graph.pois ??= []; state.graph.edges ??= [];
-  state.selectedNode = state.selectedEdge = state.connectFrom = null;
-  state.dirty = false;
+  state.selectedNode = state.selectedEdge = state.connectFrom = state.pathFrom = null;
+  state.dirty = false; state.draftSavedAt = null;
+  offerDraft(row.id, `v${row.version}`);
   state.history = []; state.future = []; updateUndoButtons();
   state.points = null; state.pointsBitmap = null; state.heights = null; renderScanTools();
-  renderVersions(); renderSidebar(); updateSaveButton();
-  $('downloadWorldMap').href = row.worldmap_path ? publicURL(row.worldmap_path) : '#';
-  $('downloadPoints').href = row.pointcloud_path ? publicURL(row.pointcloud_path) : '#';
-  $('versionInfo').textContent = `v${row.version} · ${row.source} · ${new Date(row.created_at).toLocaleString()}${row.note ? ' · ' + row.note : ''}`;
+  renderVersions(); renderSidebar(); updateSaveButton(); renderFiles();
   fitView(); draw();
   state.clouds = new Map(); state.selectedCloud = null; renderClouds();
   if (alignmentMaps()) loadClouds().then(() => { fitView(); draw(); });
+  const placesText = () => `${state.graph.pois.length} places, ${state.graph.edges.length} connections`;
   if (row.pointcloud_path) {
-    setStatus(`Loading ${row.point_count ?? ''} points…`);
+    setStatus(`Loading ${row.point_count ? fmtInt(row.point_count) : ''} points…`, false, true);
     try {
       const buf = await fetchMaybeGzipped(publicURL(row.pointcloud_path));
+      if (state.current !== row) return;   // another version or map was opened meanwhile
       state.points = new Float32Array(buf);
       computeHeights(); renderScanTools(); buildPointsBitmap();
-      setStatus(`Loaded v${row.version}: ${state.graph.pois.length} nodes, ${state.graph.edges.length} edges, ${state.points.length / 3} points.`);
+      setStatus(`Loaded v${row.version} — ${placesText()}, ${fmtInt(state.points.length / 3)} points`);
     } catch (e) { setStatus(`Point cloud failed: ${e.message}`, true); }
     fitView(); draw();
+  } else {
+    setStatus(`Loaded v${row.version} — ${placesText()}`);
   }
 }
 
-async function saveVersion() {
+async function publishVersion() {
   if (!state.graph) return;
-  const isolated = renderConnectivity();
-  if (isolated.length && !confirm(`${isolated.length} place(s) are not connected to the route network (${isolated.map(p => p.name).join(', ')}).\nGuidance will not be able to reach them. Save anyway?`)) return;
-  const btn = $('save'); btn.disabled = true;
+  const btn = $('publishConfirm'); btn.disabled = true; $('publishConfirmLabel').textContent = 'Publishing…';
+  $('publishError').hidden = true;
   try {
-    setStatus('Saving…');
+    setStatus('Publishing…', false, true);
     const version = await rest('rpc/ab_next_version', { method: 'POST', body: JSON.stringify({ slug: state.slug }) });
     let pointcloudPath = state.current?.pointcloud_path ?? null, pointCount = state.current?.point_count ?? null;
     if (state.pendingPoints) {
@@ -198,11 +371,11 @@ async function saveVersion() {
       // has no cheap way to compress a Float32Array.
       pointcloudPath = `${state.slug}/v${version}/points.f32`;
       pointCount = state.pendingPoints.length / 3;
-      setStatus(`Uploading ${pointCount} points…`);
+      setStatus(`Uploading ${fmtInt(pointCount)} points…`, false, true);
       await uploadObject(pointcloudPath, state.pendingPoints);
     }
     const row = {
-      map_slug: state.slug, version, source: 'web', note: $('note').value || null,
+      map_slug: state.slug, version, source: 'web', note: $('note').value.trim() || null,
       graph: state.graph,
       worldmap_path: state.current?.worldmap_path ?? null,
       pointcloud_path: pointcloudPath,
@@ -211,13 +384,20 @@ async function saveVersion() {
     const [saved] = await rest('ab_map_versions', { method: 'POST', body: JSON.stringify(row), headers: { Prefer: 'return=representation' } });
     state.pendingPoints = null;
     state.dirty = false; $('note').value = '';
+    clearDraft();
     state.current = saved;
-    await loadSlugs();      // a renamed map relabels its dropdown entry
-    await loadVersions();
-    renderVersions();
-    setStatus(`Saved as v${saved.version}. The app fetches it on next launch.`);
-  } catch (e) { setStatus(`Save failed: ${e.message}`, true); }
-  updateSaveButton();
+    state.history = []; state.future = []; updateUndoButtons();
+    $('publishDialog').close();
+    await fetchVersions();
+    renderSidebar(); updateSaveButton();
+    loadMaps().catch(() => {});   // a renamed map relabels its card and menu entry
+    setStatus(`Published v${saved.version}. Visitors get it the next time they open the map.`);
+  } catch (e) {
+    $('publishError').textContent = `Publish failed: ${e.message}`; $('publishError').hidden = false;
+    setStatus(`Publish failed: ${e.message}`, true);
+  } finally {
+    btn.disabled = false; renderPublishLabel();
+  }
 }
 
 // ---------- geometry ----------
@@ -232,22 +412,22 @@ function pointToSegment(px, py, ax, ay, bx, by) {
   return dist(px, py, ax + dx * t, ay + dy * t);
 }
 
-function hitNode(sx, sy) {
+function hitNode(sx, sy, tol = 12) {
   if (!state.graph) return null;
   for (let i = state.graph.pois.length - 1; i >= 0; i--) {
     const p = state.graph.pois[i]; const [x, y] = toScreen(p.x, p.z);
-    if (dist(sx, sy, x, y) <= 11) return p;
+    if (dist(sx, sy, x, y) <= tol) return p;
   }
   return null;
 }
 
-function hitEdge(sx, sy) {
+function hitEdge(sx, sy, tol = 6) {
   if (!state.graph) return null;
   for (let i = 0; i < state.graph.edges.length; i++) {
     const e = state.graph.edges[i]; const a = nodeById(e.from), b = nodeById(e.to);
     if (!a || !b) continue;
     const [ax, ay] = toScreen(a.x, a.z), [bx, by] = toScreen(b.x, b.z);
-    if (pointToSegment(sx, sy, ax, ay, bx, by) <= 6) return i;
+    if (pointToSegment(sx, sy, ax, ay, bx, by) <= tol) return i;
   }
   return null;
 }
@@ -279,7 +459,11 @@ function contentBounds(trim = false) {
 }
 
 function fitView() {
-  const b = contentBounds(true), w = canvas.clientWidth, h = canvas.clientHeight;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  // The editor may still be hidden (opening a map); fit once it has a size.
+  if (!w || !h) { state.fitPending = true; return; }
+  state.fitPending = false;
+  const b = contentBounds(true);
   const spanX = Math.max(2, b.maxX - b.minX), spanZ = Math.max(2, b.maxZ - b.minZ);
   state.view.scale = Math.max(4, Math.min(120, 0.9 * Math.min(w / spanX, h / spanZ)));
   state.view.ox = w / 2 - ((b.minX + b.maxX) / 2) * state.view.scale;
@@ -334,81 +518,93 @@ function buildPointsBitmap() {
 }
 
 // ---------- drawing ----------
+const SANS = "'IBM Plex Sans', system-ui, sans-serif", MONO = "'IBM Plex Mono', ui-monospace, monospace";
+
 function resize() {
   const dpr = window.devicePixelRatio || 1;
   canvas.width = canvas.clientWidth * dpr; canvas.height = canvas.clientHeight * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (state.fitPending) fitView();
   draw();
 }
 
 function draw() {
   const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h) return;
   ctx.clearRect(0, 0, w, h);
   drawGrid(w, h);
   if ($('showPoints').checked) drawPoints();
   if (!state.graph) return;
-  const showLabels = $('showLabels').checked;
+  const showLabels = $('showLabels').checked, showDistances = $('showDistances').checked;
+  const sel = state.selectedNode;
 
-  // edges
+  // connections
+  ctx.lineCap = 'round';
   state.graph.edges.forEach((e, i) => {
     const a = nodeById(e.from), b = nodeById(e.to); if (!a || !b) return;
     const [ax, ay] = toScreen(a.x, a.z), [bx, by] = toScreen(b.x, b.z);
-    ctx.strokeStyle = i === state.selectedEdge ? '#ffd166' : 'rgba(230,232,238,.55)';
-    ctx.lineWidth = i === state.selectedEdge ? 4 : 2.5;
+    const selected = i === state.selectedEdge;
+    ctx.strokeStyle = selected ? '#B9A6FF' : 'rgba(200,194,220,.85)';
+    ctx.lineWidth = selected ? 4 : 2.5;
     ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
-    if (showLabels) {
-      const len = Math.hypot(a.x - b.x, a.z - b.z).toFixed(1);
-      ctx.fillStyle = 'rgba(230,232,238,.6)'; ctx.font = '11px ui-monospace, monospace';
-      ctx.fillText(`${len} m`, (ax + bx) / 2 + 4, (ay + by) / 2 - 4);
+    if (showDistances) {
+      ctx.fillStyle = selected ? '#B9A6FF' : '#8B85A6'; ctx.font = `11px ${MONO}`;
+      ctx.fillText(`${Math.hypot(a.x - b.x, a.z - b.z).toFixed(1)} m`, (ax + bx) / 2 + 6, (ay + by) / 2 - 6);
     }
   });
 
-  // origin + forward arrow
+  // origin and forward (−z)
   const [ox, oy] = toScreen(0, 0);
-  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(ox - 8, oy); ctx.lineTo(ox + 8, oy); ctx.moveTo(ox, oy + 8); ctx.lineTo(ox, oy - 18); ctx.stroke();
+  ctx.strokeStyle = 'rgba(247,245,253,.55)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(ox - 7, oy); ctx.lineTo(ox + 7, oy); ctx.moveTo(ox, oy + 7); ctx.lineTo(ox, oy - 7); ctx.stroke();
+  ctx.strokeStyle = '#5EE6A8'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(ox, oy - 7); ctx.lineTo(ox, oy - 29); ctx.stroke();
+  ctx.fillStyle = '#5EE6A8'; ctx.font = `11px ${MONO}`; ctx.fillText('forward', ox + 9, oy - 22);
 
-  // nodes
+  // places
   const isolatedIds = new Set(isolatedPlaces().map(p => p.id));
-  state.graph.pois.forEach(p => {
+  const draw1 = p => {
     const [x, y] = toScreen(p.x, p.z);
-    const r = p.category === 'junction' ? 6 : 8;
-    if (isolatedIds.has(p.id)) {
-      ctx.beginPath(); ctx.arc(x, y, r + 6, 0, Math.PI * 2);
-      ctx.strokeStyle = '#f2c14e'; ctx.lineWidth = 2; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
-    }
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = CATEGORY_COLORS[p.category] || CATEGORY_COLORS.destination; ctx.fill();
-    if (p === state.selectedNode || p === state.connectFrom || p === state.pathFrom) {
-      ctx.strokeStyle = (p === state.connectFrom || p === state.pathFrom) ? '#ffd166' : '#fff'; ctx.lineWidth = 3; ctx.stroke();
-    }
+    const junction = p.category === 'junction', r = junction ? 7 : 9, color = colorOf(p);
     const radius = announceRadius(p);
     if (radius > 0) {
-      const selected = p === state.selectedNode;
       ctx.beginPath(); ctx.arc(x, y, radius * state.view.scale, 0, Math.PI * 2);
-      ctx.strokeStyle = (CATEGORY_COLORS[p.category]) + (selected ? 'cc' : '55'); ctx.lineWidth = selected ? 2 : 1;
-      ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle = color + (p === sel ? 'cc' : '60'); ctx.lineWidth = p === sel ? 1.6 : 1;
+      ctx.setLineDash([5, 6]); ctx.stroke(); ctx.setLineDash([]);
     }
+    if (isolatedIds.has(p.id)) {
+      ctx.beginPath(); ctx.arc(x, y, r + 7, 0, Math.PI * 2);
+      ctx.strokeStyle = '#FFC24B'; ctx.lineWidth = 2; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if (p === sel) { ctx.beginPath(); ctx.arc(x, y, r + 9, 0, Math.PI * 2); ctx.strokeStyle = '#B9A6FF'; ctx.lineWidth = 3; ctx.stroke(); }
+    if (p === state.connectFrom || p === state.pathFrom) { ctx.beginPath(); ctx.arc(x, y, r + 5, 0, Math.PI * 2); ctx.strokeStyle = '#FFC24B'; ctx.lineWidth = 3; ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = color; ctx.fill(); ctx.strokeStyle = '#0F0D16'; ctx.lineWidth = 2; ctx.stroke();
     if (showLabels) {
-      ctx.font = '12px -apple-system, sans-serif'; ctx.fillStyle = '#e6e8ee';
-      ctx.fillText(p.name, x + r + 4, y + 4);
+      ctx.font = p === sel ? `600 15px ${SANS}` : `13px ${SANS}`;
+      ctx.fillStyle = p === sel ? '#F7F5FD' : junction ? '#C8C2DC' : '#DCD7EA';
+      ctx.fillText(p.name, x + r + (p === sel ? 9 : 6), y + 4.5);
     }
-  });
+  };
+  state.graph.pois.forEach(p => { if (p !== sel) draw1(p); });
+  if (sel) draw1(sel);   // on top of its neighbours
 }
 
 function drawGrid(w, h) {
   const s = state.view.scale; const step = s < 12 ? 5 : 1;
   const [x0, z0] = toWorld(0, 0), [x1, z1] = toWorld(w, h);
-  ctx.lineWidth = 1; ctx.font = '10px ui-monospace, monospace'; ctx.fillStyle = 'rgba(138,145,158,.7)';
+  // Labels at least ~56 px apart, so zoomed out they thin instead of overlapping.
+  const every = [5, 10, 20, 50, 100, 200].find(k => k * s >= 56) || 500;
+  ctx.lineWidth = 1; ctx.font = `11px ${MONO}`; ctx.fillStyle = '#6E6889';
   for (let x = Math.floor(x0 / step) * step; x <= x1; x += step) {
-    const [sx] = toScreen(x, 0); ctx.strokeStyle = x % 5 === 0 ? 'rgba(255,255,255,.14)' : 'rgba(255,255,255,.05)';
+    const [sx] = toScreen(x, 0); ctx.strokeStyle = x % 5 === 0 ? 'rgba(247,245,253,.11)' : 'rgba(247,245,253,.045)';
     ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, h); ctx.stroke();
-    if (x % 5 === 0) ctx.fillText(`x ${x}`, sx + 2, 10);
+    if (x % every === 0 && sx > 48) ctx.fillText(`x ${x}`.replace('-', '−'), sx + 4, 14);
   }
   for (let z = Math.floor(z0 / step) * step; z <= z1; z += step) {
-    const [, sy] = toScreen(0, z); ctx.strokeStyle = z % 5 === 0 ? 'rgba(255,255,255,.14)' : 'rgba(255,255,255,.05)';
+    const [, sy] = toScreen(0, z); ctx.strokeStyle = z % 5 === 0 ? 'rgba(247,245,253,.11)' : 'rgba(247,245,253,.045)';
     ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(w, sy); ctx.stroke();
-    if (z % 5 === 0) ctx.fillText(`z ${z}`, 2, sy - 2);
+    if (z % every === 0 && sy > 32) ctx.fillText(`z ${z}`.replace('-', '−'), 6, sy - 4);
   }
 }
 
@@ -418,9 +614,11 @@ function drawPoints() {
     const m = state.pointsBitmapMeta; const [sx, sy] = toScreen(m.minX, m.minZ);
     const k = state.view.scale / m.scale;
     ctx.imageSmoothingEnabled = k < 1;
+    ctx.globalAlpha = 0.9;
     ctx.drawImage(state.pointsBitmap, sx, sy, state.pointsBitmap.width * k, state.pointsBitmap.height * k);
+    ctx.globalAlpha = 1;
   } else if (state.points) {
-    ctx.fillStyle = 'rgba(120,160,255,.5)';
+    ctx.fillStyle = 'rgba(120,168,255,.5)';
     const stride = Math.max(3, Math.floor(state.points.length / 3 / 60000) * 3);
     for (let i = 0; i < state.points.length; i += stride) {
       if (!inBand(state.points[i + 1])) continue;
@@ -447,13 +645,20 @@ function isolatedPlaces() {
   return g.pois.filter(p => named(p.id) && !main.has(p.id));
 }
 
+function unreachableText(isolated) {
+  return isolated.length === 1
+    ? `“${isolated[0].name}” isn’t connected to the route`
+    : `${isolated.length} places aren’t connected to the route: ${isolated.map(p => p.name).join(', ')}`;
+}
+
 function renderConnectivity() {
   const isolated = isolatedPlaces();
-  const box = $('connectivity'), btn = $('autoConnect');
-  box.hidden = btn.hidden = isolated.length === 0;
-  if (isolated.length) {
-    box.textContent = `⚠ ${isolated.length} place${isolated.length > 1 ? 's' : ''} not connected to the route network: ${isolated.map(p => p.name).join(', ')}. Guidance cannot reach them.`;
-  }
+  const box = $('connectivity');
+  box.hidden = !state.graph?.pois.some(p => p.category !== 'junction');
+  box.className = 'reach ' + (isolated.length ? 'warn' : 'ok');
+  $('reachIcon').innerHTML = isolated.length ? ICON.warn : ICON.check;
+  $('reachText').textContent = isolated.length ? unreachableText(isolated) : 'Every place can be reached';
+  $('autoConnect').hidden = !isolated.length;
   return isolated;
 }
 
@@ -467,18 +672,72 @@ function autoConnectIsolated() {
     if (nearest) state.graph.edges.push({ from: p.id, to: nearest.id });
   });
   markDirty();
-  setStatus(`Connected ${isolated.length} place(s) to the nearest node. Check the new edges, then save.`);
+  setStatus(`Connected ${isolated.length} place(s) to the nearest place. Check the new connections, then publish.`);
 }
 
-// ---------- sidebar ----------
+// ---------- left rail: Places and History ----------
+function setTab(tab) {
+  const places = tab === 'places';
+  $('tabPlaces').classList.toggle('active', places); $('tabPlaces').setAttribute('aria-selected', places);
+  $('tabHistory').classList.toggle('active', !places); $('tabHistory').setAttribute('aria-selected', !places);
+  $('placesPane').hidden = !places; $('historyPane').hidden = places;
+}
+
+function renderPlaces() {
+  const g = state.graph, ul = $('placeList');
+  ul.replaceChildren();
+  $('placeCount').textContent = g ? g.pois.length : '';
+  if (!g) return;
+  if (!g.pois.length) { ul.innerHTML = '<li class="empty">No places yet. Choose <b>Place</b>, then click the map — or walk the site with the phone and publish from there.</li>'; return; }
+  const q = $('placeSearch').value.trim().toLowerCase();
+  const match = p => !q || p.name.toLowerCase().includes(q) || (p.aliases || []).some(a => a.toLowerCase().includes(q));
+  const degree = new Map();
+  g.edges.forEach(e => { degree.set(e.from, (degree.get(e.from) || 0) + 1); degree.set(e.to, (degree.get(e.to) || 0) + 1); });
+  const named = g.pois.filter(p => p.category !== 'junction' && match(p)).sort((a, b) => a.name.localeCompare(b.name));
+  const junctions = g.pois.filter(p => p.category === 'junction' && match(p));
+  named.forEach(p => ul.appendChild(placeRow(p, degree)));
+  if (junctions.length) {
+    const open = state.waypointsOpen || !!q || junctions.includes(state.selectedNode);
+    const li = document.createElement('li');
+    li.className = 'place' + (open ? ' open' : ''); li.tabIndex = 0; li.setAttribute('aria-expanded', open);
+    li.innerHTML = `<i class="c-junction"></i><span class="placeText"><strong>Waypoints</strong><span>${junctions.length} junction${junctions.length === 1 ? '' : 's'}</span></span>${ICON.chevron}`;
+    li.onclick = () => { state.waypointsOpen = !open; renderPlaces(); };
+    li.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); li.onclick(); } };
+    ul.appendChild(li);
+    if (open) junctions.forEach(p => ul.appendChild(placeRow(p, degree, true)));
+  }
+  if (!named.length && !junctions.length) ul.innerHTML = '<li class="empty">No place matches.</li>';
+}
+
+function placeRow(p, degree, sub = false) {
+  const li = document.createElement('li');
+  li.className = 'place' + (sub ? ' sub' : '') + (p === state.selectedNode ? ' active' : '');
+  li.tabIndex = 0;
+  const d = degree.get(p.id) || 0;
+  li.innerHTML = `<i style="background:${colorOf(p)}"></i><span class="placeText"><strong></strong><span>${p.category || 'destination'} · ${d} connection${d === 1 ? '' : 's'}</span></span>`;
+  li.querySelector('strong').textContent = p.name;
+  li.onclick = () => { selectNode(p); ensureVisible(p); };
+  li.onkeydown = e => { if (e.key === 'Enter') li.onclick(); };
+  return li;
+}
+
+const SOURCES = { ios: ['iPhone', ICON_PHONE], android: ['Android', ICON_PHONE], web: ['Web', ''] };
 function renderVersions() {
-  const ul = $('versions'); ul.innerHTML = '';
-  if (!state.versions.length) { ul.innerHTML = '<li class="muted">No versions yet.</li>'; return; }
+  const ul = $('versions'); ul.replaceChildren();
+  $('historyCount').textContent = state.versions.length || '';
+  if (!state.versions.length) { ul.innerHTML = '<li class="empty">Not published yet.</li>'; return; }
+  const liveId = state.versions[0].id;
   state.versions.forEach(v => {
     const li = document.createElement('li');
-    li.className = state.current?.id === v.id ? 'active' : '';
-    li.innerHTML = `<strong>v${v.version}</strong> <span class="muted">${v.source}</span><span class="meta">${new Date(v.created_at).toLocaleString()}${v.note ? ' · ' + escapeHTML(v.note) : ''}<br>${v.node_count ?? v.graph?.pois?.length ?? 0} nodes · ${v.point_count ?? 0} pts</span>`;
-    li.onclick = () => loadVersion(v);
+    const open = state.current?.id === v.id;
+    li.className = 'version' + (open ? ' active' : ''); li.tabIndex = 0;
+    const [label, icon] = SOURCES[v.source] || [v.source || '?', ''];
+    const tag = v.id === liveId ? '<span class="live"><i></i>Live</span>' : open ? '' : '<span class="vOpen">Open</span>';
+    li.innerHTML = `<div class="vHead"><strong>v${v.version}</strong><span class="src ${escapeHTML(v.source || '')}">${icon}${escapeHTML(label)}</span><span class="grow"></span>${tag}</div>`
+      + (v.note ? `<p>${escapeHTML(v.note)}</p>` : '')
+      + `<span class="vMeta">${dateTime(v.created_at)} · ${v.node_count ?? 0} places${v.point_count ? ` · ${fmtInt(v.point_count)} pts` : ''}</span>`;
+    li.onclick = () => { if (!open) loadVersion(v); };
+    li.onkeydown = e => { if (e.key === 'Enter') li.onclick(); };
     ul.appendChild(li);
   });
 }
@@ -508,52 +767,189 @@ function setRadius(n, value) {
   n.announceRadius = Math.min(ANNOUNCE_RADIUS_MAX, Math.max(ANNOUNCE_RADIUS_MIN, v));
 }
 
-function renderSidebar() {
+// ---------- right rail: Map, Edit place, Connection ----------
+const TYPE_HINTS = {
+  destination: () => 'Destination — visitors can ask to be guided here.',
+  junction: () => 'Junction — for routing only; never announced or offered as a destination.',
+  exhibit: n => `Exhibit — navigable, and the description is spoken automatically within ${announceRadius(n)} m.`,
+  hazard: n => `Hazard — announced with a warning haptic within ${announceRadius(n)} m.`,
+};
+function renderType(n) {
+  const cat = n.category || 'destination';
+  document.querySelectorAll('#typeGrid [data-cat]').forEach(b => {
+    const on = b.dataset.cat === cat;
+    b.setAttribute('aria-checked', on);
+    if (!b.querySelector('.ic')) b.insertAdjacentHTML('afterbegin', ICON.check);
+  });
+  $('typeHint').dataset.cat = cat; $('typeHint').textContent = (TYPE_HINTS[cat] || TYPE_HINTS.destination)(n);
+  renderRadius(n);
+  $('nodeExplore').hidden = cat !== 'exhibit';
+}
+
+function renderAliases(n) {
+  const box = $('aliasChips'), input = $('aliasInput');
+  box.querySelectorAll('.alias').forEach(c => c.remove());
+  (n.aliases || []).forEach((a, i) => {
+    const b = document.createElement('button'); b.className = 'alias'; b.title = `Remove “${a}”`;
+    b.textContent = a; b.insertAdjacentHTML('beforeend', ICON.x);
+    b.onclick = () => { beginChange(); n.aliases.splice(i, 1); markDirty(); };
+    box.insertBefore(b, input);
+  });
+}
+
+function renderNodeEdges(n) {
+  const ul = $('nodeEdges'); ul.replaceChildren();
   const g = state.graph;
-  $('mapName').value = g?.name ?? '';
-  $('mapStats').textContent = g ? `${g.pois.length} nodes · ${g.edges.length} edges` : '';
-  renderExploreMap(g);
-  renderConnectivity();
-  const n = state.selectedNode;
-  $('nodePanel').hidden = !n;
-  if (n) {
-    $('nodeId').textContent = n.id; $('nodeName').value = n.name; $('nodeCategory').value = n.category || 'destination';
-    $('nodeDetails').value = n.details || ''; $('nodeAliases').value = (n.aliases || []).join(', ');
-    $('nodeX').value = n.x.toFixed(2); $('nodeZ').value = n.z.toFixed(2);
-    renderRadius(n);
-    $('nodeExplore').hidden = n.category !== 'exhibit';
-    for (const [id, key] of NODE_EXPLORE_FIELDS) $(id).value = ExploreFields.fieldValue(n, key);
-    const neighbours = g.edges.filter(e => e.from === n.id || e.to === n.id).map(e => nodeById(e.from === n.id ? e.to : e.from)?.name ?? '?');
-    $('nodeEdges').textContent = neighbours.join(', ') || 'none';
+  const linked = g.edges.map((e, i) => ({ e, i })).filter(({ e }) => e.from === n.id || e.to === n.id);
+  if (!linked.length) { ul.innerHTML = '<li class="empty">Not connected yet. Use <b>Connect</b> or <b>Path</b>.</li>'; return; }
+  for (const { e } of linked) {
+    const other = nodeById(e.from === n.id ? e.to : e.from);
+    const li = document.createElement('li'); li.className = 'conn';
+    li.innerHTML = `<i style="background:${other ? colorOf(other) : '#555'}"></i><button class="connName"></button><span class="mono">${other ? Math.hypot(other.x - n.x, other.z - n.z).toFixed(1) + ' m' : ''}</span><button class="x" aria-label="Remove connection">${ICON.x}</button>`;
+    li.querySelector('.connName').textContent = other?.name ?? '?';
+    li.querySelector('.connName').onclick = () => { if (other) { selectNode(other); ensureVisible(other); } };
+    li.querySelector('.x').onclick = () => {
+      beginChange(); const k = state.graph.edges.indexOf(e); if (k >= 0) state.graph.edges.splice(k, 1); markDirty();
+    };
+    ul.appendChild(li);
   }
-  const ei = state.selectedEdge;
-  $('edgePanel').hidden = ei === null;
+}
+
+function renderInspector() {
+  const g = state.graph, n = state.selectedNode, ei = state.selectedEdge;
+  $('mapPanel').hidden = !g || !!n || ei !== null;
+  $('nodePanel').hidden = !n; $('edgePanel').hidden = ei === null;
+  if (g) {
+    if (document.activeElement !== $('mapName')) $('mapName').value = g.name ?? '';
+    $('mapSlug').textContent = state.slug;
+    const named = g.pois.filter(p => p.category !== 'junction').length;
+    $('mapStats').textContent = `${named} place${named === 1 ? '' : 's'} · ${g.pois.length - named} waypoint${g.pois.length - named === 1 ? '' : 's'} · ${g.edges.length} connection${g.edges.length === 1 ? '' : 's'}`;
+    renderExploreMap(g);
+  }
+  if (n) {
+    $('nodeId').textContent = n.id;
+    if (document.activeElement !== $('nodeName')) $('nodeName').value = n.name;
+    if (document.activeElement !== $('nodeDetails')) $('nodeDetails').value = n.details || '';
+    $('nodeX').value = n.x.toFixed(2); $('nodeZ').value = n.z.toFixed(2);
+    renderType(n); renderAliases(n); renderNodeEdges(n);
+    for (const [id, key] of NODE_EXPLORE_FIELDS) if (document.activeElement !== $(id)) $(id).value = ExploreFields.fieldValue(n, key);
+  }
   if (ei !== null) {
     const e = g.edges[ei], a = nodeById(e.from), b = nodeById(e.to);
     $('edgeLabel').textContent = `${a?.name ?? e.from} ↔ ${b?.name ?? e.to}`;
     $('edgeLength').textContent = a && b ? `${Math.hypot(a.x - b.x, a.z - b.z).toFixed(2)} m` : '';
   }
-  renderClouds();
+}
+
+function renderMobileBar() {
+  const n = state.selectedNode, ei = state.selectedEdge, g = state.graph;
+  $('mbEdit').hidden = !n && ei === null;
+  if (n) {
+    $('mbDot').style.background = colorOf(n); $('mbName').textContent = n.name;
+    $('mbMeta').textContent = `${n.category || 'destination'} · x ${fmtCoord(n.x)} z ${fmtCoord(n.z)}`;
+  } else if (ei !== null && g) {
+    const e = g.edges[ei], a = nodeById(e.from), b = nodeById(e.to);
+    $('mbDot').style.background = '#C8C2DC'; $('mbName').textContent = `${a?.name ?? '?'} ↔ ${b?.name ?? '?'}`;
+    $('mbMeta').textContent = a && b ? `connection · ${Math.hypot(a.x - b.x, a.z - b.z).toFixed(1)} m` : 'connection';
+  } else {
+    $('mbDot').style.background = 'transparent'; $('mbName').textContent = g?.name || state.slug;
+    $('mbMeta').textContent = { select: 'tap a place to select it', add: 'tap the map to add a place', connect: 'tap two places to connect them', path: 'tap along the corridor · tap a place to end', cloud: 'drag to move the scan' }[state.mode];
+  }
+}
+
+function renderHeader() {
+  const g = state.graph, cur = state.current, live = state.versions[0];
+  $('chipName').textContent = g?.name || state.slug;
+  let status, sub;
+  if (state.loading) { status = 'new'; sub = 'loading…'; }
+  else if (state.dirty) { status = 'editing'; sub = cur ? `v${cur.version} · editing` : 'new · editing'; }
+  else if (!cur) { status = 'new'; sub = 'not published'; }
+  else if (live && cur.id === live.id) { status = 'live'; sub = `v${cur.version} · live`; }
+  else { status = 'old'; sub = `v${cur.version} · not live`; }
+  $('mapChip').dataset.status = status; $('chipSub').textContent = sub;
+  $('publish').disabled = !g;
+  renderPublishLabel();
+  const n = state.dirty ? changeCount() : 0;
+  $('unsaved').hidden = !state.dirty;
+  $('unsavedText').textContent = n ? `${n} unpublished change${n === 1 ? '' : 's'}` : 'Unpublished changes';
+  document.title = g ? `${g.name || state.slug} · AISEE-BIN Map Editor` : 'AISEE-BIN Map Editor';
+}
+const nextVersion = () => (state.versions[0]?.version ?? 0) + 1;
+function renderPublishLabel() {
+  const narrow = isNarrow();
+  $('publishLabel').textContent = narrow ? 'Publish' : `Publish v${nextVersion()}`;
+  $('publishConfirmLabel').textContent = `Publish v${nextVersion()}`;
+}
+
+function renderFooterRight() {
+  const el = $('footRight');
+  el.textContent = document.body.dataset.view === 'editor' && state.draftSavedAt ? `draft autosaved ${timeOnly(state.draftSavedAt)}` : '';
+}
+
+function renderFiles() {
+  const row = state.current;
+  for (const [id, path] of [['downloadWorldMap', row?.worldmap_path], ['downloadPoints', row?.pointcloud_path]]) {
+    const a = $(id);
+    if (path) { a.href = publicURL(path); a.classList.remove('disabled'); a.removeAttribute('aria-disabled'); }
+    else { a.removeAttribute('href'); a.classList.add('disabled'); a.setAttribute('aria-disabled', 'true'); }
+  }
+  $('worldMapSize').textContent = row?.worldmap_path ? (worldMapSizes.get(row.worldmap_path) ?? '') : 'none';
+}
+const worldMapSizes = new Map();
+/// The world map can be tens of MB, so the menu says how big before anyone clicks.
+async function fetchWorldMapSize() {
+  const path = state.current?.worldmap_path; if (!path || worldMapSizes.has(path)) return;
+  try {
+    const res = await fetch(publicURL(path), { method: 'HEAD' });
+    const bytes = +res.headers.get('content-length');
+    if (res.ok && bytes) worldMapSizes.set(path, `${(bytes / 1e6).toFixed(1)} MB`);
+  } catch {}
+  renderFiles();
+}
+
+function renderSidebar() {
+  renderPlaces(); renderInspector(); renderConnectivity(); renderClouds(); renderMobileBar(); renderHeader();
 }
 
 function markDirty() { state.dirty = true; updateSaveButton(); renderSidebar(); draw(); }
-function updateSaveButton() { $('save').disabled = !state.graph; $('save').textContent = state.dirty ? 'Save as new version *' : 'Save as new version'; }
-function setStatus(text, isError = false) { const f = $('status'); f.textContent = text; f.className = isError ? 'error' : ''; }
-function escapeHTML(s) { return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function updateSaveButton() { renderHeader(); if (state.dirty) scheduleDraft(); }
+function setStatus(text, isError = false, busy = false) {
+  $('status').textContent = text;
+  $('statusBar').className = 'statusBar' + (isError ? ' error' : busy ? ' busy' : '');
+}
+function escapeHTML(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 function selectNode(n) { state.selectedNode = n; state.selectedEdge = null; renderSidebar(); draw(); }
 function selectEdge(i) { state.selectedEdge = i; state.selectedNode = null; renderSidebar(); draw(); }
 
+/// Pans so a place picked from a list is on screen (it may be off to one side).
+function ensureVisible(p) {
+  const [x, y] = toScreen(p.x, p.z), w = canvas.clientWidth, h = canvas.clientHeight, m = 60;
+  if (x >= m && y >= m && x <= w - m && y <= h - m) return;
+  state.view.ox += w / 2 - x; state.view.oy += h / 2 - y; draw();
+}
+
+const HINTS = {
+  select: 'drag to pan · wheel to zoom · drag a place to move it · ⌦ delete · ⌘Z undo',
+  add: 'click the map to add a place · Esc to stop',
+  connect: 'click a place, then another, to connect them (or remove their connection)',
+  cloud: 'drag to move the selected scan · Alt/Option-drag to turn it · arrows nudge 10 cm (Shift 1 m) · [ ] turn 1° (Shift 5°) · Esc to stop',
+};
 function setMode(mode) {
   state.mode = mode; state.connectFrom = null;
   state.pathFrom = mode === 'path' ? state.selectedNode : null;
-  document.querySelectorAll('button.mode').forEach(b => b.classList.toggle('active', b.id === { select: 'modeSelect', add: 'modeAdd', connect: 'modeConnect', path: 'modePath', cloud: 'moveCloud' }[mode]));
+  document.querySelectorAll('[data-mode]').forEach(b => { b.classList.toggle('active', b.dataset.mode === mode); if (b.closest('.seg, .mbTools')) b.setAttribute('aria-pressed', b.dataset.mode === mode); });
+  $('moveCloud').classList.toggle('active', mode === 'cloud');
   canvas.className = mode === 'select' ? '' : mode === 'cloud' ? 'dragging' : mode;
-  $('hint').textContent = { select: 'Drag to pan · wheel to zoom · drag a node to move it · Delete removes the selection',
-    add: 'Click on the canvas to place a node', connect: 'Click a node, then another node, to add (or remove) an edge',
-    path: (state.pathFrom ? `Path from "${state.pathFrom.name}": ` : 'Path: click a node to start, then ') + 'click along the corridor to lay waypoints · click a node to end there · Esc to stop',
-    cloud: 'Drag to move the selected scan · Alt/Option-drag to turn it · arrows nudge 10 cm (Shift 1 m) · [ ] turn 1° (Shift 5°) · Esc to stop' }[mode];
+  setModeHint();
+  renderMobileBar();
   draw();
+}
+
+function setModeHint() {
+  $('hint').textContent = state.mode === 'path'
+    ? (state.pathFrom ? `Path from “${state.pathFrom.name}”: ` : 'Path: click a place to start, then ') + 'click along the corridor to lay waypoints · click a place to end there · Esc to stop'
+    : HINTS[state.mode];
 }
 
 function addWaypointAt(x, z) {
@@ -571,8 +967,12 @@ function uniqueId(base) {
 
 function addNodeAt(x, z) {
   beginChange();
-  const node = { id: uniqueId('node'), name: `Node ${state.graph.pois.length + 1}`, x: +x.toFixed(2), z: +z.toFixed(2), category: 'destination', details: null, aliases: [] };
-  state.graph.pois.push(node); selectNode(node); markDirty(); setMode('select'); $('nodeName').focus(); $('nodeName').select();
+  const count = state.graph.pois.filter(p => p.category !== 'junction').length + 1;
+  const node = { id: uniqueId('node'), name: `Place ${count}`, x: +x.toFixed(2), z: +z.toFixed(2), category: 'destination', details: null, aliases: [] };
+  state.graph.pois.push(node); selectNode(node); markDirty(); setMode('select');
+  if (isNarrow()) openSheet('right');
+  // After this pointerdown the canvas's mousedown would take focus back; focus after it.
+  else setTimeout(() => { $('nodeName').focus(); $('nodeName').select(); }, 0);
 }
 
 function handlePathClick(node, sx, sy) {
@@ -582,12 +982,10 @@ function handlePathClick(node, sx, sy) {
   } else {
     const [x, z] = toWorld(sx, sy); const wp = addWaypointAt(x, z);
     if (state.pathFrom) toggleEdgeEnsure(state.pathFrom, wp);
-    else setStatus('Path started on empty canvas: remember to end it on a place, or it stays disconnected.', false);
+    else setStatus('Path started on empty map: end it on a place, or it stays disconnected.');
     state.pathFrom = wp; selectNode(wp); markDirty(); setModeHint();
   }
 }
-
-function setModeHint() { if (state.mode === 'path') $('hint').textContent = `Path from "${state.pathFrom?.name ?? '?'}": click along the corridor to lay waypoints · click a node to end there · Esc to stop`; }
 
 /// Adds the edge if it does not exist (never removes).
 function toggleEdgeEnsure(a, b) {
@@ -604,10 +1002,29 @@ function toggleEdge(a, b) {
   markDirty();
 }
 
-// ---------- events ----------
+// ---------- canvas input ----------
+// One pointer pans, drags or edits by mode; two pointers (touch) pinch-zoom.
+const pointers = new Map();
+const localPoint = ev => { const r = canvas.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
+
+function startPinch() {
+  const [a, b] = [...pointers.values()];
+  const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  // A place dragged by the first finger snaps back: the second finger meant zoom.
+  if (state.drag?.type === 'node' && state.drag.moved) { restoreSnapshotQuiet(state.drag.snap); }
+  state.drag = { type: 'pinch', d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, scale: state.view.scale, world: toWorld(...mid) };
+}
+function restoreSnapshotQuiet(snap) {
+  const id = state.selectedNode?.id; state.graph = JSON.parse(snap); state.selectedNode = id ? nodeById(id) : null; renderSidebar(); draw();
+}
+
 canvas.addEventListener('pointerdown', ev => {
-  const r = canvas.getBoundingClientRect(); const sx = ev.clientX - r.left, sy = ev.clientY - r.top;
+  if (!state.graph) return;
+  const [sx, sy] = localPoint(ev);
   canvas.setPointerCapture(ev.pointerId);
+  pointers.set(ev.pointerId, [sx, sy]);
+  if (pointers.size === 2) { startPinch(); return; }
+  if (pointers.size > 2) return;
   if (ev.button === 1 || ev.button === 2 || ev.shiftKey) {
     // Middle / right / shift-drag pans regardless of the editing mode.
     ev.preventDefault();
@@ -622,10 +1039,11 @@ canvas.addEventListener('pointerdown', ev => {
     state.drag = { type: 'cloud', wx, wz, orig: { ...pl }, rotate: ev.altKey, snap: snapshot(), moved: false };
     return;
   }
-  const node = hitNode(sx, sy);
+  const tol = ev.pointerType === 'touch' ? 22 : 12;
+  const node = hitNode(sx, sy, tol);
   if (state.mode === 'add') { if (!node) { const [x, z] = toWorld(sx, sy); addNodeAt(x, z); } return; }
   if (state.mode === 'path') {
-    // Snap to an existing node within 1 m so waypoints laid next to a place attach to it.
+    // Snap to an existing place within 1 m so waypoints laid next to a place attach to it.
     if (!node) {
       const [wx, wz] = toWorld(sx, sy);
       const near = state.graph.pois.filter(p => Math.hypot(p.x - wx, p.z - wz) <= 1.0)
@@ -640,23 +1058,38 @@ canvas.addEventListener('pointerdown', ev => {
     else { toggleEdge(state.connectFrom, node); state.connectFrom = null; }
     return;
   }
-  if (node) { selectNode(node); state.drag = { type: 'node', node, moved: false, snap: snapshot() }; return; }
-  const edge = hitEdge(sx, sy);
+  if (node) { selectNode(node); state.drag = { type: 'node', node, moved: false, snap: snapshot(), x: sx, y: sy }; return; }
+  const edge = hitEdge(sx, sy, ev.pointerType === 'touch' ? 12 : 6);
   if (edge !== null) { selectEdge(edge); return; }
+  if (state.selectedNode || state.selectedEdge !== null) { state.selectedNode = null; state.selectedEdge = null; renderSidebar(); draw(); }
   state.drag = { type: 'pan', x: sx, y: sy, ox: state.view.ox, oy: state.view.oy };
   canvas.classList.add('dragging');
 });
 
 canvas.addEventListener('pointermove', ev => {
-  const r = canvas.getBoundingClientRect(); const sx = ev.clientX - r.left, sy = ev.clientY - r.top;
-  const [wx, wz] = toWorld(sx, sy); $('coords').textContent = `x ${wx.toFixed(2)}  z ${wz.toFixed(2)}`;
-  if (!state.drag) return;
-  if (state.drag.type === 'pan') { state.view.ox = state.drag.ox + sx - state.drag.x; state.view.oy = state.drag.oy + sy - state.drag.y; draw(); }
-  else if (state.drag.type === 'cloud') { dragCloud(wx, wz); }
-  else { state.drag.node.x = +wx.toFixed(2); state.drag.node.z = +wz.toFixed(2); state.drag.moved = true; renderSidebar(); draw(); }
+  const [sx, sy] = localPoint(ev);
+  const [wx, wz] = toWorld(sx, sy); $('coords').textContent = `x ${fmtCoord(wx)}   z ${fmtCoord(wz)}`;
+  if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, [sx, sy]);
+  const d = state.drag; if (!d) return;
+  if (d.type === 'pinch') {
+    if (pointers.size < 2) return;
+    const [a, b] = [...pointers.values()];
+    const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    state.view.scale = Math.max(3, Math.min(300, d.scale * Math.hypot(a[0] - b[0], a[1] - b[1]) / d.d));
+    state.view.ox = mid[0] - d.world[0] * state.view.scale; state.view.oy = mid[1] - d.world[1] * state.view.scale;
+    draw();
+  } else if (d.type === 'pan') { state.view.ox = d.ox + sx - d.x; state.view.oy = d.oy + sy - d.y; draw(); }
+  else if (d.type === 'cloud') { dragCloud(wx, wz); }
+  else {
+    // A few pixels of slop so a tap that wobbles does not move the place.
+    if (!d.moved && Math.hypot(sx - d.x, sy - d.y) < (ev.pointerType === 'touch' ? 8 : 3)) return;
+    d.node.x = +wx.toFixed(2); d.node.z = +wz.toFixed(2); d.moved = true; renderInspector(); renderMobileBar(); draw();
+  }
 });
 
-canvas.addEventListener('pointerup', () => {
+function endPointer(ev) {
+  pointers.delete(ev.pointerId);
+  if (state.drag?.type === 'pinch') { if (pointers.size === 0) state.drag = null; return; }
   if ((state.drag?.type === 'node' || state.drag?.type === 'cloud') && state.drag.moved) {
     // Record the pre-drag state as one undo step.
     state.history.push(state.drag.snap); if (state.history.length > 200) state.history.shift();
@@ -666,14 +1099,15 @@ canvas.addEventListener('pointerup', () => {
   const wasCloud = state.drag?.type === 'cloud';
   state.drag = null; if (state.mode !== 'cloud') canvas.classList.remove('dragging');
   if (wasCloud) { renderCloudEdit(); scheduleOverlap(); }
-});
-
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
 canvas.addEventListener('contextmenu', ev => ev.preventDefault());
 canvas.addEventListener('auxclick', ev => ev.preventDefault());
 
 canvas.addEventListener('wheel', ev => {
   ev.preventDefault();
-  const r = canvas.getBoundingClientRect(); const sx = ev.clientX - r.left, sy = ev.clientY - r.top;
+  const [sx, sy] = localPoint(ev);
   const [wx, wz] = toWorld(sx, sy);
   state.view.scale = Math.max(3, Math.min(300, state.view.scale * (ev.deltaY < 0 ? 1.12 : 1 / 1.12)));
   state.view.ox = sx - wx * state.view.scale; state.view.oy = sy - wz * state.view.scale;
@@ -681,12 +1115,13 @@ canvas.addEventListener('wheel', ev => {
 }, { passive: false });
 
 document.addEventListener('keydown', ev => {
+  if ($('publishDialog').open || !$('view3d').hidden || document.body.dataset.view !== 'editor') return;
+  if (ev.key === 'Escape' && (openMenuId || document.body.classList.contains('sheet-left') || document.body.classList.contains('sheet-right'))) { closeMenus(); closeSheets(); return; }
   const mod = ev.metaKey || ev.ctrlKey;
-  if (mod && ev.key.toLowerCase() === 'z' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
-    ev.preventDefault(); ev.shiftKey ? redo() : undo(); return;
-  }
-  if (mod && ev.key.toLowerCase() === 'y') { ev.preventDefault(); redo(); return; }
-  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+  const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
+  if (mod && ev.key.toLowerCase() === 'z' && !typing) { ev.preventDefault(); ev.shiftKey ? redo() : undo(); return; }
+  if (mod && ev.key.toLowerCase() === 'y' && !typing) { ev.preventDefault(); redo(); return; }
+  if (typing) return;
   if (state.mode === 'cloud' && placementOf(state.selectedCloud)) {
     const m = ev.shiftKey ? 1 : 0.1, deg = ev.shiftKey ? 5 : 1;
     const moves = { ArrowLeft: [-m, 0, 0], ArrowRight: [m, 0, 0], ArrowUp: [0, -m, 0], ArrowDown: [0, m, 0], '[': [0, 0, -deg], ']': [0, 0, deg], '{': [0, 0, -deg], '}': [0, 0, deg] };
@@ -694,25 +1129,27 @@ document.addEventListener('keydown', ev => {
     if (mv) { ev.preventDefault(); nudgeCloud(mv[0], mv[1], mv[2]); return; }
   }
   if (ev.key === 'Escape') { setMode('select'); selectNode(null); }
-  if (ev.key === 'Delete' || ev.key === 'Backspace') { if (state.selectedNode) deleteNode(); else if (state.selectedEdge !== null) deleteEdge(); }
+  if ((ev.key === 'Delete' || ev.key === 'Backspace') && !ev.target.closest?.('.menu')) { if (state.selectedNode) deleteNode(); else if (state.selectedEdge !== null) deleteEdge(); }
 });
 
 function deleteNode() {
-  const n = state.selectedNode; if (!n || !confirm(`Delete "${n.name}" and its edges?`)) return;
+  const n = state.selectedNode; if (!n || !confirm(`Delete “${n.name}” and its connections?`)) return;
   beginChange();
   state.graph.pois = state.graph.pois.filter(p => p !== n);
   state.graph.edges = state.graph.edges.filter(e => e.from !== n.id && e.to !== n.id);
-  state.selectedNode = null; markDirty();
+  state.selectedNode = null; closeSheets(); markDirty();
 }
-function deleteEdge() { if (state.selectedEdge === null) return; beginChange(); state.graph.edges.splice(state.selectedEdge, 1); state.selectedEdge = null; markDirty(); }
+function deleteEdge() { if (state.selectedEdge === null) return; beginChange(); state.graph.edges.splice(state.selectedEdge, 1); state.selectedEdge = null; closeSheets(); markDirty(); }
 
-// node panel bindings
-['nodeName', 'nodeCategory', 'nodeDetails', 'nodeAliases', 'nodeX', 'nodeZ', 'nodeRadius', 'nodeRadiusRange', 'mapName'].forEach(id => $(id).addEventListener('focus', beginChange));
-const bindNode = (id, apply) => $(id).addEventListener('input', () => { if (!state.selectedNode) return; apply(state.selectedNode, $(id).value); state.dirty = true; updateSaveButton(); $('mapStats').textContent = `${state.graph.pois.length} nodes · ${state.graph.edges.length} edges`; draw(); });
+// ---------- inspector bindings ----------
+['nodeName', 'nodeDetails', 'nodeX', 'nodeZ', 'nodeRadius', 'nodeRadiusRange', 'mapName'].forEach(id => $(id).addEventListener('focus', beginChange));
+const bindNode = (id, apply) => $(id).addEventListener('input', () => {
+  const n = state.selectedNode; if (!n) return;
+  apply(n, $(id).value); state.dirty = true; updateSaveButton(); renderPlaces(); renderMobileBar(); draw();
+});
 bindNode('nodeName', (n, v) => n.name = v);
-bindNode('nodeCategory', (n, v) => { n.category = v; renderRadius(n); $('nodeExplore').hidden = v !== 'exhibit'; });
-bindNode('nodeRadius', (n, v) => { setRadius(n, v); renderRadius(n); });
-bindNode('nodeRadiusRange', (n, v) => { setRadius(n, v); renderRadius(n); });
+bindNode('nodeRadius', (n, v) => { setRadius(n, v); renderType(n); });
+bindNode('nodeRadiusRange', (n, v) => { setRadius(n, v); renderType(n); });
 // The slider can be dragged without focusing first; snapshot for undo on press.
 $('nodeRadiusRange').addEventListener('pointerdown', beginChange);
 $('nodeRadius').addEventListener('change', () => { if (state.selectedNode) renderRadius(state.selectedNode); });
@@ -721,10 +1158,30 @@ $('nodeRadiusReset').onclick = () => {
   beginChange(); delete n.announceRadius; markDirty();
 };
 bindNode('nodeDetails', (n, v) => n.details = v || null);
-bindNode('nodeAliases', (n, v) => n.aliases = v.split(',').map(s => s.trim()).filter(Boolean));
 bindNode('nodeX', (n, v) => { if (!isNaN(parseFloat(v))) n.x = parseFloat(v); });
 bindNode('nodeZ', (n, v) => { if (!isNaN(parseFloat(v))) n.z = parseFloat(v); });
-$('mapName').addEventListener('input', () => { if (state.graph) { state.graph.name = $('mapName').value; state.dirty = true; updateSaveButton(); } });
+document.querySelectorAll('#typeGrid [data-cat]').forEach(b => b.onclick = () => {
+  const n = state.selectedNode; if (!n || n.category === b.dataset.cat) return;
+  beginChange(); n.category = b.dataset.cat; markDirty();
+});
+$('playDetails').onclick = () => {
+  const n = state.selectedNode; if (!n || !window.speechSynthesis) return;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(new SpeechSynthesisUtterance([n.name, n.details].filter(Boolean).join('. ')));
+};
+function addAliases() {
+  const n = state.selectedNode, input = $('aliasInput'); if (!n) return;
+  const add = input.value.split(',').map(s => s.trim()).filter(s => s && !(n.aliases || []).includes(s));
+  input.value = '';
+  if (!add.length) return;
+  beginChange(); n.aliases = [...(n.aliases || []), ...add]; markDirty(); $('aliasInput').focus();
+}
+$('aliasInput').addEventListener('keydown', ev => {
+  if (ev.key === 'Enter' || ev.key === ',') { ev.preventDefault(); addAliases(); }
+  else if (ev.key === 'Backspace' && !ev.target.value && state.selectedNode?.aliases?.length) { beginChange(); state.selectedNode.aliases.pop(); markDirty(); $('aliasInput').focus(); }
+});
+$('aliasInput').addEventListener('blur', addAliases);
+$('mapName').addEventListener('input', () => { if (state.graph) { state.graph.name = $('mapName').value; state.dirty = true; updateSaveButton(); renderMapMenu(); } });
 // Explore fields (web/explore.js): empty inputs remove the key.
 const NODE_EXPLORE_FIELDS = [['nodeMinutes', 'minutes'], ['nodeHighlight', 'highlight'], ['nodeTags', 'tags'], ['nodeAbout', 'about'], ['nodePhoto', 'photo']];
 const MAP_EXPLORE_FIELDS = [['mapTourStart', 'tourStart'], ['mapTourEnd', 'tourEnd'], ['mapVenueInfo', 'venueInfo']];
@@ -733,10 +1190,10 @@ function renderExploreMap(g) {
   if (!g) return;
   const places = g.pois.filter(p => p.category !== 'junction').sort((a, b) => a.name.localeCompare(b.name));
   for (const id of ['mapTourStart', 'mapTourEnd']) {
-    const sel = $(id);
-    sel.replaceChildren(new Option('—', ''), ...places.map(p => new Option(p.name, p.id)));
+    if (document.activeElement === $(id)) continue;
+    $(id).replaceChildren(new Option('—', ''), ...places.map(p => new Option(p.name, p.id)));
   }
-  for (const [id, key] of MAP_EXPLORE_FIELDS) $(id).value = ExploreFields.fieldValue(g, key);
+  for (const [id, key] of MAP_EXPLORE_FIELDS) if (document.activeElement !== $(id)) $(id).value = ExploreFields.fieldValue(g, key);
 }
 for (const [id, key] of NODE_EXPLORE_FIELDS) {
   $(id).addEventListener('focus', beginChange);
@@ -755,66 +1212,172 @@ $('deleteNode').onclick = deleteNode;
 $('autoConnect').onclick = autoConnectIsolated;
 $('deleteEdge').onclick = deleteEdge;
 
-$('modeSelect').onclick = () => setMode('select');
-$('modeAdd').onclick = () => setMode('add');
-$('modeConnect').onclick = () => setMode('connect');
-$('modePath').onclick = () => setMode('path');
-$('fit').onclick = () => { fitView(); draw(); };
-$('undo').onclick = undo;
-$('redo').onclick = redo;
-$('showPoints').onchange = draw; $('showLabels').onchange = draw;
-$('save').onclick = saveVersion;
-$('refresh').onclick = () => { state.current = null; loadSlugs().then(loadVersions).catch(e => setStatus(e.message, true)); };
-$('slug').addEventListener('change', () => {
-  let slug = $('slug').value;
-  if (slug === NEW_MAP) {
-    const name = prompt('Name for the new map (letters, digits, dashes). It appears on the server after the first save or upload.', 'greenhouse-2');
-    slug = (name || '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '');
-    if (!slug) { $('slug').value = state.slug; return; }
-    if (state.dirty && !confirm('Discard unsaved changes?')) { $('slug').value = state.slug; return; }
-    state.slug = slug;
-    state.current = null; state.points = null; state.pointsBitmap = null;
-    state.graph = { name: name, pois: [], edges: [] }; state.dirty = false;
-    loadSlugs().then(() => { renderVersions(); renderSidebar(); updateSaveButton(); fitView(); draw(); setStatus(`New map "${slug}". Add nodes or import JSON, then save; or upload a scan to it from the app.`); });
-    return;
-  }
-  if (state.dirty && !confirm('Discard unsaved changes?')) { $('slug').value = state.slug; return; }
-  state.slug = slug; state.current = null; state.graph = null; state.points = null; state.pointsBitmap = null; state.pendingPoints = null; state.dirty = false;
-  state.clouds = new Map(); state.selectedCloud = null;
-  loadVersions().catch(e => setStatus(e.message, true)); draw();
-});
+document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { closeMenus(); setMode(b.dataset.mode); }));
+$('fit').onclick = $('fitFloat').onclick = () => { fitView(); draw(); };
+$('undo').onclick = $('mmUndo').onclick = () => { undo(); closeMenus(); };
+$('redo').onclick = $('mmRedo').onclick = () => { redo(); closeMenus(); };
+['showPoints', 'showLabels', 'showDistances'].forEach(id => $(id).onchange = draw);
+$('showLegend').onchange = () => { $('legend').hidden = !$('showLegend').checked; };
+$('tabPlaces').onclick = () => setTab('places');
+$('tabHistory').onclick = () => setTab('history');
+$('placeSearch').addEventListener('input', renderPlaces);
+$('mapSearch').addEventListener('input', renderHome);
+$('refreshMaps').onclick = () => loadMaps().catch(e => setStatus(`Could not load maps: ${e.message}`, true));
+$('checkVersions').onclick = async () => {
+  closeMenus();
+  try { await fetchVersions(); setStatus(`${state.versions.length} version(s); v${state.versions[0]?.version ?? '–'} is live.`); }
+  catch (e) { setStatus(e.message, true); }
+};
 
-// ---------- Immersal import ----------
+// ---------- menus and sheets ----------
+let openMenuId = null;
+const isNarrow = () => matchMedia('(max-width: 760px)').matches;
+function openMenu(id, anchor) {
+  const wasOpen = openMenuId === id;
+  closeMenus();
+  if (wasOpen) return;
+  const m = $(id); m.hidden = false; openMenuId = id;
+  anchor?.setAttribute('aria-expanded', 'true');
+  if (isNarrow()) { m.style.top = m.style.left = ''; $('scrim').hidden = false; }
+  else if (anchor) {
+    const r = anchor.getBoundingClientRect();
+    m.style.top = `${r.bottom + 8}px`;
+    m.style.left = `${Math.max(12, Math.min(r.left, innerWidth - m.offsetWidth - 12))}px`;
+  }
+  if (id === 'mapMenu') renderMapMenu();
+  if (id === 'filesMenu') { renderFiles(); fetchWorldMapSize(); }
+  m.querySelector('button:not(:disabled), a:not(.disabled), input')?.focus({ preventScroll: true });
+}
+function closeMenus() {
+  document.querySelectorAll('.menu').forEach(m => { m.hidden = true; });
+  document.querySelectorAll('[data-menu][aria-expanded]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+  openMenuId = null;
+  if (!document.body.className.includes('sheet-')) $('scrim').hidden = true;
+}
+function openSheet(side) {
+  if (!isNarrow()) return;
+  closeMenus(); document.body.classList.remove('sheet-left', 'sheet-right');
+  document.body.classList.add(`sheet-${side}`); $('scrim').hidden = false;
+}
+function closeSheets() { document.body.classList.remove('sheet-left', 'sheet-right'); if (!openMenuId) $('scrim').hidden = true; }
+
+document.querySelectorAll('[data-menu]').forEach(b => b.addEventListener('click', ev => { ev.stopPropagation(); openMenu(b.dataset.menu, b); }));
+// A click outside an open menu closes it, and does not also act on the map.
+document.addEventListener('pointerdown', ev => {
+  if (!openMenuId || ev.target.closest('.menu, [data-menu]')) return;
+  closeMenus();
+  if (ev.target === canvas) ev.stopPropagation();
+}, true);
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && openMenuId) closeMenus(); });
+$('scrim').onclick = () => { closeMenus(); closeSheets(); };
+document.querySelectorAll('[data-close-sheet]').forEach(b => b.onclick = closeSheets);
+$('mbEdit').onclick = () => openSheet('right');
+$('mmPlaces').onclick = () => openSheet('left');
+$('mmMap').onclick = () => { selectNode(null); openSheet('right'); };
+$('mmView').onclick = () => openMenu('viewMenu');
+$('mmFiles').onclick = () => openMenu('filesMenu');
+// Picking a place from the list on a phone shows it on the map.
+$('placeList').addEventListener('click', ev => { if (ev.target.closest('.place:not([aria-expanded])')) closeSheets(); });
+window.addEventListener('resize', () => { if (!isNarrow()) { closeSheets(); } renderPublishLabel(); });
+
+// ---------- publish ----------
+function openPublish() {
+  if (!state.graph) return;
+  closeMenus(); closeSheets(); saveDraftNow();
+  renderPublish();
+  $('publishError').hidden = true;
+  $('publishDialog').showModal();
+  if (isNarrow()) $('publishClose').focus(); else $('note').focus();   // no keyboard popping over the checks on a phone
+}
+
+function renderPublish() {
+  const g = state.graph, base = state.current?.graph, live = state.versions[0];
+  $('publishTitle').textContent = `Publish ${g.name || state.slug} v${nextVersion()}?`;
+  const delta = (now, before) => { if (before == null) return ''; const d = now - before; return d ? ` <span class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '+' : '−'}${Math.abs(d)}</span>` : ''; };
+  const exhibits = g.pois.filter(p => p.category === 'exhibit');
+  const named = g.pois.filter(p => p.category !== 'junction').length;
+  const baseNamed = base ? (base.pois || []).filter(p => p.category !== 'junction').length : null;
+  const baseExhibits = base ? (base.pois || []).filter(p => p.category === 'exhibit').length : null;
+  $('publishStats').innerHTML =
+    `<span><strong>${named}</strong><small>places${delta(named, baseNamed)}</small></span>` +
+    `<span><strong>${exhibits.length}</strong><small>exhibits${delta(exhibits.length, baseExhibits)}</small></span>` +
+    `<span><strong>${g.edges.length}</strong><small>connections${delta(g.edges.length, base ? (base.edges || []).length : null)}</small></span>`;
+
+  // Warnings explain what visitors would get; none of them block publishing.
+  const ul = $('publishChecks'); ul.replaceChildren();
+  const row = (ok, text, actions = []) => {
+    const li = document.createElement('li'); li.className = ok ? 'ok' : 'warn';
+    li.innerHTML = `${ok ? ICON.check : ICON.warn}<span></span>`;
+    li.querySelector('span').textContent = text;
+    for (const [label, fn, cls] of actions) { const b = document.createElement('button'); b.className = cls || 'link'; b.textContent = label; b.onclick = fn; li.appendChild(b); }
+    ul.appendChild(li);
+  };
+  const fix = p => () => { $('publishDialog').close(); setTab('places'); selectNode(p); ensureVisible(p); if (isNarrow()) openSheet('right'); };
+  if (!named) row(false, 'This map has no places yet, so there is nowhere to guide visitors.');
+  if (exhibits.length) {
+    const silent = exhibits.filter(p => !(p.details || '').trim());
+    if (!silent.length) row(true, 'Every exhibit has a description');
+    else row(false, silent.length === 1 ? `“${silent[0].name}” has no spoken description` : `${silent.length} exhibits have no spoken description`, [['Fix', fix(silent[0])]]);
+  }
+  const isolated = isolatedPlaces();
+  if (named && !isolated.length) row(true, 'Every place can be reached');
+  isolated.slice(0, 3).forEach(p => row(false, `“${p.name}” isn’t connected to the route`, [['Fix', fix(p)], ['Auto-connect', () => { autoConnectIsolated(); renderPublish(); }, 'link warnLink']]));
+  if (isolated.length > 3) row(false, `…and ${isolated.length - 3} more not connected`, [['Auto-connect all', () => { autoConnectIsolated(); renderPublish(); }, 'link warnLink']]);
+  if (state.current && live && state.current.id !== live.id) row(false, `These edits start from v${state.current.version}, but v${live.version} is live. Publishing replaces what changed since.`);
+  if (!state.dirty && state.current && live && state.current.id === live.id) row(true, `No changes since v${live.version}; this publishes the same map again.`);
+  renderPublishLabel();
+}
+
+$('publish').onclick = openPublish;
+$('publishConfirm').onclick = publishVersion;
+$('keepEditing').onclick = $('publishClose').onclick = () => $('publishDialog').close();
+
+// ---------- new maps: Immersal import and empty ----------
 // Opens a finished Immersal scan as a new map. The route is then drawn straight
 // in Immersal's coordinates and saved with an identity alignment to that map id,
 // so the app and the glasses can use it without an alignment walk.
 $('importImmersal').onclick = async () => {
-  if (state.dirty && !confirm('Discard unsaved changes?')) return;
+  if (!leaveMapOk()) return;
   const idText = prompt('Immersal map id (from the Mapper app or the Developer Portal):', '');
   if (idText === null || !idText.trim()) return;
   const btn = $('importImmersal'); btn.disabled = true;
   try {
-    setStatus(`Fetching Immersal map ${idText.trim()}…`);
+    setStatus(`Fetching Immersal map ${idText.trim()}…`, false, true);
     // The site's own proxy adds the account token server side; nothing to type.
     const map = await ImmersalImport.fetchMap({ id: idText.trim(), base: '/immersal' });
     const name = (prompt(`Name for this map (it becomes the server key and what the app calls it):`, map.name) || '').trim();
     if (!name) { setStatus('Import cancelled.'); return; }
     map.name = name;
     const slug = ImmersalImport.slugFromName(map.name) || `immersal-${map.id}`;
-    const taken = [...$('slug').options].some(o => o.value === slug);
-    if (taken && !confirm(`A map called "${slug}" already exists on the server. Continue and save the import as its next version?`)) return;
-    state.slug = slug; state.current = null; state.versions = []; state.history = []; state.future = [];
+    const taken = state.maps.some(m => m.map_slug === slug);
+    if (taken && !confirm(`A map called "${slug}" already exists on the server. Continue and publish the import as its next version?`)) return;
+    resetMapState(slug);
     state.graph = { name: map.name, pois: [], edges: [], immersalAlignment: ImmersalImport.identityAlignment(map.id) };
-    state.clouds = new Map(); state.selectedCloud = null;
-    state.points = map.points; state.pendingPoints = map.points; state.pointsBitmap = null;
-    state.selectedNode = state.selectedEdge = null;
+    state.points = map.points; state.pendingPoints = map.points;
     computeHeights(); renderScanTools(); buildPointsBitmap();
-    await loadSlugs();
-    state.dirty = true; renderVersions(); renderSidebar(); updateSaveButton(); fitView(); draw();
-    setStatus(`Imported "${map.name}" (Immersal ${map.id}): ${map.points.length / 3} points. Add places and paths, then save.`);
+    state.dirty = true;
+    openMap(slug);
+    // Versions are fetched for History and the next version number; the import itself stays as is.
+    fetchVersions().catch(() => {});
+    renderSidebar(); updateSaveButton(); fitView(); draw();
+    setStatus(`Imported “${map.name}” (Immersal ${map.id}): ${fmtInt(map.points.length / 3)} points. Add places and paths, then publish.`);
   } catch (e) {
     setStatus(`Import failed: ${e.message}`, true);
   } finally { btn.disabled = false; }
+};
+
+$('newEmptyMap').onclick = () => {
+  const name = (prompt('Name for the new map. Usually a map starts from a phone scan; an empty one suits a test graph or an imported JSON.', '') || '').trim();
+  if (!name) return;
+  const slug = name.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '');
+  if (!slug) return;
+  if (state.maps.some(m => m.map_slug === slug)) { if (confirm(`“${slug}” already exists. Open it?`)) openMap(slug); return; }
+  if (!leaveMapOk()) return;
+  resetMapState(slug);
+  state.graph = { name, pois: [], edges: [] };
+  openMap(slug);
+  renderSidebar(); updateSaveButton(); fitView(); draw();
+  setStatus(`New map “${name}”. Add places or import graph JSON, then publish.`);
 };
 
 // ---------- Immersal maps: several scans lined up in one map ----------
@@ -1080,7 +1643,7 @@ function loadThree() {
 function open3D() {
   if (!state.points || !state.points.length) { setStatus('No point cloud loaded for this version.', true); return; }
   $('view3d').hidden = false; $('status3d').textContent = 'Loading…';
-  loadThree().then(() => { init3D(); rebuild3D(true); $('status3d').textContent = `${state.points.length / 3} points · nodes shown as dots at floor height`; })
+  loadThree().then(() => { init3D(); rebuild3D(true); $('status3d').textContent = `${fmtInt(state.points.length / 3)} points · places shown as dots at floor height`; })
     .catch(e => { $('status3d').textContent = e.message; });
 }
 function close3D() { $('view3d').hidden = true; }
@@ -1142,25 +1705,35 @@ function render3D() {
 }
 
 $('exportJSON').onclick = () => {
+  closeMenus();
   if (!state.graph) return;
   const blob = new Blob([JSON.stringify(state.graph, null, 2)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${state.slug}-v${state.current?.version ?? 'draft'}.map.json`; a.click();
 };
 $('importJSON').addEventListener('change', async ev => {
+  closeMenus();
   const file = ev.target.files[0]; if (!file) return;
   try {
     const g = JSON.parse(await file.text());
     if (!Array.isArray(g.pois) || !Array.isArray(g.edges)) throw new Error('expected {name, pois, edges}');
     if (state.graph) beginChange(); else { state.history = []; state.future = []; }
     state.graph = g; state.selectedNode = state.selectedEdge = null; markDirty(); fitView(); draw();
-    setStatus(`Imported ${g.pois.length} nodes from ${file.name}. Save to publish.`);
+    setStatus(`Imported ${g.pois.length} places from ${file.name}. Publish to make it live.`);
   } catch (e) { setStatus(`Import failed: ${e.message}`, true); }
   ev.target.value = '';
 });
+['downloadWorldMap', 'downloadPoints', 'open3d'].forEach(id => $(id).addEventListener('click', closeMenus));
 
-window.addEventListener('beforeunload', ev => { if (state.dirty) { ev.preventDefault(); ev.returnValue = ''; } });
+// Drafts cover ordinary edits; only an unpublished Immersal import, or a draft
+// the browser refused to store, is lost by closing the tab.
+window.addEventListener('beforeunload', ev => {
+  saveDraftNow();
+  if (state.dirty && (state.pendingPoints || !state.draftSavedAt)) { ev.preventDefault(); ev.returnValue = ''; }
+});
 window.addEventListener('resize', resize);
+window.addEventListener('hashchange', route);
 
 // ---------- boot ----------
-resize();
-loadSlugs().then(loadVersions).catch(e => setStatus(`Could not load versions: ${e.message}`, true));
+document.fonts?.ready.then(draw);
+route();
+if (document.body.dataset.view === 'editor') loadMaps().catch(() => {});

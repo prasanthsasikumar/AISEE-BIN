@@ -14,34 +14,41 @@ struct ContentView: View {
     @AppStorage("nav.showMap") private var showMap = true
     @State private var showingMap = false
     @State private var showingFieldTest = false
+    @State private var showingSettings = false
+    @State private var showingMapPicker = false
 
     var body: some View {
         VStack(spacing: 0) {
-            // Explore is for the public: no staff mode switcher (staff leave via the logo).
-            if viewModel.mode != .explore {
-                ModeSwitcher(mode: $viewModel.mode)
-            }
-
             switch viewModel.mode {
+            case .welcome:
+                header(.dark)
+                WelcomeView(viewModel: viewModel)
             case .navigation:
+                header(.dark)
                 navigationScreen
+            case .explore:
+                header(.light)
+                ExploreView(nav: viewModel)
+            case .home:
+                HomeView(viewModel: viewModel) { showingSettings = true }
             case .authoring:
                 AuthoringView(arManager: viewModel.arManager, mapStore: viewModel.mapStore,
+                              entry: viewModel.authoringEntry,
+                              onHome: { viewModel.mode = .home },
                               onTestNow: { viewModel.mode = .navigation })
-            case .settings:
-                SettingsView(viewModel: viewModel)
-            case .explore:
-                ExploreView(nav: viewModel)
             }
         }
-        .background(viewModel.mode == .navigation ? DS.N.canvas : DS.A.canvas)
-        .preferredColorScheme(viewModel.mode == .navigation ? .dark : .light)
+        .background(isDark ? DS.N.canvas : DS.A.canvas)
+        .preferredColorScheme(isDark ? .dark : .light)
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
             viewModel.startSession()
             #if DEBUG
             // Screenshots and simulator checks: `-openFieldTest` opens the field-test sheet at launch.
             if ProcessInfo.processInfo.arguments.contains("-openFieldTest") { showingFieldTest = true }
+            // `-openSettings` / `-openMapPicker` open the shared header's sheets at launch.
+            if ProcessInfo.processInfo.arguments.contains("-openSettings") { showingSettings = true }
+            if ProcessInfo.processInfo.arguments.contains("-openMapPicker") { showingMapPicker = true }
             // `-fieldPostTest` checks the result upload end to end (a row and the log).
             if ProcessInfo.processInfo.arguments.contains("-fieldPostTest") {
                 Task {
@@ -70,6 +77,31 @@ struct ContentView: View {
         }
         .fullScreenCover(isPresented: $showingMap) {
             FullScreenMap(viewModel: viewModel)
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView(viewModel: viewModel)
+        }
+        .sheet(isPresented: $showingMapPicker) {
+            MapPickerSheet(surface: isDark ? .dark : .light, viewModel: viewModel)
+        }
+    }
+
+    /// Navigate and the visitor welcome are the dark, high-contrast surface.
+    private var isDark: Bool { viewModel.mode == .navigation || viewModel.mode == .welcome }
+
+    /// Logo, map chip, settings: the same on Navigate and Explore, so staff can
+    /// tell a kiosk phone's mode from across the room by the chip's second line.
+    private func header(_ surface: HeaderSurface) -> some View {
+        AppHeader(surface: surface,
+                  logo: AppLogo(isStaff: viewModel.isStaff,
+                                onHome: { viewModel.mode = .home },
+                                onUnlock: { viewModel.unlockStaff() },
+                                onExitStaff: { viewModel.exitStaffMode() })) {
+            MapChip(surface: surface, viewModel: viewModel) { showingMapPicker = true }
+        } trailing: {
+            HeaderIconButton(surface: surface, systemImage: "slider.horizontal.3", label: "Settings") {
+                showingSettings = true
+            }
         }
     }
 
@@ -121,7 +153,7 @@ struct ContentView: View {
                 }
 
                 if showsMap {
-                    // Fills whatever height the panels leave, so the mode switcher is
+                    // Fills whatever height the panels leave, so the header is
                     // never pushed off the top; tap for the full-screen map.
                     Button { showingMap = true } label: {
                         LiveMapView(map: viewModel.displayMap,
@@ -152,16 +184,13 @@ struct ContentView: View {
             DownloadCard(version: version,
                          progress: viewModel.syncProgress,
                          bytesText: viewModel.syncBytesText)
-        case .idle:
-            EmptyView()
         case .failed(let message):
             SyncRow(icon: "exclamationmark.triangle.fill",
                     text: "Sync failed: \(message)",
                     tint: DS.N.warnText)
         default:
-            SyncRow(icon: "arrow.down.to.line",
-                    text: viewModel.syncState.label(mapName: viewModel.mapName),
-                    tint: DS.N.inkTertiary)
+            // The map chip in the header carries the map and its version.
+            EmptyView()
         }
     }
 
@@ -253,6 +282,13 @@ struct ContentView: View {
                         showingFieldTest = true
                     } label: {
                         Label("Field Test…", systemImage: "checklist")
+                    }
+                    if viewModel.canReturnToWelcome {
+                        Button {
+                            viewModel.mode = .welcome
+                        } label: {
+                            Label("Back to Start", systemImage: "arrow.uturn.backward")
+                        }
                     }
                     Divider()
                     Button("Check Server for Map Updates") { Task { await viewModel.checkForMapUpdate() } }

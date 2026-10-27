@@ -87,13 +87,18 @@ final class ExploreViewModel {
         nav.quietGuidance = true
         nav.speakCuesWhenQuiet = voiceDirections
         if phase == .welcome { planner = TourPlanner(map: nav.displayMap) }
+        // Said on the welcome screen: "I have 20 minutes".
+        if let request = nav.pendingVisitRequest {
+            nav.pendingVisitRequest = nil
+            Task { await plan(fromSpeech: request) }
+        }
     }
 
-    /// Five taps on the logo: back to the staff app (Settings). Leaving Explore
-    /// resets navigation in `NavigationViewModel.didChange(mode:from:)`.
+    /// Five taps on the logo: staff mode, Home. Leaving Explore resets
+    /// navigation in `NavigationViewModel.didChange(mode:from:)`.
     func exitToStaff() {
         closeAsk()
-        nav.mode = .settings
+        nav.unlockStaff()
     }
 
     // MARK: - Planning
