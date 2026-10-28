@@ -33,10 +33,10 @@ import com.flowsxr.aiseebin.map.MapSummary
  * Edit are shown but marked as coming.
  */
 @Composable
-fun HomeScreen(model: AppModel, onNavigate: (MapSummary) -> Unit, onSettings: () -> Unit) {
+fun HomeScreen(model: AppModel, onLogo: () -> Unit, onNavigate: (MapSummary) -> Unit, onSettings: () -> Unit) {
     val m by model.maps.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().background(Ink.Paper)) {
-        StaffHeader("Maps", "Staff mode", onLogo = null) {
+        StaffHeader("Maps", "Staff mode", onLogo = onLogo) {
             HeaderButton(AiseeIcons.Sliders, "Settings", dark = false, onClick = onSettings)
         }
         Column(

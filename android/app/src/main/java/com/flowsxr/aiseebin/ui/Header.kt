@@ -29,17 +29,21 @@ import androidx.compose.ui.unit.dp
 data class ChipState(val name: String, val detail: String, val ready: Boolean, val spoken: String)
 
 /**
- * Five taps within three seconds on the visitor logo unlock staff mode, with a
- * tick on taps 3–5 (design: "Staff unlock"). There is no hint on purpose.
+ * Five taps within three seconds on the logo toggle staff mode, with a tick on
+ * taps 3–5 (design: "Staff unlock"). There is no hint on purpose. One counter
+ * is shared by every logo, so taps carry on when the first staff tap goes Home.
  */
-class FiveTaps(private val tick: () -> Unit, private val unlocked: () -> Unit) {
+class FiveTaps(private val tick: () -> Unit, private val toggled: () -> Unit) {
     private val taps = ArrayDeque<Long>()
 
-    fun tap(now: Long = System.currentTimeMillis()) {
+    /** Returns this tap's place in the run (1 for a fresh start). */
+    fun tap(now: Long = System.currentTimeMillis()): Int {
         taps.addLast(now)
         while (taps.isNotEmpty() && now - taps.first() > WINDOW_MS) taps.removeFirst()
-        if (taps.size >= 3) tick()
-        if (taps.size >= 5) { taps.clear(); unlocked() }
+        val count = taps.size
+        if (count >= 3) tick()
+        if (count >= 5) { taps.clear(); toggled() }
+        return count
     }
 
     companion object { const val WINDOW_MS = 3_000L }

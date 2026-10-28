@@ -74,6 +74,19 @@ class ShellTest {
         assertTrue(unlocked)
     }
 
+    @Test fun tapReportsItsPlaceSoStaffCanGoHomeOnTheFirstAndKeepCounting() {
+        var toggles = 0
+        val taps = FiveTaps({}, { toggles++ })
+        assertEquals(1, taps.tap(0))
+        assertEquals(2, taps.tap(300))
+        listOf(600L, 900, 1200).forEach { taps.tap(it) }
+        assertEquals(1, toggles)
+        // After a toggle the run starts again, so the next five toggle back.
+        assertEquals(1, taps.tap(1500))
+        listOf(1800L, 2100, 2400, 2700).forEach { taps.tap(it) }
+        assertEquals(2, toggles)
+    }
+
     // MARK: phone camera
 
     private val phoneReady = ready.copy(phone = true, link = Link.DISCONNECTED, stream = Stream.OFF)
