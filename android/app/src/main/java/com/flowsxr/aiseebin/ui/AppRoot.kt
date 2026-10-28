@@ -53,7 +53,14 @@ fun AppRoot(model: AppModel, permissionsGranted: Boolean, cameraGranted: Boolean
     var askedPermissions by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
 
-    val fiveTaps = remember { FiveTaps(tick = model.haptics::tick, unlocked = { model.haptics.confirm(); model.setStaff(true); page = Page.HOME }) }
+    val fiveTaps = remember {
+        FiveTaps(tick = model.haptics::tick, toggled = {
+            model.haptics.confirm()
+            val on = !model.staff.value
+            model.setStaff(on)
+            page = if (on) Page.HOME else Page.NAVIGATE
+        })
+    }
     fun openSettings() { settingsFrom = page; page = Page.SETTINGS }
 
     // Back: visitor root asks twice and never leads into staff screens.
@@ -86,7 +93,7 @@ fun AppRoot(model: AppModel, permissionsGranted: Boolean, cameraGranted: Boolean
             Page.NAVIGATE -> VisitorTheme {
                 NavigateScreen(model, chip, cameraGranted,
                     onAllowCamera = requestPermissions,
-                    onLogo = { if (staff) page = Page.HOME else fiveTaps.tap() },
+                    onLogo = { if (fiveTaps.tap() == 1 && staff) page = Page.HOME },
                     onChip = { mapSheet = true },
                     onSettings = ::openSettings,
                     onConnect = {
@@ -100,11 +107,13 @@ fun AppRoot(model: AppModel, permissionsGranted: Boolean, cameraGranted: Boolean
             }
             Page.HOME -> StaffTheme {
                 HomeScreen(model,
+                    onLogo = { fiveTaps.tap() },
                     onNavigate = { s -> if (s.slug != m.selectedSlug) model.selectMap(s.slug); page = Page.NAVIGATE },
                     onSettings = ::openSettings)
             }
             Page.SETTINGS -> StaffTheme {
                 SettingsScreen(model, staff,
+                    onLogo = { if (staff) fiveTaps.tap() },
                     onDone = { page = settingsFrom },
                     onDeveloper = { page = Page.DEVELOPER },
                     onExitStaff = { model.setStaff(false); page = Page.NAVIGATE },

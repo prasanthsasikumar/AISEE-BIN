@@ -66,11 +66,11 @@ private fun StaffPage(header: @Composable () -> Unit, content: @Composable () ->
  * glasses; staff also get This phone and Developer.
  */
 @Composable
-fun SettingsScreen(model: AppModel, staff: Boolean, onDone: () -> Unit, onDeveloper: () -> Unit, onExitStaff: () -> Unit, openBluetoothSettings: () -> Unit) {
+fun SettingsScreen(model: AppModel, staff: Boolean, onLogo: () -> Unit, onDone: () -> Unit, onDeveloper: () -> Unit, onExitStaff: () -> Unit, openBluetoothSettings: () -> Unit) {
     val announce by model.announcePlaces.collectAsStateWithLifecycle()
     val visitor by model.visitorMode.collectAsStateWithLifecycle()
     StaffPage(header = {
-        StaffHeader("Settings", null, onLogo = null) { TextAction("Done", onClick = onDone) }
+        StaffHeader("Settings", null, onLogo = onLogo) { TextAction("Done", onClick = onDone) }
     }) {
         GroupLabel("Visitor experience")
         StaffCard(padding = 0.dp) {
