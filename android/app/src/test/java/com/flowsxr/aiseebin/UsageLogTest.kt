@@ -26,7 +26,10 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.file.Files
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /**
  * The usage log's core, as on iOS (UsageLogTests): sequence numbers, the
@@ -80,7 +83,7 @@ class UsageLogTest {
     )
 
     private fun makeLog(uploader: UsageUploading, maxQueueLines: Int = UsageLog.MAX_QUEUE_LINES) =
-        UsageLog(dir, uploader, { clock }, header(), direct, maxQueueLines)
+        UsageLog(dir, uploader, { clock }, header(), direct, maxQueueLines, uploadExecutor = direct)
 
     private fun stubbedUploader() = UsageUploader { url -> FakeConnection(url, status).also { requests += it } }
 
@@ -274,6 +277,45 @@ class UsageLogTest {
         second.flushBlocking()
         val launch = uploader.events.first { it.getString("session_id") == second.sessionId }
         assertEquals(JSONObject.NULL, launch.getJSONObject("data").get("unclean_previous"))
+    }
+
+    @Test fun slowUploadDoesNotHoldUpLogging() {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val uploaded = mutableListOf<String>()
+        val blocking = object : UsageUploading {
+            override fun upload(sessions: List<JSONObject>, events: List<JSONObject>) {
+                entered.countDown()
+                release.await()
+                synchronized(uploaded) { uploaded += events.map { it.getString("type") } }
+            }
+        }
+        val state = Executors.newSingleThreadExecutor()
+        val upload = Executors.newSingleThreadExecutor()
+        try {
+            val log = UsageLog(dir, blocking, { clock }, header(), state, uploadExecutor = upload)
+            log.log("a")
+            log.flush()
+            assertTrue("upload started", entered.await(5, TimeUnit.SECONDS))
+
+            val logger = Thread { log.log("x"); log.onBackground() }
+            logger.start()
+            logger.join(5_000)
+            // The state executor is free: a sessionId read returns while the upload is stuck.
+            log.sessionId
+            val lines = UsageQueue(dir).peekBatch(100)
+            assertTrue("x reached queue.jsonl during the upload", lines.any { it.contains("\"type\":\"x\"") })
+            assertTrue("background recorded during the upload", lines.any { it.contains("app.background") })
+
+            release.countDown()
+            log.flushBlocking()
+            assertEquals(listOf("a", "x", "app.background"), synchronized(uploaded) { uploaded.toList() })
+            assertEquals("uploaded lines dropped, nothing lost", 0, UsageQueue(dir).peekBatch(100).size)
+        } finally {
+            release.countDown()
+            state.shutdownNow()
+            upload.shutdownNow()
+        }
     }
 
     @Test fun valueEncoding() {

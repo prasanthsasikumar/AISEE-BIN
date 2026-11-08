@@ -30,8 +30,10 @@ object Usage {
  *
  * A session runs from launch to background; coming back after more than
  * [SESSION_TIMEOUT_MS] in the background starts a new one. Each session's
- * events are numbered from 0. Every call is fire-and-forget: state, disk I/O and
- * uploads run on [executor] (serial), and nothing throws to callers.
+ * events are numbered from 0. Every call is fire-and-forget: state and disk I/O
+ * run on [executor] (serial); uploads run on [uploadExecutor], one drain at a
+ * time, touching the queue file only through short tasks on [executor], so a
+ * slow upload never holds up logging. Nothing throws to callers.
  *
  * Never logs into `AppModel.append`: that log mirrors into this one, so its own
  * errors go to [android.util.Log] instead.
@@ -39,6 +41,8 @@ object Usage {
  * @param header describes the first session; later sessions copy it with a
  *   fresh id and start time.
  * @param executor must run tasks one at a time, in order.
+ * @param uploadExecutor must run tasks one at a time, in order; it waits on
+ *   [executor], so never pass the same single thread for both.
  */
 class UsageLog(
     dir: File,
@@ -47,6 +51,8 @@ class UsageLog(
     header: SessionHeader,
     private val executor: Executor,
     private val maxQueueLines: Int = MAX_QUEUE_LINES,
+    private val uploadExecutor: Executor =
+        Executors.newSingleThreadExecutor { Thread(it, "usage-upload").apply { isDaemon = true } },
 ) {
     companion object {
         const val SESSION_TIMEOUT_MS = 300_000L
@@ -82,7 +88,7 @@ class UsageLog(
     private var timer: ScheduledExecutorService? = null
 
     /** The current session's id. Waits for queued work; not for hot paths. */
-    val sessionId: String get() = sync { session.sessionId }
+    val sessionId: String get() = sync(executor) { session.sessionId }
 
     fun log(type: String, data: JSONObject = JSONObject()) {
         val t = now()
@@ -137,10 +143,10 @@ class UsageLog(
     }
 
     /** Uploads everything queued so far, oldest first, in the background. */
-    fun flush() = async { drain() }
+    fun flush() = async(uploadExecutor) { drain() }
 
-    /** Uploads everything queued so far and waits. Not from the main thread or [executor]. */
-    fun flushBlocking() = sync { drain() }
+    /** Uploads everything queued so far and waits. Not from the main thread or either executor. */
+    fun flushBlocking() = sync(uploadExecutor) { drain() }
 
     // On `executor`.
 
@@ -183,13 +189,17 @@ class UsageLog(
         timer = null
     }
 
+    // On `uploadExecutor`. Queue access goes through `sync(executor)`; between
+    // peek and drop, new lines only go to the end, so dropping the first
+    // `batch.size` lines removes exactly the uploaded ones.
+
     private fun drain() {
         try {
-            val dropped = store.trim(maxQueueLines)
+            val dropped = sync(executor) { store.trim(maxQueueLines) }
             if (dropped > 0) Log.e(TAG, "usage queue over cap, dropped $dropped oldest lines")
         } catch (e: Exception) { Log.e(TAG, "usage queue trim failed: $e") }
         while (true) {
-            val batch = try { store.peekBatch(BATCH_SIZE) } catch (e: Exception) {
+            val batch = try { sync(executor) { store.peekBatch(BATCH_SIZE) } } catch (e: Exception) {
                 Log.e(TAG, "usage queue read failed: $e"); return
             }
             if (batch.isEmpty()) return
@@ -213,7 +223,7 @@ class UsageLog(
                     return
                 }
             }
-            try { store.drop(batch.size) } catch (e: Exception) {
+            try { sync(executor) { store.drop(batch.size) } } catch (e: Exception) {
                 Log.e(TAG, "usage queue drop failed: $e"); return
             }
             if (batch.size < BATCH_SIZE) return
@@ -222,20 +232,20 @@ class UsageLog(
 
     // Scheduling.
 
-    private fun async(block: () -> Unit) {
+    private fun async(on: Executor = executor, block: () -> Unit) {
         try {
-            executor.execute {
+            on.execute {
                 try { block() } catch (e: Exception) { Log.e(TAG, "usage task failed: $e") }
             }
         } catch (e: Exception) { Log.e(TAG, "usage task not scheduled: $e") }
     }
 
-    /** Runs [block] on [executor] after everything already scheduled there and waits for it. */
-    private fun <T> sync(block: () -> T): T {
+    /** Runs [block] on [on] after everything already scheduled there and waits for it. */
+    private fun <T> sync(on: Executor, block: () -> T): T {
         val latch = CountDownLatch(1)
         var result: Result<T>? = null
         try {
-            executor.execute {
+            on.execute {
                 result = runCatching(block)
                 latch.countDown()
             }
