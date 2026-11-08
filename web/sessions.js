@@ -77,8 +77,11 @@
   const q = s => `“${s ?? ''}”`;
   const fixed = (v, n = 1) => num(v) ? v.toFixed(n) : '?';
 
-  function describe(e) {
+  // names: to_id -> to_name from earlier nav.request rows, since nav.arrived and
+  // nav.cancel carry only the id.
+  function describe(e, names = new Map()) {
     const d = dat(e);
+    const dest = () => names.get(d.to_id) ?? d.to_name ?? d.to_id;
     switch (e.type) {
       case 'speech.heard': return ['heard', `Heard: ${q(d.text)}`];
       case 'speech.said': return ['said', `Said: ${q(d.text)}`];
@@ -88,8 +91,8 @@
       case 'nav.off_route': return ['nav', `Off route${num(d.distance_m) ? ` by ${fixed(d.distance_m)} m` : ''}`];
       case 'nav.reroute': return ['nav', `Rerouted${num(d.path_m) ? ` (${fixed(d.path_m, 0)} m)` : ''}`];
       case 'nav.waypoint': return ['nav', `Passed waypoint ${d.id ?? ''}`.trim()];
-      case 'nav.arrived': return ['nav', `Arrived at ${d.to_name ?? d.to_id ?? '?'} after ${duration(d.seconds)}${num(d.walked_m) ? `, walked ${fixed(d.walked_m, 0)} m` : ''}`];
-      case 'nav.cancel': return ['nav', `Navigation cancelled${d.reason ? ` (${String(d.reason).replace(/_/g, ' ')})` : ''}${num(d.seconds) ? ` after ${duration(d.seconds)}` : ''}`];
+      case 'nav.arrived': return ['nav', `Arrived at ${dest() ?? '?'} after ${duration(d.seconds)}${num(d.walked_m) ? `, walked ${fixed(d.walked_m, 0)} m` : ''}`];
+      case 'nav.cancel': return ['nav', `Navigation${dest() != null ? ` to ${dest()}` : ''} cancelled${d.reason ? ` (${String(d.reason).replace(/_/g, ' ')})` : ''}${num(d.seconds) ? ` after ${duration(d.seconds)}` : ''}`];
       case 'mode.enter': return ['mode', `Entered ${d.mode ?? '?'} mode`];
       case 'mode.leave': return ['mode', `Left ${d.mode ?? '?'} mode${num(d.seconds) ? ` after ${duration(d.seconds)}` : ''}`];
       case 'loc.attempt': {
@@ -125,10 +128,13 @@
   }
 
   function timeline(events) {
+    const names = new Map();
     return sortEvents(events)
       .filter(e => e.type !== 'pose')
       .map(e => {
-        const [kind, text] = describe(e);
+        const d = dat(e);
+        if (e.type === 'nav.request' && d.to_id != null && d.to_name != null) names.set(d.to_id, d.to_name);
+        const [kind, text] = describe(e, names);
         return { t: e.t, seq: e.seq, kind, text };
       });
   }

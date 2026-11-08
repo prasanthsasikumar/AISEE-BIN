@@ -22,6 +22,9 @@
       <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
       <input id="mapSearch" type="search" placeholder="Search maps" aria-label="Search maps">
     </label>
+    <a href="#/sessions" class="btn" title="How the apps were used: sessions, routes and what was said">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Sessions
+    </a>
     <button id="refreshMaps" class="iconBtn boxed" title="Reload maps from the server" aria-label="Reload maps">
       <svg class="ic" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>
     </button>
@@ -261,6 +264,73 @@
   </div>
 </div>
 
+<!-- ================= Sessions ================= -->
+<section id="sessions" class="screen" hidden>
+  <header class="bar">
+    <a class="logo" href="#/" title="Maps"><img src="assets/aisee-logo-white.png" alt="AiSee — maps"></a>
+    <div class="titleBlock" id="sessTitleBlock"><h1 id="sessTitle">Sessions</h1><span id="sessSub">How the apps were used</span></div>
+    <span class="grow"></span>
+    <a id="sessBack" href="#/sessions" class="btn" hidden><svg class="ic" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>All sessions</a>
+    <button id="sessExportCSV" class="btn" title="Download as CSV"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg>CSV</button>
+    <button id="sessExportJSON" class="btn" title="Download the session's events as JSON" hidden><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg>JSON</button>
+    <button id="sessRefresh" class="iconBtn boxed" title="Reload from the server" aria-label="Reload">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>
+    </button>
+  </header>
+
+  <!-- list -->
+  <main id="sessList" class="sessBody">
+    <form id="sessFilters" class="sessFilters" autocomplete="off" onsubmit="return false">
+      <div class="field"><label for="fFrom">From</label><input id="fFrom" type="date"></div>
+      <div class="field"><label for="fTo">To</label><input id="fTo" type="date"></div>
+      <div class="field"><label for="fPlatform">Platform</label>
+        <select id="fPlatform"><option value="">Any</option><option value="ios">iOS</option><option value="android">Android</option></select></div>
+      <div class="field"><label for="fMap">Map</label><select id="fMap"><option value="">Any</option></select></div>
+      <div class="field"><label for="fMode">Mode</label><select id="fMode"><option value="">Any</option></select></div>
+      <div class="field"><label for="fInstall">Install ID</label><input id="fInstall" placeholder="Any" autocomplete="off" spellcheck="false"></div>
+      <label class="check"><input type="checkbox" id="fHideDebug" checked>Hide debug and simulator</label>
+    </form>
+    <div class="tableWrap">
+      <table class="sessTable">
+        <thead><tr>
+          <th>Started</th><th>Duration</th><th>Platform</th><th>Device</th><th>App</th><th>Maps</th><th>Modes</th>
+          <th class="num" title="Things the visitor said">Heard</th><th class="num" title="Arrived / cancelled routes">Arrived / cancelled</th>
+          <th class="num" title="Localization fixes / attempts">Fixes</th><th class="num">Errors</th>
+        </tr></thead>
+        <tbody id="sessRows"></tbody>
+      </table>
+    </div>
+    <div id="sessEmpty" class="empty" hidden></div>
+    <button id="sessMore" class="btn" hidden>Load more</button>
+  </main>
+
+  <!-- replay -->
+  <main id="sessReplay" class="replayBody" hidden>
+    <div class="replayMain">
+      <div id="replayStats" class="replayStats"></div>
+      <div id="replayMaps" class="seg replayMaps" role="tablist" aria-label="Map" hidden></div>
+      <div class="replayCanvasWrap">
+        <canvas id="replayCanvas"></canvas>
+        <div id="replayMapNote" class="overlay hint"></div>
+        <div class="overlay legend replayLegend">
+          <span><i class="lg-path"></i>Walked</span>
+          <span><i class="lg-fix"></i>Fix</span>
+          <span><i class="lg-rejected"></i>Rejected fix</span>
+          <span><i class="lg-here"></i>Selected moment</span>
+        </div>
+      </div>
+      <div class="scrubRow">
+        <span id="scrubTime" class="mono">–</span>
+        <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Time in session">
+      </div>
+    </div>
+    <aside class="replayTimeline">
+      <h2 class="eyebrow">Timeline</h2>
+      <ol id="timeline" class="timeline"></ol>
+    </aside>
+  </main>
+</section>
+
 <footer id="statusBar" class="statusBar">
   <i class="dot"></i><span id="status">Ready.</span>
   <span class="grow"></span>
@@ -340,6 +410,7 @@
 <script src="immersal.js"></script>
 <script src="explore.js"></script>
 <script src="align.js"></script>
+<script src="sessions.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

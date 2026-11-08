@@ -89,3 +89,19 @@ test('summaryCSV has a header and a row per session', () => {
   assert.ok(csv.startsWith('id,'));
   assert.ok(csv.includes('"a,b"'));
 });
+
+test('arrived and cancel take the destination name from the matching nav.request', () => {
+  n = 0;
+  const tl = S.timeline([
+    ev('nav.request', { to_id: 'exit', to_name: 'Exit', path_m: 40 }),
+    ev('nav.arrived', { to_id: 'exit', seconds: 190 }),
+    ev('nav.request', { to_id: 'cafe', to_name: 'Cafe' }),
+    ev('nav.cancel', { to_id: 'cafe', seconds: 5, reason: 'user_stop' }),
+    ev('nav.arrived', { to_id: 'toilet', to_name: 'Toilets', seconds: 3 }),
+    ev('nav.arrived', { to_id: 'lift', seconds: 3 }),
+  ]);
+  assert.equal(tl[1].text, 'Arrived at Exit after 3 m 10 s');
+  assert.equal(tl[3].text, 'Navigation to Cafe cancelled (user stop) after 5 s');
+  assert.equal(tl[4].text, 'Arrived at Toilets after 3 s');
+  assert.equal(tl[5].text, 'Arrived at lift after 3 s');
+});

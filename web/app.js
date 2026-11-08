@@ -220,21 +220,26 @@ function renderMapMenu() {
   }
 }
 
-// ---------- routing: #/ is Maps, #/map/<slug> the editor ----------
+// ---------- routing: #/ is Maps, #/map/<slug> the editor, #/sessions[/<id>] usage ----------
 function openMap(slug) { const h = `#/map/${encodeURIComponent(slug)}`; if (location.hash === h) route(); else location.hash = h; }
 
 function route() {
   const m = location.hash.match(/^#\/map\/(.+)$/);
-  if (m) enterMap(decodeURIComponent(m[1])); else showView('home');
+  const s = location.hash.match(/^#\/sessions(?:\/([0-9a-f-]{36}))?\/?$/i);
+  if (m) enterMap(decodeURIComponent(m[1]));
+  else if (s) { showView('sessions'); if (s[1]) openReplay(s[1].toLowerCase()); else openSessionList(); }
+  else showView('home');
 }
 
 function showView(view) {
   saveDraftNow(); closeMenus(); closeSheets();
   document.body.dataset.view = view;
-  $('home').hidden = view !== 'home'; $('editor').hidden = view !== 'editor';
+  $('home').hidden = view !== 'home'; $('editor').hidden = view !== 'editor'; $('sessions').hidden = view !== 'sessions';
   if (view === 'home') {
     renderHome(); renderFooterRight();
     loadMaps().catch(e => setStatus(`Could not load maps: ${e.message}`, true));
+  } else if (view === 'sessions') {
+    renderFooterRight();
   } else {
     resize(); renderFooterRight();
   }
@@ -1730,8 +1735,429 @@ window.addEventListener('beforeunload', ev => {
   saveDraftNow();
   if (state.dirty && (state.pendingPoints || !state.draftSavedAt)) { ev.preventDefault(); ev.returnValue = ''; }
 });
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => { if (document.body.dataset.view === 'sessions') resizeReplay(); else resize(); });
 window.addEventListener('hashchange', route);
+
+// ---------- sessions: usage list and replay ----------
+// Reads ab_session_summary (one row per session) and ab_events, which the apps
+// upload with the publishable key. Parsing lives in sessions.js (`Sessions`).
+const SESSION_PAGE = 200, EVENT_PAGE = 1000;
+const sess = {
+  rows: [], more: false, listLoaded: false, listToken: 0,
+  mapNames: null,          // slug -> newest published name, for the list and the Map filter
+  seenMaps: new Set(), seenModes: new Set(),   // filter options: every value met so far
+  graphs: new Map(),       // "slug@version" -> graph or null
+  replay: null,            // the open session, see openReplay
+  replayToken: 0,
+};
+const rv = { scale: 20, ox: 0, oy: 0 };   // replay canvas view: px per metre, screen offset of world origin
+const replayCanvas = $('replayCanvas');
+const rctx = replayCanvas.getContext('2d');
+const clockTime = ms => new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const sessionStart = r => r.started_at || r.first_t;
+const platformName = p => ({ ios: 'iOS', android: 'Android' }[p] || p || '—');
+const sessMapName = slug => sess.mapNames?.get(slug) || slug;
+
+function downloadText(text, name, type) {
+  const a = document.createElement('a');
+  // A byte-order mark so spreadsheet apps read the CSV as UTF-8 (curly quotes, "·").
+  const bom = type === 'text/csv' ? '\ufeff' : '';
+  a.href = URL.createObjectURL(new Blob([bom + text], { type })); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function setSessionsMode(replay) {
+  $('sessList').hidden = replay; $('sessReplay').hidden = !replay;
+  $('sessBack').hidden = !replay; $('sessExportJSON').hidden = !replay;
+  $('sessExportCSV').title = replay ? "Download this session's events as CSV, one row per event" : 'Download the sessions listed as CSV';
+  if (!replay) { $('sessTitle').textContent = 'Sessions'; $('sessSub').textContent = 'How the apps were used'; }
+}
+
+// ----- list -----
+async function loadMapNames() {
+  if (sess.mapNames) return;
+  const rows = await rest('ab_map_versions?select=map_slug,name:graph->>name&order=map_slug.asc,version.desc');
+  sess.mapNames = new Map();
+  for (const r of rows) if (!sess.mapNames.has(r.map_slug)) sess.mapNames.set(r.map_slug, r.name || r.map_slug);
+}
+
+const pgList = v => `{${JSON.stringify(String(v))}}`;   // a one-element Postgres array literal, for cs.
+
+function sessionQuery(offset) {
+  const q = [`order=last_t.desc.nullslast`, `limit=${SESSION_PAGE}`, `offset=${offset}`];
+  const day = v => new Date(`${v}T00:00`);   // local midnight
+  if ($('fFrom').value) q.push(`first_t=gte.${encodeURIComponent(day($('fFrom').value).toISOString())}`);
+  if ($('fTo').value) q.push(`first_t=lt.${encodeURIComponent(new Date(day($('fTo').value).getTime() + 864e5).toISOString())}`);
+  if ($('fPlatform').value) q.push(`platform=eq.${encodeURIComponent($('fPlatform').value)}`);
+  if ($('fMap').value) q.push(`maps=cs.${encodeURIComponent(pgList($('fMap').value))}`);
+  if ($('fMode').value) q.push(`modes=cs.${encodeURIComponent(pgList($('fMode').value))}`);
+  const install = $('fInstall').value.trim().replace(/[*,()]/g, '');
+  if (install) q.push(`install_id=ilike.${encodeURIComponent(`*${install}*`)}`);
+  // A session whose header never arrived has null build_config/simulator: keep it.
+  if ($('fHideDebug').checked) q.push('and=(or(build_config.is.null,build_config.neq.debug),or(simulator.is.null,simulator.is.false))');
+  return `ab_session_summary?${q.join('&')}`;
+}
+
+async function loadSessions(append = false) {
+  const token = ++sess.listToken;
+  setStatus('Loading sessions…', false, true);
+  try {
+    await loadMapNames().catch(() => { sess.mapNames ??= new Map(); });
+    const page = await rest(sessionQuery(append ? sess.rows.length : 0));
+    if (token !== sess.listToken) return;
+    sess.rows = append ? sess.rows.concat(page) : page;
+    sess.more = page.length === SESSION_PAGE;
+    sess.listLoaded = true;
+    for (const r of page) { for (const m of r.maps || []) sess.seenMaps.add(m); for (const m of r.modes || []) sess.seenModes.add(m); }
+    renderSessionFilters(); renderSessionRows();
+    setStatus(`${sess.rows.length}${sess.more ? '+' : ''} session${sess.rows.length === 1 ? '' : 's'}`);
+  } catch (e) {
+    if (token === sess.listToken) setStatus(`Could not load sessions: ${e.message}`, true);
+  }
+}
+
+function fillSelect(sel, values, label) {
+  const keep = sel.value;
+  const opts = [['', 'Any'], ...values.map(v => [v, label(v)])];
+  if (keep && !values.includes(keep)) opts.push([keep, label(keep)]);
+  sel.replaceChildren(...opts.map(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; return o; }));
+  sel.value = keep;
+}
+
+function renderSessionFilters() {
+  const slugs = new Set([...(sess.mapNames?.keys() || []), ...sess.seenMaps]);
+  fillSelect($('fMap'), [...slugs].sort((a, b) => sessMapName(a).localeCompare(sessMapName(b))), sessMapName);
+  fillSelect($('fMode'), [...sess.seenModes].sort(), m => m);
+}
+
+function renderSessionRows() {
+  const td = (text, cls, label) => {
+    const c = document.createElement('td'); c.textContent = text ?? '—';
+    if (cls) c.className = cls; if (label) c.dataset.label = label; return c;
+  };
+  const rows = sess.rows.map(r => {
+    const tr = document.createElement('tr');
+    const href = `#/sessions/${r.session_id}`;
+    const start = td('', 'started', 'Started');
+    const a = document.createElement('a'); a.href = href; a.textContent = sessionStart(r) ? dateTime(sessionStart(r)) : '—';
+    start.appendChild(a);
+    const device = td(r.device ?? (r.platform ? null : 'No header'), 'device', 'Device');
+    for (const [on, text] of [[r.build_config === 'debug', 'debug'], [r.simulator === true, 'simulator'], [r.staff === true, 'staff']]) {
+      if (!on) continue;
+      const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = text; device.appendChild(tag);
+    }
+    tr.append(
+      start,
+      td(Sessions.duration(r.duration_s), 'mono', 'Duration'),
+      td(platformName(r.platform), null, 'Platform'),
+      device,
+      td(r.app_version, 'mono', 'App'),
+      td((r.maps || []).map(sessMapName).join(', ') || '—', null, 'Maps'),
+      td((r.modes || []).join(', ') || '—', null, 'Modes'),
+      td(String(r.utterances ?? 0), 'num', 'Heard'),
+      td(`${r.arrivals ?? 0} / ${r.cancels ?? 0}`, 'num', 'Arrived / cancelled'),
+      td(`${r.fixes ?? 0} / ${r.attempts ?? 0}`, 'num', 'Fixes'),
+      td(String(r.errors ?? 0), 'num' + (r.errors ? ' bad' : ''), 'Errors'),
+    );
+    tr.onclick = ev => { if (ev.target.closest('a')) return; location.hash = href; };
+    return tr;
+  });
+  $('sessRows').replaceChildren(...rows);
+  const empty = !sess.rows.length;
+  $('sessEmpty').hidden = !empty;
+  $('sessEmpty').textContent = $('fHideDebug').checked
+    ? 'No sessions match. Debug and simulator sessions are hidden; untick that filter to see them.'
+    : 'No sessions match these filters.';
+  $('sessMore').hidden = !sess.more;
+}
+
+function openSessionList() {
+  setSessionsMode(false);
+  if (!sess.listLoaded) loadSessions();
+  else setStatus(`${sess.rows.length}${sess.more ? '+' : ''} session${sess.rows.length === 1 ? '' : 's'}`);
+}
+
+let sessFilterTimer = null;
+for (const id of ['fFrom', 'fTo', 'fPlatform', 'fMap', 'fMode', 'fHideDebug']) $(id).addEventListener('change', () => loadSessions());
+$('fInstall').addEventListener('input', () => { clearTimeout(sessFilterTimer); sessFilterTimer = setTimeout(() => loadSessions(), 350); });
+$('sessMore').onclick = () => loadSessions(true);
+
+// ----- replay -----
+async function fetchSessionEvents(id) {
+  const events = [];
+  for (let offset = 0; ; offset += EVENT_PAGE) {
+    const page = await rest(`ab_events?session_id=eq.${id}&select=session_id,seq,t,type,data&order=seq.asc&limit=${EVENT_PAGE}&offset=${offset}`);
+    events.push(...page);
+    if (page.length < EVENT_PAGE) return events;
+  }
+}
+
+/// The published graph a segment was walked on. The bundled sample map (null
+/// slug) and maps that were never published have none: the path goes on a plain grid.
+async function fetchGraph(slug, version) {
+  if (slug == null) return null;
+  const key = `${slug}@${version ?? 'latest'}`;
+  if (!sess.graphs.has(key)) {
+    const v = version != null ? `&version=eq.${encodeURIComponent(version)}` : '&order=version.desc&limit=1';
+    const [row] = await rest(`ab_map_versions?map_slug=eq.${encodeURIComponent(slug)}&select=version,graph${v}`).catch(() => []);
+    sess.graphs.set(key, row?.graph && Array.isArray(row.graph.pois) ? row.graph : null);
+  }
+  return sess.graphs.get(key);
+}
+
+/// Groups path segments by the map they were walked on, places each fix on the
+/// map loaded when it happened, and flattens the poses for "you are here".
+function buildReplay(id, summary, events) {
+  const sorted = Sessions.sortEvents(events);
+  const loads = sorted.filter(e => e.type === 'map.loaded').map(e => ({ ms: Date.parse(e.t), slug: e.data?.slug ?? null, version: e.data?.version ?? null, name: e.data?.name }));
+  const keyOf = (slug, version) => `${slug ?? ''}@${version ?? ''}`;
+  const maps = [];
+  const mapFor = (slug, version) => {
+    const key = keyOf(slug, version);
+    let m = maps.find(x => x.key === key);
+    if (!m) {
+      const named = loads.filter(l => keyOf(l.slug, l.version) === key && l.name).pop();
+      m = { key, slug, version, name: named?.name || (slug ? sessMapName(slug) : 'Bundled sample map'), segs: [], fixes: [], graph: null };
+      maps.push(m);
+    }
+    return m;
+  };
+  for (const seg of Sessions.pathSegments(sorted)) mapFor(seg.slug, seg.version).segs.push(seg);
+  if (!maps.length && loads.length) mapFor(loads[loads.length - 1].slug, loads[loads.length - 1].version);
+  // Failed attempts (ok false) have no position; they stay in the timeline only.
+  for (const f of Sessions.fixMarkers(sorted)) {
+    if (!f.ok) continue;
+    const ms = Date.parse(f.t);
+    const load = loads.filter(l => l.ms <= ms).pop();
+    maps.find(m => m.key === keyOf(load?.slug ?? null, load?.version ?? null))?.fixes.push(f);
+  }
+  const poses = [];
+  maps.forEach((m, mi) => m.segs.forEach(s => s.points.forEach(p => poses.push({ ms: Date.parse(p.t), x: p.x, z: p.z, map: mi }))));
+  poses.sort((a, b) => a.ms - b.ms);
+  const tl = Sessions.timeline(sorted).map(r => ({ ...r, ms: Date.parse(r.t) }));
+  const times = sorted.map(e => Date.parse(e.t)).filter(Number.isFinite);
+  return {
+    id, summary, events: sorted, maps, poses, tl, mapIdx: 0, here: null, hereMs: null,
+    startMs: times.length ? Math.min(...times) : 0, endMs: times.length ? Math.max(...times) : 0,
+  };
+}
+
+async function openReplay(id) {
+  setSessionsMode(true);
+  if (sess.replay?.id === id) { renderReplay(); return; }
+  const token = ++sess.replayToken;
+  sess.replay = null;
+  $('sessTitle').textContent = 'Session'; $('sessSub').textContent = id.slice(0, 8);
+  $('timeline').replaceChildren(); $('replayStats').replaceChildren(); $('replayMaps').hidden = true;
+  drawReplay();
+  setStatus('Loading session…', false, true);
+  try {
+    await loadMapNames().catch(() => { sess.mapNames ??= new Map(); });
+    const [summaries, events] = await Promise.all([rest(`ab_session_summary?session_id=eq.${id}`), fetchSessionEvents(id)]);
+    if (token !== sess.replayToken) return;
+    if (!events.length) { setStatus('No events for this session.', true); return; }
+    const r = buildReplay(id, summaries[0] || {}, events);
+    await Promise.all(r.maps.map(async m => { m.graph = await fetchGraph(m.slug, m.version); }));
+    if (token !== sess.replayToken) return;
+    sess.replay = r;
+    renderReplay();
+    setHere(r.poses.length ? r.poses[0].ms : r.startMs, { scroll: false });
+    setStatus(`${events.length} events · ${r.poses.length} positions · ${r.maps.length} map${r.maps.length === 1 ? '' : 's'}`);
+  } catch (e) {
+    if (token === sess.replayToken) setStatus(`Could not load session: ${e.message}`, true);
+  }
+}
+
+function renderReplay() {
+  const r = sess.replay; if (!r) return;
+  const s = r.summary;
+  $('sessTitle').textContent = `Session · ${dateTime(sessionStart(s) || r.events[0].t)}`;
+  $('sessSub').textContent = [platformName(s.platform), s.device, s.app_version].filter(x => x && x !== '—').join(' · ') || 'No session header';
+
+  const stat = (label, value, bad) => {
+    const d = document.createElement('div'); d.className = 'rStat' + (bad ? ' bad' : '');
+    d.innerHTML = '<strong></strong><span></span>';
+    d.firstChild.textContent = value; d.lastChild.textContent = label; return d;
+  };
+  const durS = (r.endMs - r.startMs) / 1000;
+  $('replayStats').replaceChildren(
+    stat('duration', Sessions.duration(s.duration_s ?? durS)),
+    stat('events', String(r.events.length)),
+    stat('heard', String(s.utterances ?? r.events.filter(e => e.type === 'speech.heard').length)),
+    stat('arrived / cancelled', `${s.arrivals ?? 0} / ${s.cancels ?? 0}`),
+    stat('fixes / attempts', `${s.fixes ?? 0} / ${s.attempts ?? 0}`),
+    stat('errors', String(s.errors ?? 0), s.errors > 0),
+  );
+
+  const seg = $('replayMaps');
+  seg.hidden = r.maps.length < 2;
+  seg.replaceChildren(...r.maps.map((m, i) => {
+    const b = document.createElement('button'); b.setAttribute('role', 'tab');
+    b.textContent = `${m.name}${m.version != null ? ` v${m.version}` : ''}`;
+    b.className = i === r.mapIdx ? 'active' : ''; b.setAttribute('aria-selected', String(i === r.mapIdx));
+    b.onclick = () => { r.mapIdx = i; renderReplayMaps(); fitReplay(); drawReplay(); };
+    return b;
+  }));
+
+  const kinds = { heard: 'Heard', said: 'Said', nav: 'Route', mode: 'Mode', loc: 'Position', explore: 'Explore', error: 'Error', app: 'App', other: 'Other' };
+  $('timeline').replaceChildren(...r.tl.map((row, i) => {
+    const li = document.createElement('li'); li.className = `tl k-${row.kind}`; li.dataset.i = i; li.tabIndex = 0;
+    li.innerHTML = '<span class="tlTime mono"></span><span class="tlKind"></span><span class="tlText"></span>';
+    li.children[0].textContent = clockTime(row.ms); li.children[0].title = `+${Sessions.duration((row.ms - r.startMs) / 1000)}`;
+    li.children[1].textContent = kinds[row.kind] || row.kind;
+    li.children[2].textContent = row.text;
+    return li;
+  }));
+  if (!r.tl.length) $('timeline').innerHTML = '<li class="empty">Only positions were recorded.</li>';
+  resizeReplay();
+}
+
+function renderReplayMaps() {
+  const r = sess.replay;
+  [...$('replayMaps').children].forEach((b, i) => { b.classList.toggle('active', i === r.mapIdx); b.setAttribute('aria-selected', String(i === r.mapIdx)); });
+}
+
+$('timeline').addEventListener('click', ev => {
+  const li = ev.target.closest('li[data-i]'); if (!li || !sess.replay) return;
+  setHere(sess.replay.tl[+li.dataset.i].ms, { scroll: false });
+});
+$('timeline').addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); ev.target.closest('li[data-i]')?.click(); } });
+$('scrub').addEventListener('input', () => {
+  const r = sess.replay; if (!r) return;
+  setHere(r.startMs + (r.endMs - r.startMs) * (+$('scrub').value / 1000), { scroll: true });
+});
+
+/// Moves "you are here" to the pose nearest `ms`, switching map if that pose is
+/// on another one, and highlights the last timeline row at or before `ms`.
+function setHere(ms, { scroll }) {
+  const r = sess.replay; if (!r) return;
+  r.hereMs = ms;
+  let best = null;
+  for (const p of r.poses) if (!best || Math.abs(p.ms - ms) < Math.abs(best.ms - ms)) best = p;
+  r.here = best;
+  if (best && best.map !== r.mapIdx) { r.mapIdx = best.map; renderReplayMaps(); fitReplay(); }
+  $('scrub').value = r.endMs > r.startMs ? Math.round(1000 * (ms - r.startMs) / (r.endMs - r.startMs)) : 0;
+  $('scrubTime').textContent = `${clockTime(ms)} · +${Sessions.duration((ms - r.startMs) / 1000)}`;
+  let active = -1;
+  r.tl.forEach((row, i) => { if (row.ms <= ms) active = i; });
+  for (const li of $('timeline').querySelectorAll('li.active')) li.classList.remove('active');
+  const li = $('timeline').querySelector(`li[data-i="${active}"]`);
+  if (li) { li.classList.add('active'); if (scroll) li.scrollIntoView({ block: 'nearest' }); }
+  const gap = best ? Math.abs(best.ms - ms) / 1000 : null;
+  $('replayMapNote').textContent = !r.poses.length ? 'No positions were recorded in this session.'
+    : gap > 5 ? `No position at this moment; the marker is the nearest, ${Sessions.duration(gap)} ${best.ms < ms ? 'earlier' : 'later'}.` : '';
+  $('replayMapNote').hidden = !$('replayMapNote').textContent;
+  drawReplay();
+}
+
+function resizeReplay() {
+  const dpr = window.devicePixelRatio || 1;
+  replayCanvas.width = replayCanvas.clientWidth * dpr; replayCanvas.height = replayCanvas.clientHeight * dpr;
+  rctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  fitReplay(); drawReplay();
+}
+
+const rScreen = (x, z) => [rv.ox + x * rv.scale, rv.oy + z * rv.scale];
+
+function fitReplay() {
+  const w = replayCanvas.clientWidth, h = replayCanvas.clientHeight;
+  const m = sess.replay?.maps[sess.replay.mapIdx];
+  if (!w || !h) return;
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  const add = (x, z) => { if (!Number.isFinite(x) || !Number.isFinite(z)) return; minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); };
+  if (m) { for (const p of m.graph?.pois || []) add(p.x, p.z); for (const s of m.segs) for (const p of s.points) add(p.x, p.z); }
+  if (minX === Infinity) { add(-5, -5); add(5, 5); }
+  // Margins keep the axis labels (top, left) and the legend (bottom) off the map.
+  const top = 30, bottom = 64, left = 44, right = 24;
+  const aw = Math.max(40, w - left - right), ah = Math.max(40, h - top - bottom);
+  const spanX = Math.max(4, maxX - minX), spanZ = Math.max(4, maxZ - minZ);
+  rv.scale = Math.max(2, Math.min(120, Math.min(aw / spanX, ah / spanZ)));
+  rv.ox = left + aw / 2 - ((minX + maxX) / 2) * rv.scale;
+  rv.oy = top + ah / 2 - ((minZ + maxZ) / 2) * rv.scale;
+}
+
+function drawReplay() {
+  const w = replayCanvas.clientWidth, h = replayCanvas.clientHeight;
+  if (!w || !h) return;
+  const c = rctx;
+  c.clearRect(0, 0, w, h);
+  // Grid: 1 m lines, 5 m lines brighter, coarser when zoomed out.
+  const step = rv.scale < 12 ? 5 : 1;
+  const every = [5, 10, 20, 50, 100, 200].find(k => k * rv.scale >= 56) || 500;
+  const x0 = -rv.ox / rv.scale, x1 = (w - rv.ox) / rv.scale, z0 = -rv.oy / rv.scale, z1 = (h - rv.oy) / rv.scale;
+  c.lineWidth = 1; c.font = `11px ${MONO}`; c.fillStyle = '#6E6889';
+  for (let x = Math.floor(x0 / step) * step; x <= x1; x += step) {
+    const [sx] = rScreen(x, 0); c.strokeStyle = x % 5 === 0 ? 'rgba(247,245,253,.11)' : 'rgba(247,245,253,.045)';
+    c.beginPath(); c.moveTo(sx, 0); c.lineTo(sx, h); c.stroke();
+    if (x % every === 0 && sx > 48) c.fillText(`x ${x}`.replace('-', '−'), sx + 4, 14);
+  }
+  for (let z = Math.floor(z0 / step) * step; z <= z1; z += step) {
+    const [, sy] = rScreen(0, z); c.strokeStyle = z % 5 === 0 ? 'rgba(247,245,253,.11)' : 'rgba(247,245,253,.045)';
+    c.beginPath(); c.moveTo(0, sy); c.lineTo(w, sy); c.stroke();
+    if (z % every === 0 && sy > 32) c.fillText(`z ${z}`.replace('-', '−'), 6, sy - 4);
+  }
+  const r = sess.replay; const m = r?.maps[r.mapIdx]; if (!m) return;
+
+  // Route graph: connections, then places in their type colour.
+  const pois = (m.graph?.pois || []).filter(p => Number.isFinite(p.x) && Number.isFinite(p.z));
+  const byId = new Map(pois.map(p => [p.id, p]));
+  c.strokeStyle = 'rgba(200,194,220,.35)'; c.lineWidth = 2; c.lineCap = 'round';
+  for (const e of m.graph?.edges || []) {
+    const a = byId.get(e.from), b = byId.get(e.to); if (!a || !b) continue;
+    const [ax, ay] = rScreen(a.x, a.z), [bx, by] = rScreen(b.x, b.z);
+    c.beginPath(); c.moveTo(ax, ay); c.lineTo(bx, by); c.stroke();
+  }
+  c.font = `500 12px ${SANS}`;
+  for (const p of pois) {
+    const [x, y] = rScreen(p.x, p.z); const junction = p.category === 'junction';
+    c.beginPath(); c.arc(x, y, junction ? 3 : 6, 0, 6.2832); c.fillStyle = colorOf(p); c.fill();
+    c.lineWidth = 1.5; c.strokeStyle = '#0F0D16'; c.stroke();
+    if (!junction && p.name) { c.fillStyle = '#C8C2DC'; c.fillText(p.name, x + 9, y + 4); }
+  }
+
+  // Walked path, one polyline per stretch; gaps (unlocalised, or > 10 s) are not joined.
+  c.strokeStyle = '#B9A6FF'; c.lineWidth = 3; c.lineJoin = 'round';
+  for (const s of m.segs) {
+    c.beginPath();
+    s.points.forEach((p, i) => { const [x, y] = rScreen(p.x, p.z); i ? c.lineTo(x, y) : c.moveTo(x, y); });
+    c.stroke();
+    const [sx, sy] = rScreen(s.points[0].x, s.points[0].z);
+    c.beginPath(); c.arc(sx, sy, 3.5, 0, 6.2832); c.fillStyle = '#B9A6FF'; c.fill();
+  }
+
+  // Fixes: accepted filled, rejected hollow.
+  for (const f of m.fixes) {
+    const [x, y] = rScreen(f.x, f.z);
+    c.beginPath(); c.arc(x, y, 5.5, 0, 6.2832);
+    if (f.accepted === false) { c.lineWidth = 2.5; c.strokeStyle = '#FFC24B'; c.stroke(); }
+    else { c.fillStyle = '#5EE6A8'; c.fill(); c.lineWidth = 1.5; c.strokeStyle = '#0F0D16'; c.stroke(); }
+  }
+
+  if (r.here && r.here.map === r.mapIdx) {
+    const [x, y] = rScreen(r.here.x, r.here.z);
+    c.beginPath(); c.arc(x, y, 13, 0, 6.2832); c.fillStyle = 'rgba(247,245,253,.18)'; c.fill();
+    c.beginPath(); c.arc(x, y, 7, 0, 6.2832); c.fillStyle = '#F7F5FD'; c.fill();
+    c.lineWidth = 3; c.strokeStyle = '#6B4FD8'; c.stroke();
+  }
+  if (!m.graph) {
+    c.font = `500 12px ${SANS}`; c.fillStyle = '#A29CBA';
+    c.fillText(m.slug ? `No published graph for ${m.slug}${m.version != null ? ` v${m.version}` : ''}` : 'Bundled sample map (no published graph)', 12, h - 14);
+  }
+}
+
+// ----- header actions -----
+const inReplay = () => !$('sessReplay').hidden;
+$('sessExportCSV').onclick = () => {
+  if (inReplay()) { const r = sess.replay; if (r) downloadText(Sessions.toCSV(r.events), `session-${r.id.slice(0, 8)}.csv`, 'text/csv'); }
+  else downloadText(Sessions.summaryCSV(sess.rows), `aiseebin-sessions-${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv');
+};
+$('sessExportJSON').onclick = () => {
+  const r = sess.replay; if (r) downloadText(JSON.stringify(r.events, null, 2), `session-${r.id.slice(0, 8)}.json`, 'application/json');
+};
+$('sessRefresh').onclick = () => {
+  if (inReplay()) { const id = sess.replay?.id ?? location.hash.split('/')[2]; sess.replay = null; sess.graphs.clear(); if (id) openReplay(id); }
+  else loadSessions();
+};
 
 // ---------- boot ----------
 document.fonts?.ready.then(draw);
