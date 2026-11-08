@@ -10,14 +10,17 @@ final class TestURLStub: URLProtocol {
     nonisolated(unsafe) static var contentType: String?
     /// Every URL requested, for asserting on query strings.
     nonisolated(unsafe) static var requests: [URL] = []
+    /// Every request in full, for asserting on methods and headers.
+    nonisolated(unsafe) static var urlRequests: [URLRequest] = []
 
-    static func reset() { stub = nil; data = nil; contentType = nil; requests = [] }
+    static func reset() { stub = nil; data = nil; contentType = nil; requests = []; urlRequests = [] }
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
         if let url = request.url { Self.requests.append(url) }
+        Self.urlRequests.append(request)
         let answer: (status: Int, body: Data)?
         if let data = Self.data { answer = data }
         else if let stub = Self.stub { answer = (stub.status, Data(stub.body.utf8)) }

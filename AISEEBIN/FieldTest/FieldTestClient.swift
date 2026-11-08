@@ -18,22 +18,8 @@ enum FieldTestClient {
         var payload: [String: JSONValue]
     }
 
-    /// Enough JSON for the payloads, without pulling in a dependency.
-    enum JSONValue: Encodable {
-        case number(Double), string(String), bool(Bool), array([JSONValue]), object([String: JSONValue]), null
-
-        func encode(to encoder: Encoder) throws {
-            var c = encoder.singleValueContainer()
-            switch self {
-            case .number(let v): try c.encode(v.isFinite ? v : 0)
-            case .string(let v): try c.encode(v)
-            case .bool(let v): try c.encode(v)
-            case .array(let v): try c.encode(v)
-            case .object(let v): try c.encode(v)
-            case .null: try c.encodeNil()
-            }
-        }
-    }
+    /// Payload values; shared with the usage log (`UsageValue`).
+    typealias JSONValue = UsageValue
 
     static var deviceName: String {
         var info = utsname(); uname(&info)
