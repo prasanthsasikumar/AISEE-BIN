@@ -122,6 +122,47 @@ final class UsageLogTests: XCTestCase {
         }
     }
 
+    func testRejectedBatchIsDroppedSoLaterEventsFlow() async {
+        let log = makeLog(stubbedUploader())
+        log.log("bad")
+        TestURLStub.stub = (400, "invalid input")
+        await log.flush()
+        XCTAssertTrue(UsageQueue(directory: directory).peekBatch(max: 100).isEmpty, "a permanent 4xx drops the batch")
+
+        log.log("good")
+        TestURLStub.reset()
+        TestURLStub.stub = (201, "")
+        await log.flush()
+        XCTAssertEqual(TestURLStub.urlRequests.count, 1, "only the new event, no retry of the rejected batch")
+        XCTAssertTrue(TestURLStub.urlRequests[0].url!.absoluteString.contains("ab_events"))
+        XCTAssertTrue(UsageQueue(directory: directory).peekBatch(max: 100).isEmpty)
+    }
+
+    func testRetryableErrorsKeepBatch() async {
+        let log = makeLog(stubbedUploader())
+        log.log("a")
+        for status in [408, 429, 503] {
+            TestURLStub.stub = (status, "")
+            await log.flush()
+            XCTAssertEqual(UsageQueue(directory: directory).peekBatch(max: 100).count, 2, "status \(status)")
+        }
+    }
+
+    func testQueueCapDropsOldestLines() async {
+        let failing = FakeUploader()
+        failing.failing = true
+        let log = UsageLog(directory: directory, uploader: failing, now: { [unowned self] in self.clock },
+                           header: header(), maxQueueLines: 5)
+        for i in 0..<10 { log.log("e\(i)") }
+        await log.flush()
+
+        let working = FakeUploader()
+        let reopened = makeLog(working)
+        await reopened.flush()
+        XCTAssertEqual(working.events.map(\.type), ["e5", "e6", "e7", "e8", "e9"])
+        XCTAssertEqual(UsageLog.maxQueueLines, 50_000)
+    }
+
     func testNewSessionAfterLongBackground() async {
         let uploader = FakeUploader()
         let log = makeLog(uploader)
@@ -193,6 +234,10 @@ final class UsageLogTests: XCTestCase {
         XCTAssertEqual(json["i"] as? Int, 3)
         XCTAssertEqual(json["b"] as? Bool, false)
         XCTAssertEqual((json["a"] as! [Any]).count, 2)
+
+        let nul = try JSONSerialization.jsonObject(with: JSONEncoder().encode(UsageValue.string("a\u{0}b")),
+                                                   options: .fragmentsAllowed) as? String
+        XCTAssertEqual(nul, "ab", "Postgres rejects NUL in text and jsonb")
 
         let decoded = try JSONDecoder().decode(UsageValue.self, from: JSONEncoder().encode(["k": UsageValue.string("v")]))
         XCTAssertEqual(decoded, .object(["k": .string("v")]))

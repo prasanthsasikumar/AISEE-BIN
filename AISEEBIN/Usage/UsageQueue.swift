@@ -45,6 +45,16 @@ struct UsageQueue {
         try data.write(to: file, options: .atomic)
     }
 
+    /// Drops the oldest lines beyond `max`; returns how many were dropped.
+    @discardableResult
+    func trim(keepingLast max: Int) throws -> Int {
+        let all = lines()
+        let excess = all.count - max
+        guard excess > 0 else { return 0 }
+        try drop(count: excess)
+        return excess
+    }
+
     private func lines() -> [Data] {
         guard let data = try? Data(contentsOf: file) else { return [] }
         return data.split(separator: 0x0A, omittingEmptySubsequences: true).map { Data($0) }

@@ -2,7 +2,7 @@ import Foundation
 
 /// A JSON value for event payloads, written as literals at call sites:
 /// `["slug": "x", "ms": 12]`. Non-finite numbers encode as `null` and strings
-/// are cut to `maxStringLength`, so no payload can fail to encode or balloon.
+/// lose NUL characters and are cut to `maxStringLength`, so no payload can fail to encode or balloon.
 enum UsageValue: Codable, Equatable, Sendable {
     case string(String), number(Double), bool(Bool), array([UsageValue]), object([String: UsageValue]), null
 
@@ -11,13 +11,19 @@ enum UsageValue: Codable, Equatable, Sendable {
     func encode(to encoder: Encoder) throws {
         var c = encoder.singleValueContainer()
         switch self {
-        case .string(let v): try c.encode(v.count > Self.maxStringLength ? String(v.prefix(Self.maxStringLength)) : v)
+        case .string(let v): try c.encode(Self.clean(v))
         case .number(let v): if v.isFinite { try c.encode(v) } else { try c.encodeNil() }
         case .bool(let v): try c.encode(v)
         case .array(let v): try c.encode(v)
         case .object(let v): try c.encode(v)
         case .null: try c.encodeNil()
         }
+    }
+
+    /// No NUL (Postgres rejects it in text and jsonb), at most `maxStringLength`.
+    private static func clean(_ s: String) -> String {
+        let s = s.contains("\u{0}") ? s.replacingOccurrences(of: "\u{0}", with: "") : s
+        return s.count > maxStringLength ? String(s.prefix(maxStringLength)) : s
     }
 
     init(from decoder: Decoder) throws {

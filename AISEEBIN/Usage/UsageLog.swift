@@ -24,11 +24,15 @@ final class UsageLog: UsageLogging, @unchecked Sendable {
     static let sessionTimeout: TimeInterval = 300
     static let batchSize = 500
     static let flushInterval: TimeInterval = 30
+    /// Queue lines kept while uploads fail; older lines are dropped past this.
+    /// About 14 hours of 1 Hz pose samples, a few MB on disk.
+    static let maxQueueLines = 50_000
 
     private let queue = DispatchQueue(label: "com.flowsxr.aiseebin.usage")
     private let store: UsageQueue
     private let uploader: UsageUploading
     private let now: () -> Date
+    private let maxQueueLines: Int
     private let logger = Logger(subsystem: "com.flowsxr.aiseebin", category: "usage")
     private var marker: URL { store.directory.appendingPathComponent("running") }
 
@@ -47,10 +51,12 @@ final class UsageLog: UsageLogging, @unchecked Sendable {
 
     /// `header` describes the first session; later sessions copy it with a fresh
     /// id and start time.
-    init(directory: URL, uploader: UsageUploading, now: @escaping () -> Date, header: SessionHeader) {
+    init(directory: URL, uploader: UsageUploading, now: @escaping () -> Date, header: SessionHeader,
+         maxQueueLines: Int = UsageLog.maxQueueLines) {
         store = UsageQueue(directory: directory)
         self.uploader = uploader
         self.now = now
+        self.maxQueueLines = maxQueueLines
         template = header
         session = header
         foregroundSince = now()
@@ -186,6 +192,12 @@ final class UsageLog: UsageLogging, @unchecked Sendable {
     // MARK: - Upload
 
     private func drain() async {
+        await onQueue {
+            do {
+                let dropped = try self.store.trim(keepingLast: self.maxQueueLines)
+                if dropped > 0 { self.logger.error("usage queue over cap, dropped \(dropped) oldest lines") }
+            } catch { self.logger.error("usage queue trim failed: \(error.localizedDescription, privacy: .public)") }
+        }
         while true {
             let batch = await onQueue { self.store.peekBatch(max: Self.batchSize) }
             if batch.isEmpty { return }
@@ -202,6 +214,9 @@ final class UsageLog: UsageLogging, @unchecked Sendable {
             }
             do {
                 try await uploader.upload(sessions: sessions, events: events)
+            } catch where Self.isRejection(error) {
+                // Retrying would fail the same way and block every later line.
+                logger.error("usage upload rejected, dropping \(batch.count) lines: \(error.localizedDescription, privacy: .public)")
             } catch {
                 logger.error("usage upload failed, keeping \(batch.count) lines: \(error.localizedDescription, privacy: .public)")
                 return
@@ -212,6 +227,13 @@ final class UsageLog: UsageLogging, @unchecked Sendable {
             }
             if batch.count < Self.batchSize { return }
         }
+    }
+
+    /// A 4xx other than 408/429: the server refuses this batch and always will.
+    /// No network, 5xx, timeouts and rate limits are worth retrying.
+    static func isRejection(_ error: Error) -> Bool {
+        guard case MapSyncError.http(let status, _) = error else { return false }
+        return (400..<500).contains(status) && status != 408 && status != 429
     }
 
     /// Runs `body` on `queue` after everything already scheduled there.
