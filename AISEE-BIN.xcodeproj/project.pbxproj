@@ -65,6 +65,7 @@
 		532068E844128F772276EC61 /* GzipCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE1A9F99EB3F6021B96B52C /* GzipCodec.swift */; };
 		543503ED5029B68EAC774712 /* PointCloudCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30B39DE568843C3A29626009 /* PointCloudCodec.swift */; };
 		545C5BE273C19EEFB40751DB /* UsageQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4771FF98C893F119DC090DBE /* UsageQueue.swift */; };
+		5526D3C9A6184308AA1404A1 /* UsageInstrumentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54196F600034E5C2027BCE73 /* UsageInstrumentationTests.swift */; };
 		558B3AA7366B93F213835B88 /* GzipCodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B16658E9F9DB9EA34F123137 /* GzipCodecTests.swift */; };
 		56040B656C749A4E56F4AE7C /* GlassesMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6301136D1436F49F15A0FB19 /* GlassesMode.swift */; };
 		566221D0248F7B39E15FD8C4 /* UsageValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF782C76346CFD4659655729 /* UsageValue.swift */; };
@@ -127,6 +128,7 @@
 		B21D44B250BDA53420770296 /* FocalCalibration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7D1BC5F4BC8FAF962ED5960 /* FocalCalibration.swift */; };
 		B30C2C3F747BCBCA18FB9A29 /* ExploreViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 150740D5A4432A1AED0FA9E8 /* ExploreViewModel.swift */; };
 		B8784E336D2FDE3D574D423E /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FBFA6EDEE26F1834EECED5A /* WelcomeView.swift */; };
+		BABEE47E06E08A62F8213D4F /* UsageInstrumentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9066C58145B619F476AA147C /* UsageInstrumentation.swift */; };
 		BCE83BC6B0EBCEFE957FBF7E /* libavformat.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 08DB9C4286DCFDD3203120D0 /* libavformat.framework */; };
 		C05D71A9828B85D6DAFF33EA /* TourPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8BFC53B94011206782552ED /* TourPlannerTests.swift */; };
 		C1D0ED8FCACAC01B0298C6F0 /* NavigationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CA2EE762C8F4CD5CCEC8FB0 /* NavigationViewModel.swift */; };
@@ -261,6 +263,7 @@
 		4EC5B2AE569FC940946C603A /* GuidancePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidancePolicy.swift; sourceTree = "<group>"; };
 		4EE4F65AADED8973A6CB5994 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		4FAE97AF5CC1E0AF218453C1 /* MapSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSyncTests.swift; sourceTree = "<group>"; };
+		54196F600034E5C2027BCE73 /* UsageInstrumentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageInstrumentationTests.swift; sourceTree = "<group>"; };
 		56DDEA53927268D0EC20BE7A /* ImmersalFrameEncoderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalFrameEncoderTests.swift; sourceTree = "<group>"; };
 		5AE3FDFB08E19B06A845F1D0 /* FocalCalibrationRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocalCalibrationRunner.swift; sourceTree = "<group>"; };
 		6158B2EB890DD39BA2A443E5 /* AISEEBINApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISEEBINApp.swift; sourceTree = "<group>"; };
@@ -292,6 +295,7 @@
 		8CA2EE762C8F4CD5CCEC8FB0 /* NavigationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationViewModel.swift; sourceTree = "<group>"; };
 		8D12BD48488E1A3FAE730620 /* ImmersalAlignment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalAlignment.swift; sourceTree = "<group>"; };
 		8D57E8988C3B58C97A2D8807 /* RTKAIDeviceConnection.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RTKAIDeviceConnection.framework; path = Vendor/RTK/RTKAIDeviceConnection.framework; sourceTree = "<group>"; };
+		9066C58145B619F476AA147C /* UsageInstrumentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageInstrumentation.swift; sourceTree = "<group>"; };
 		90A8EA03384E64D3DD1A0687 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		91F7A67B2839DB4DB390F6D7 /* ARNavigationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARNavigationManager.swift; sourceTree = "<group>"; };
 		9217811D11D3F65EE80B1F9A /* ImmersalNativeStubs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ImmersalNativeStubs.c; sourceTree = "<group>"; };
@@ -500,6 +504,7 @@
 		854C0A3B9F945967093B2377 /* Usage */ = {
 			isa = PBXGroup;
 			children = (
+				9066C58145B619F476AA147C /* UsageInstrumentation.swift */,
 				62294BBBF4BEC9D71C49A32D /* UsageLog.swift */,
 				4771FF98C893F119DC090DBE /* UsageQueue.swift */,
 				33E45B83F06123DC2C52A5C0 /* UsageUploader.swift */,
@@ -639,6 +644,7 @@
 				D08B045688F759EBCF64E2F6 /* SentenceSplitTests.swift */,
 				951CA1D1E422039CA70250F6 /* TestURLStub.swift */,
 				A8BFC53B94011206782552ED /* TourPlannerTests.swift */,
+				54196F600034E5C2027BCE73 /* UsageInstrumentationTests.swift */,
 				79E361A2F569218646277589 /* UsageLogTests.swift */,
 				ED7E51966711094173908962 /* VisitClockTests.swift */,
 				D09B21D66FCA516E1C5F9112 /* VoiceClipsTests.swift */,
@@ -922,6 +928,7 @@
 				9D4CDCBE5DE90E31CEB7C83A /* ScanLinker.swift in Sources */,
 				1F151CA046E6CF088C59B287 /* SettingsView.swift in Sources */,
 				177007C8BCB7DC5534D285E3 /* TourPlanner.swift in Sources */,
+				BABEE47E06E08A62F8213D4F /* UsageInstrumentation.swift in Sources */,
 				7CF6DBED2A0938B21FCD4724 /* UsageLog.swift in Sources */,
 				545C5BE273C19EEFB40751DB /* UsageQueue.swift in Sources */,
 				AFDA999BF180B9A35F8A8876 /* UsageUploader.swift in Sources */,
@@ -979,6 +986,7 @@
 				6BE13953C925A3128D63F967 /* SentenceSplitTests.swift in Sources */,
 				D6D796012B2EA4C43E1F02B2 /* TestURLStub.swift in Sources */,
 				C05D71A9828B85D6DAFF33EA /* TourPlannerTests.swift in Sources */,
+				5526D3C9A6184308AA1404A1 /* UsageInstrumentationTests.swift in Sources */,
 				97CB9CD5F11B34C03D7EF1A8 /* UsageLogTests.swift in Sources */,
 				66A4A10E3A9704F425AEB227 /* VisitClockTests.swift in Sources */,
 				0A2D5416309D0E7E44866183 /* VoiceClipsTests.swift in Sources */,

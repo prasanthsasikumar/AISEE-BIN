@@ -171,6 +171,7 @@ final class NavigationViewModel {
     var beaconEnabled: Bool = UserDefaults.standard.bool(forKey: "guidance.beacon") {
         didSet {
             guard beaconEnabled != oldValue else { return }
+            usage.logSetting("beep_guidance", old: String(oldValue), new: String(beaconEnabled))
             UserDefaults.standard.set(beaconEnabled, forKey: "guidance.beacon")
             policy.progressReminderInterval = beaconEnabled ? Self.beaconProgressReminderInterval : thresholds.progressReminderInterval
             if !beaconEnabled {
@@ -179,6 +180,11 @@ final class NavigationViewModel {
             }
         }
     }
+    /// Where usage events go; tests inject a fake.
+    @ObservationIgnored var usage: UsageLogging = UsageLog.shared
+    @ObservationIgnored private var modeSince = Date()
+    /// The source whose `positioning.start` has no `positioning.stop` yet.
+    @ObservationIgnored private var loggedPositioning: PositioningSource?
     var mode: AppMode = .navigation {
         didSet { if mode != oldValue { didChange(mode: mode, from: oldValue) } }
     }
@@ -191,9 +197,13 @@ final class NavigationViewModel {
     /// (the default), or straight into Navigate or Explore.
     var visitorMode: AppMode = NavigationViewModel.storedVisitorMode {
         didSet {
+            usage.logSetting("visitor_mode", old: Self.visitorModeName(oldValue), new: Self.visitorModeName(visitorMode))
             let raw = visitorMode == .explore ? "explore" : visitorMode == .navigation ? "navigate" : "both"
             UserDefaults.standard.set(raw, forKey: "visitor.mode")
         }
+    }
+    private static func visitorModeName(_ mode: AppMode) -> String {
+        mode == .explore ? "explore" : mode == .navigation ? "navigate" : "both"
     }
     private static var storedVisitorMode: AppMode {
         switch UserDefaults.standard.string(forKey: "visitor.mode") {
@@ -327,7 +337,9 @@ final class NavigationViewModel {
             self.policy.progressReminderInterval = Self.beaconProgressReminderInterval
         }
 
-        let initialMap = map ?? mapStore.loadMap() ?? SampleGreenhouseMap.map
+        let loadStart = Date()
+        let storedMap = map == nil ? mapStore.loadMap() : nil
+        let initialMap = map ?? storedMap ?? SampleGreenhouseMap.map
         self.baseMap = initialMap
         self.engine = PathfindingEngine(map: initialMap)
         self.commandParser = CommandParser(pois: initialMap.pois)
@@ -349,6 +361,19 @@ final class NavigationViewModel {
         } else {
             self.mode = visitorMode
         }
+        if map == nil {
+            usage.log("map.loaded", Self.mapLoadedData(map: initialMap, version: localVersion,
+                                                       source: storedMap == nil ? "bundle" : "cache", since: loadStart))
+        }
+        usage.log("mode.enter", ["mode": .string(self.mode.rawValue)])
+    }
+
+    private static func mapLoadedData(map: NavigationMap, version: LocalMapVersion?, source: String,
+                                      since start: Date) -> [String: UsageValue] {
+        ["slug": version.map { .string($0.slug) } ?? .null,
+         "version": version.map { .number(Double($0.version)) } ?? .null,
+         "name": .string(map.name), "source": .string(source),
+         "ms": .number((Date().timeIntervalSince(start) * 1000).rounded())]
     }
 
     // MARK: - Session lifecycle
@@ -389,6 +414,11 @@ final class NavigationViewModel {
     /// Starts whichever camera is positioning the visitor and says what to do
     /// while it finds the map.
     private func startPositioning() {
+        logPositioningStop()
+        loggedPositioning = positioningSource
+        let localizer = positioningSource == .glasses ? glassesPositioning.localizerName : phoneLocalizer.localizerName
+        usage.log("positioning.start", ["source": .string(Self.sourceName(positioningSource)),
+                                        "localizer": .string(localizer.isEmpty ? ImmersalConfig.localizerMode.rawValue : localizer)])
         switch positioningSource {
         case .phone:
             glassesPositioning.stop()
@@ -475,6 +505,24 @@ final class NavigationViewModel {
                 self.observeGlassesConnection()
             }
         }
+    }
+
+    private static func sourceName(_ source: PositioningSource) -> String {
+        switch source {
+        case .phone: return "phone"
+        case .glasses: return "glasses"
+        case .lanyard: return "lanyard"
+        }
+    }
+
+    /// Ends the open `positioning.start`, if any, with its tries and fixes so far.
+    private func logPositioningStop() {
+        guard let source = loggedPositioning else { return }
+        loggedPositioning = nil
+        let counters = source == .glasses ? (glassesPositioning.attempts, glassesPositioning.fixes)
+                                          : (phoneLocalizer.attempts, phoneLocalizer.fixes)
+        usage.log("positioning.stop", ["source": .string(Self.sourceName(source)),
+                                       "attempts": .number(Double(counters.0)), "fixes": .number(Double(counters.1))])
     }
 
     private func didChange(positioningSource source: PositioningSource) {
@@ -565,12 +613,14 @@ final class NavigationViewModel {
 
     /// Five taps on the logo: staff mode on, straight to Home.
     func unlockStaff() {
+        usage.log("staff.unlock", [:])
         isStaff = true
         mode = .home
     }
 
     /// Settings → Exit staff mode: back to what visitors see.
     func exitStaffMode() {
+        usage.log("staff.exit", [:])
         isStaff = false
         mode = visitorMode
     }
@@ -618,12 +668,32 @@ final class NavigationViewModel {
         syncProgress = 0
         syncBytesText = nil
         defer { syncBytesText = nil }
+        // `map.download` covers the transfers only: one event per install that fetched anything.
+        var downloads = 0, bytes = 0, downloadMS = 0.0
+        func logDownload(ok: Bool, error: Error?) {
+            usage.log("map.download", ["slug": .string(remote.mapSlug), "version": .number(Double(remote.version)),
+                                       "bytes": .number(Double(bytes)), "ms": .number(downloadMS.rounded()),
+                                       "ok": .bool(ok), "error": error.map { .string($0.localizedDescription) } ?? .null])
+        }
+        func download(_ path: String, progress: @escaping @MainActor (DownloadProgress) -> Void) async throws -> Data {
+            downloads += 1
+            let start = Date()
+            defer { downloadMS += Date().timeIntervalSince(start) * 1000 }
+            do {
+                let data = try await sync.download(path: path, progress: progress)
+                bytes += data.count
+                return data
+            } catch {
+                logDownload(ok: false, error: error)
+                throw error
+            }
+        }
         // Another map's files are never reusable.
         let isOtherMap = localVersion.map { $0.slug != remote.mapSlug } ?? true
         if let path = remote.worldmapPath {
             let needsWorldMap = !mapStore.hasSavedWorldMap || remote.source == .ios || isOtherMap
             if needsWorldMap {
-                try mapStore.saveWorldMapData(try await sync.download(path: path) { [weak self] p in
+                try mapStore.saveWorldMapData(try await download(path) { [weak self] p in
                     self?.syncProgress = p.fraction * 0.9
                     self?.syncBytesText = p.bytesText
                 })
@@ -631,10 +701,11 @@ final class NavigationViewModel {
         }
         syncProgress = 0.9
         if let path = remote.pointcloudPath, remote.source == .ios || isOtherMap || mapStore.loadPointCloud() == nil {
-            try mapStore.savePointCloud(try await sync.download(path: path) { [weak self] p in
+            try mapStore.savePointCloud(try await download(path) { [weak self] p in
                 self?.syncProgress = 0.9 + p.fraction * 0.1
             })
         }
+        if downloads > 0 { logDownload(ok: true, error: nil) }
         syncProgress = 1
         if remote.worldmapPath == nil, remote.graph.immersalAlignment != nil || isOtherMap {
             // Drawn on an Immersal scan: ARKit must start fresh and let Immersal
@@ -648,7 +719,7 @@ final class NavigationViewModel {
         localVersion = record
         arManager.noteWorldMapReplaced()
         await ensureImmersalMaps(for: remote.graph)
-        reloadMapAndRestart()
+        reloadMapAndRestart(source: "network")
     }
 
     // MARK: - Immersal map cache
@@ -738,6 +809,7 @@ final class NavigationViewModel {
     }
 
     func stopSession() {
+        logPositioningStop()
         stopNavigation()
         arManager.pause()
         glassesPositioning.stop()
@@ -761,12 +833,20 @@ final class NavigationViewModel {
 
     /// Re-reads the saved map after the authoring screen closes and restarts
     /// tracking against the (possibly new) world map.
-    func reloadMapAndRestart() {
+    func reloadMapAndRestart() { reloadMapAndRestart(source: nil) }
+
+    /// `source` is "network" right after an install; otherwise the map comes
+    /// from the on-device copy ("cache") or the app bundle's sample.
+    private func reloadMapAndRestart(source: String?) {
         stopNavigation()
         selectedDestination = nil
-        baseMap = mapStore.loadMap() ?? SampleGreenhouseMap.map
+        let start = Date()
+        let stored = mapStore.loadMap()
+        baseMap = stored ?? SampleGreenhouseMap.map
         localVersion = mapStore.loadVersion()
         rebuildEngine()
+        usage.log("map.loaded", Self.mapLoadedData(map: baseMap, version: localVersion,
+                                                   source: source ?? (stored == nil ? "bundle" : "cache"), since: start))
         startPositioning()
     }
 
@@ -1007,6 +1087,11 @@ final class NavigationViewModel {
     }
 
     private func didChange(mode: AppMode, from previous: AppMode) {
+        let now = Date()
+        usage.log("mode.leave", ["mode": .string(previous.rawValue),
+                                 "seconds": .number((now.timeIntervalSince(modeSince) * 10).rounded() / 10)])
+        usage.log("mode.enter", ["mode": .string(mode.rawValue)])
+        modeSince = now
         if previous == .explore {
             // Hand the session back exactly as Navigate expects it, whichever mode is next.
             stopNavigation()

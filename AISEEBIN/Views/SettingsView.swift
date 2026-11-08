@@ -17,6 +17,8 @@ struct SettingsView: View {
     @State private var mapDownloadState: String?
     @State private var mapDownloadError: String?
     @State private var localizerMode = ImmersalConfig.localizerMode
+    @State private var tokenOnOpen = ""
+    @State private var mapIDsOnOpen = ""
     @AppStorage(SpeakingRate.key) private var speakingRate = SpeakingRate.normal.rawValue
 
     var body: some View {
@@ -82,6 +84,9 @@ struct SettingsView: View {
             Picker("Speaking rate", selection: $speakingRate) {
                 ForEach(SpeakingRate.allCases) { Text($0.label).tag($0.rawValue) }
             }
+            .onChange(of: speakingRate) { old, new in
+                viewModel.usage.logSetting("speaking_rate", old: old, new: new)
+            }
         } header: {
             Text("Visitor experience")
         } footer: {
@@ -124,7 +129,16 @@ struct SettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: token) { _, value in ImmersalConfig.token = value }
         .onChange(of: mapIDsText) { _, value in ImmersalConfig.mapIDsText = value; refreshCachedMaps() }
-        .onAppear { refreshCachedMaps() }
+        .onAppear {
+            refreshCachedMaps()
+            tokenOnOpen = token
+            mapIDsOnOpen = mapIDsText
+        }
+        .onDisappear {
+            // Typed text is logged once, when the page closes, not per keystroke.
+            viewModel.usage.logSetting("immersal_token", old: tokenOnOpen, new: token, secret: true)
+            viewModel.usage.logSetting("immersal_map_ids", old: mapIDsOnOpen, new: mapIDsText)
+        }
     }
 
     private var exploreSection: some View {
@@ -157,7 +171,8 @@ struct SettingsView: View {
             Picker("Localization", selection: $localizerMode) {
                 ForEach(ImmersalLocalizerMode.allCases) { Text($0.label).tag($0) }
             }
-            .onChange(of: localizerMode) { _, mode in
+            .onChange(of: localizerMode) { old, mode in
+                viewModel.usage.logSetting("localizer_mode", old: old.rawValue, new: mode.rawValue)
                 ImmersalConfig.localizerMode = mode
                 viewModel.reselectImmersalLocalizer()
             }

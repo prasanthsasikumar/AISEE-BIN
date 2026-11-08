@@ -12,7 +12,11 @@ enum DiagnosticsLog {
         let f = DateFormatter(); f.dateFormat = "HH:mm:ss.SSS"; return f
     }()
 
+    /// Where lines are mirrored for the usage log. Injectable for tests.
+    nonisolated(unsafe) static var usage: UsageLogging = UsageLog.shared
+
     static func write(_ line: String) {
+        usage.log("diag", ["line": .string(line)])
         let text = "\(stamp.string(from: Date())) \(line)\n"
         queue.async {
             if let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int, size > maxBytes {

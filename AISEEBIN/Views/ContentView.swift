@@ -64,6 +64,8 @@ struct ContentView: View {
             #endif
         }
         .onChange(of: scenePhase) { _, phase in
+            if phase == .background { UsageLog.shared.appDidEnterBackground() }
+            if phase == .active { UsageLog.shared.appDidEnterForeground() }
             // ARKit pauses itself in the background; restart tracking when we return.
             if phase == .active, viewModel.localizationStatus == .notStarted {
                 viewModel.startSession()
