@@ -9,6 +9,7 @@ import com.flowsxr.aiseebin.usage.Usage
 import com.flowsxr.aiseebin.usage.UsageLog
 import com.flowsxr.aiseebin.usage.UsageUploader
 import com.flowsxr.aiseebin.usage.current
+import com.flowsxr.aiseebin.usage.storedStaff
 import com.realsil.sdk.audioconnect.smartwear.SmartWearModelProxy
 import com.realsil.sdk.bbpro.BeeProParams
 import com.realsil.sdk.bbpro.MultiPeripheralConnectionManager
@@ -52,8 +53,9 @@ class AiseeApp : Application() {
     /** Usage logging starts first so `app.launch` is the session's seq 0. */
     private fun startUsageLog() {
         val executor = Executors.newSingleThreadExecutor { Thread(it, "usage").apply { isDaemon = true } }
+        val app = this
         Usage.log = UsageLog(File(filesDir, "usage"), UsageUploader(), System::currentTimeMillis,
-            SessionHeader.current(this), executor)
+            SessionHeader.current(this), executor, staff = { storedStaff(app) })
         Usage.log.onLaunch()
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) = Usage.log.onForeground()

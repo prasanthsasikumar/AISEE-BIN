@@ -16,8 +16,11 @@ import com.flowsxr.aiseebin.usage.usageSetting
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -87,8 +90,9 @@ class UsageLogTest {
         appVersion = "1.0 (1)", buildConfig = "debug", simulator = true, staff = false, startedAt = clock,
     )
 
-    private fun makeLog(uploader: UsageUploading, maxQueueLines: Int = UsageLog.MAX_QUEUE_LINES) =
-        UsageLog(dir, uploader, { clock }, header(), direct, maxQueueLines, uploadExecutor = direct)
+    private fun makeLog(uploader: UsageUploading, maxQueueLines: Int = UsageLog.MAX_QUEUE_LINES,
+                        header: SessionHeader = header(), staff: (() -> Boolean)? = null) =
+        UsageLog(dir, uploader, { clock }, header, direct, maxQueueLines, uploadExecutor = direct, staff = staff)
 
     private fun stubbedUploader() = UsageUploader { url -> FakeConnection(url, status).also { requests += it } }
 
@@ -213,7 +217,7 @@ class UsageLogTest {
         val working = FakeUploader()
         makeLog(working).flushBlocking()
         assertEquals(listOf("e5", "e6", "e7", "e8", "e9"), working.events.map { it.getString("type") })
-        assertEquals(50_000, UsageLog.MAX_QUEUE_LINES)
+        assertEquals(200_000, UsageLog.MAX_QUEUE_LINES)
     }
 
     @Test fun newSessionAfterLongBackground() {
@@ -405,5 +409,164 @@ class UsageLogTest {
         val p = usagePose(1.234f, 5.678f, 0.12345f, "normal", true)!!
         assertEquals(1.23, p.getDouble("x"), 1e-9); assertEquals(5.68, p.getDouble("z"), 1e-9)
         assertEquals(0.123, p.getDouble("heading"), 1e-9); assertEquals(true, p.getBoolean("localized"))
+    }
+
+    // MARK: - New sessions
+
+    @Test fun newSessionHookRelogsContextRightAfterForeground() {
+        val uploader = FakeUploader()
+        val log = makeLog(uploader)
+        var calls = 0
+        log.onNewSession = {
+            calls += 1
+            log.log("map.loaded", usageData("slug" to "dome", "source" to "cache", "ms" to 0))
+            log.log("mode.enter", usageData("mode" to "Navigate"))
+        }
+        log.onLaunch()
+        log.onBackground()
+        clock += 10_000
+        log.onForeground()
+        assertEquals("not at launch, not after a short background", 0, calls)
+
+        log.onBackground()
+        clock += 301_000
+        log.onForeground()
+        log.log("pose", usageData("x" to 1, "z" to 2))
+        assertEquals(1, calls)
+        log.flushBlocking()
+
+        val second = uploader.events.filter { it.getString("session_id") == log.sessionId }
+        assertEquals(listOf("app.foreground", "map.loaded", "mode.enter", "pose"), second.map { it.getString("type") })
+        assertEquals(listOf(0, 1, 2, 3), second.map { it.getInt("seq") })
+        assertEquals("dome", second[1].getJSONObject("data").getString("slug"))
+    }
+
+    @Test fun sessionContextEvents() {
+        val positioning = usageData("source" to "glasses", "localizer" to "cloud")
+        val events = usageSessionContext(Triple("flower-dome", 4, "Flower Dome"), "Navigate", positioning)
+        assertEquals(listOf("map.loaded", "mode.enter", "positioning.start"), events.map { it.first })
+        val map = events[0].second
+        assertEquals("flower-dome", map.getString("slug"))
+        assertEquals(4, map.getInt("version"))
+        assertEquals("Flower Dome", map.getString("name"))
+        assertEquals("cache", map.getString("source"))
+        assertEquals(0, map.getInt("ms"))
+        assertEquals("Navigate", events[1].second.getString("mode"))
+        assertEquals("glasses", events[2].second.getString("source"))
+        assertEquals(listOf("mode.enter"), usageSessionContext(null, "Home", null).map { it.first })
+    }
+
+    @Test fun staffFlagReadForEachNewSession() {
+        val uploader = FakeUploader()
+        var staff = false
+        val log = makeLog(uploader, header = header().copy(staff = true), staff = { staff })
+        log.onLaunch()
+        val first = log.sessionId
+        log.onBackground(); clock += 301_000; log.onForeground()
+        val second = log.sessionId
+        log.onBackground(); staff = true; clock += 301_000; log.onForeground()
+        val third = log.sessionId
+        log.flushBlocking()
+
+        val byId = uploader.sessions.associate { it.getString("session_id") to it.getBoolean("staff") }
+        assertEquals("the first header as given", true, byId[first])
+        assertEquals(false, byId[second])
+        assertEquals(true, byId[third])
+        assertEquals("staff.mode", com.flowsxr.aiseebin.usage.KEY_STAFF)
+    }
+
+    // MARK: - Queue
+
+    private fun line(i: Int) = """{"i":$i,"pad":"${"x".repeat(40)}"}"""
+    private fun index(s: String) = JSONObject(s).getInt("i")
+
+    @Test fun largeBacklogDrainsWithFewRewrites() {
+        var compactions = 0
+        val queue = UsageQueue(dir) { compactions += 1 }
+        for (i in 0 until 20_000) queue.append(line(i))
+        val seen = mutableListOf<Int>()
+        while (true) {
+            val batch = queue.peekBatch(UsageLog.BATCH_SIZE)
+            if (batch.isEmpty()) break
+            seen += batch.map(::index)
+            queue.drop(batch.size)
+        }
+        assertEquals((0 until 20_000).toList(), seen)
+        assertTrue("40 batches, file rewritten only when over half consumed: $compactions", compactions in 1..8)
+        assertFalse(queue.file.exists())
+        assertFalse(queue.offsetFile.exists())
+    }
+
+    @Test fun largeBacklogDrainsThroughTheLog() {
+        var compactions = 0
+        val failing = FakeUploader().apply { this.failing = true }
+        val log = UsageLog(dir, failing, { clock }, header(), direct, uploadExecutor = direct, onCompact = { compactions += 1 })
+        for (i in 0 until 20_000) log.log("e$i")
+        log.flushBlocking()
+        failing.failing = false
+        log.flushBlocking()
+        assertEquals((0 until 20_000).map { "e$it" }, failing.events.map { it.getString("type") })
+        assertTrue("compactions $compactions", compactions <= 8)
+        assertFalse(UsageQueue(dir).file.exists())
+    }
+
+    @Test fun offsetAndCompactionSurviveReopen() {
+        var compactions = 0
+        val first = UsageQueue(dir) { compactions += 1 }
+        for (i in 0 until 10) first.append(line(i))
+        val size = first.file.length()
+        first.drop(3)
+        assertEquals("under half consumed: only the offset moves", 0, compactions)
+        assertTrue(first.offsetFile.exists())
+        assertEquals("file not rewritten", size, first.file.length())
+
+        val second = UsageQueue(dir) { compactions += 1 }
+        assertEquals((3 until 10).toList(), second.peekBatch(100).map(::index))
+        second.drop(3)
+        assertEquals("over half consumed: compacted", 1, compactions)
+        assertEquals("0", second.offsetFile.readText())
+
+        val third = UsageQueue(dir)
+        assertEquals((6 until 10).toList(), third.peekBatch(100).map(::index))
+        third.append(line(10))
+        assertEquals((6 until 11).toList(), third.peekBatch(100).map(::index))
+    }
+
+    @Test fun capTrimMovesOffset() {
+        val queue = UsageQueue(dir)
+        for (i in 0 until 100) queue.append(line(i))
+        assertEquals(40, queue.trim(60))
+        assertEquals((40 until 100).toList(), queue.peekBatch(1000).map(::index))
+        assertEquals(0, queue.trim(60))
+    }
+
+    @Test fun readErrorNeverEmptiesTheQueue() {
+        val queue = UsageQueue(dir)
+        for (i in 0 until 3) queue.append(line(i))
+        val before = queue.file.readBytes()
+        assertTrue(queue.file.setReadable(false))
+        try {
+            assertThrows(IOException::class.java) { queue.drop(1) }
+            assertThrows(IOException::class.java) { queue.peekBatch(10) }
+        } finally { queue.file.setReadable(true) }
+        assertArrayEquals(before, queue.file.readBytes())
+        assertEquals(3, queue.peekBatch(10).size)
+    }
+
+    @Test fun appendAfterCrashStartsOnFreshLine() {
+        val queue = UsageQueue(dir)
+        queue.file.writeText("{\"i\":0}\n{\"i\":1,\"trunc")
+        queue.append(line(2))
+        val lines = queue.peekBatch(10)
+        assertEquals(3, lines.size)
+        assertEquals("{\"i\":1,\"trunc", lines[1])
+        assertEquals(2, index(lines[2]))
+    }
+
+    @Test fun staleOffsetIgnoredForNewFile() {
+        val queue = UsageQueue(dir)
+        queue.offsetFile.writeText("999")
+        queue.append(line(0))
+        assertEquals(listOf(0), queue.peekBatch(10).map(::index))
     }
 }

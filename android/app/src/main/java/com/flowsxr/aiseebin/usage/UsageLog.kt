@@ -26,6 +26,11 @@ object Usage {
     fun record(type: String, data: JSONObject = JSONObject()) {
         if (::log.isInitialized) log.log(type, data)
     }
+
+    /** Sets (or with null clears) [UsageLog.onNewSession], if the log exists. */
+    fun onNewSession(hook: (() -> Unit)?) {
+        if (::log.isInitialized) log.onNewSession = hook
+    }
 }
 
 /**
@@ -44,7 +49,7 @@ object Usage {
  * errors go to [android.util.Log] instead.
  *
  * @param header describes the first session; later sessions copy it with a
- *   fresh id and start time.
+ *   fresh id and start time, and [staff] (when given) as it is then.
  * @param executor must run tasks one at a time, in order.
  * @param uploadExecutor must run tasks one at a time, in order; it waits on
  *   [executor], so never pass the same single thread for both.
@@ -58,14 +63,17 @@ class UsageLog(
     private val maxQueueLines: Int = MAX_QUEUE_LINES,
     private val uploadExecutor: Executor =
         Executors.newSingleThreadExecutor { Thread(it, "usage-upload").apply { isDaemon = true } },
+    private val staff: (() -> Boolean)? = null,
+    onCompact: (() -> Unit)? = null,
 ) {
     companion object {
         const val SESSION_TIMEOUT_MS = 300_000L
         const val BATCH_SIZE = 500
         const val FLUSH_INTERVAL_MS = 30_000L
         /** Queue lines kept while uploads fail; older lines are dropped past this.
-         *  About 14 hours of 1 Hz pose samples, a few MB on disk. */
-        const val MAX_QUEUE_LINES = 50_000
+         *  With positioning running the app logs about 2.7 lines a second (pose,
+         *  loc.attempt, diag, speech), so this is about 20 hours, a few tens of MB. */
+        const val MAX_QUEUE_LINES = 200_000
         private const val TAG = "UsageLog"
 
         private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
@@ -80,7 +88,7 @@ class UsageLog(
             e is UsageHttpException && e.status in 400..499 && e.status != 408 && e.status != 429
     }
 
-    private val store = UsageQueue(dir)
+    private val store = UsageQueue(dir, onCompact)
     private val marker = File(dir, "running")
 
     // Touched only on `executor`.
@@ -91,6 +99,15 @@ class UsageLog(
     private var foregroundSince = now()
     private var backgroundSince: Long? = null
     private var timer: ScheduledExecutorService? = null
+
+    /**
+     * Called when coming back from a long background has started a new session,
+     * right after its `app.foreground` is recorded, on the thread that called
+     * [onForeground] (the main thread in the app). The app re-logs what the new
+     * session would otherwise not know: the map, the mode and any positioning
+     * run. Set it before the first foreground.
+     */
+    @Volatile var onNewSession: (() -> Unit)? = null
 
     /** The current session's id. Waits for queued work; not for hot paths. */
     val sessionId: String get() = sync(executor) { session.sessionId }
@@ -120,19 +137,26 @@ class UsageLog(
     }
 
     /** Logs `app.foreground` after a real trip to the background (the first start
-     *  at launch is not one), starting a new session after a long one. */
+     *  at launch is not one), starting a new session after a long one; then
+     *  [onNewSession] runs. Waits for [executor] (a few file writes), so the
+     *  hook's events follow `app.foreground` directly. */
     fun onForeground() {
         val t = now()
-        async {
-            backgroundSince?.let { since ->
-                if (t - since > SESSION_TIMEOUT_MS) startSession(t)
-                foregroundSince = t
-                backgroundSince = null
-                record("app.foreground", JSONObject(), t)
+        val started = try {
+            sync(executor) {
+                var started = false
+                backgroundSince?.let { since ->
+                    if (t - since > SESSION_TIMEOUT_MS) { startSession(t); started = true }
+                    foregroundSince = t
+                    backgroundSince = null
+                    record("app.foreground", JSONObject(), t)
+                }
+                writeMarker()
+                startTimer()
+                started
             }
-            writeMarker()
-            startTimer()
-        }
+        } catch (e: Exception) { Log.e(TAG, "usage foreground failed: $e"); false }
+        if (started) try { onNewSession?.invoke() } catch (e: Exception) { Log.e(TAG, "usage new-session hook failed: $e") }
     }
 
     fun onBackground() {
@@ -167,7 +191,8 @@ class UsageLog(
     }
 
     private fun startSession(t: Long) {
-        session = template.copy(sessionId = UUID.randomUUID().toString(), startedAt = t)
+        session = template.copy(sessionId = UUID.randomUUID().toString(), startedAt = t,
+            staff = staff?.invoke() ?: template.staff)
         headerQueued = false
         nextSeq = 0
     }
@@ -262,9 +287,17 @@ class UsageLog(
     }
 }
 
+/** The app's preferences file and its staff-mode switch (`AppModel.staff`). */
+const val APP_PREFS = "app"
+const val KEY_STAFF = "staff.mode"
+
+/** Staff mode as last saved; read when a session starts. */
+fun storedStaff(context: Context): Boolean =
+    context.getSharedPreferences(APP_PREFS, Context.MODE_PRIVATE).getBoolean(KEY_STAFF, false)
+
 /** This device and build, starting now with a fresh session id. */
 fun SessionHeader.Companion.current(context: Context): SessionHeader {
-    val prefs = context.getSharedPreferences("app", Context.MODE_PRIVATE)
+    val prefs = context.getSharedPreferences(APP_PREFS, Context.MODE_PRIVATE)
     val installId = prefs.getString("usage.installID", null) ?: UUID.randomUUID().toString().also {
         prefs.edit().putString("usage.installID", it).apply()
     }
@@ -274,6 +307,6 @@ fun SessionHeader.Companion.current(context: Context): SessionHeader {
         appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
         buildConfig = if (BuildConfig.DEBUG) "debug" else "release",
         simulator = Build.FINGERPRINT.contains("generic") || Build.PRODUCT.contains("sdk"),
-        staff = false, startedAt = System.currentTimeMillis(),
+        staff = storedStaff(context), startedAt = System.currentTimeMillis(),
     )
 }

@@ -32,6 +32,7 @@ import com.flowsxr.aiseebin.phone.ArSupport
 import com.flowsxr.aiseebin.positioning.PhonePositioning
 import com.flowsxr.aiseebin.positioning.PositioningState
 import com.flowsxr.aiseebin.usage.PoseSampler
+import com.flowsxr.aiseebin.usage.KEY_STAFF
 import com.flowsxr.aiseebin.usage.Usage
 import com.flowsxr.aiseebin.usage.usageArTracking
 import com.flowsxr.aiseebin.usage.usageData
@@ -64,6 +65,20 @@ fun usageForVisitorMode(old: AppModel.VisitorMode, new: AppModel.VisitorMode, se
         "mode.leave" to usageData("mode" to name(old), "seconds" to Math.round(secondsInOld * 10) / 10.0),
         "mode.enter" to usageData("mode" to name(new)),
     )
+}
+
+/**
+ * What a new usage session (after a long background) re-logs after its
+ * `app.foreground`: the map held in memory (`source` "cache", `ms` 0), the mode,
+ * and `positioning.start` when a run is open. No map loaded yet: no `map.loaded`.
+ */
+fun usageSessionContext(map: Triple<String?, Int?, String>?, modeName: String, positioning: JSONObject?): List<Pair<String, JSONObject>> {
+    val events = mutableListOf<Pair<String, JSONObject>>()
+    if (map != null) events += "map.loaded" to usageData("slug" to map.first, "version" to map.second, "name" to map.third,
+        "source" to "cache", "ms" to 0)
+    events += "mode.enter" to usageData("mode" to modeName)
+    if (positioning != null) events += "positioning.start" to positioning
+    return events
 }
 
 class AppModel(app: Application) : AndroidViewModel(app) {
@@ -193,6 +208,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     @Volatile private var arTracking = "none"
     private var arTrackingLogged: Pair<String, String?>? = null
     private var loggedPositioning: PositionSource? = null
+    private var loggedLocalizer = ""
     private var modeSince = System.currentTimeMillis()
     // Declared before init: init already logs.
     private val clock = java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm:ss")
@@ -236,7 +252,8 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         append("built-in Immersal token: ${if (hasBuiltInToken) "yes" else "no"}")
         positioning.onLocAttempt = { logLocAttempt("glasses", it) }
         phone.onLocAttempt = { logLocAttempt("phone", it) }
-        Usage.record("mode.enter", usageData("mode" to if (_staff.value) "Home" else visitorModeName(_visitorMode.value)))
+        Usage.record("mode.enter", usageData("mode" to currentModeName()))
+        Usage.onNewSession { logSessionContext() }
         refreshMaps()
         glasses.reconnectLast()
     }
@@ -651,8 +668,24 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     private fun logPositioningStart(source: PositionSource, localizerLabel: String) {
         logPositioningStop()
         loggedPositioning = source
+        loggedLocalizer = localizerLabel
         poseSampler.reset()
-        Usage.record("positioning.start", usageData("source" to source.name.lowercase(), "localizer" to usageLocalizerName(localizerLabel)))
+        Usage.record("positioning.start", positioningStartData(source, localizerLabel))
+    }
+
+    private fun positioningStartData(source: PositionSource, localizerLabel: String) =
+        usageData("source" to source.name.lowercase(), "localizer" to usageLocalizerName(localizerLabel))
+
+    private fun currentModeName() = if (_staff.value) "Home" else visitorModeName(_visitorMode.value)
+
+    /** A new usage session starts with only `app.foreground`; this repeats the
+     *  context its replay needs. Main thread (the usage log's foreground hook). */
+    private fun logSessionContext() {
+        val m = _maps.value
+        val map = m.map?.let { Triple(m.selectedSlug, m.available.firstOrNull { a -> a.slug == m.selectedSlug }?.version, it.name) }
+        val positioning = loggedPositioning?.let { positioningStartData(it, loggedLocalizer) }
+        for ((type, data) in usageSessionContext(map, currentModeName(), positioning)) Usage.record(type, data)
+        modeSince = System.currentTimeMillis()
     }
 
     /** Ends the open `positioning.start`, if any, with its tries and fixes so far. */
@@ -678,6 +711,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     private fun visitorModeName(m: VisitorMode) = if (m == VisitorMode.EXPLORE) "Explore" else "Navigate"
 
     override fun onCleared() {
+        Usage.onNewSession(null)
         cancelStart()
         logPositioningStop()
         positioning.stop()
@@ -694,7 +728,6 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         private const val KEY_FOCAL = "glasses.focalPx"
         private const val KEY_TOKEN = "immersal.token"
         private const val KEY_ANNOUNCE = "announce.places"
-        private const val KEY_STAFF = "staff.mode"
         private const val KEY_SOURCE = "position.source"
         private const val KEY_VISITOR = "visitor.mode"
         private const val PARKED_X = -40f
