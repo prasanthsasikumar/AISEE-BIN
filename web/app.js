@@ -1935,10 +1935,18 @@ function buildReplay(id, summary, events) {
   maps.forEach((m, mi) => m.segs.forEach(s => s.points.forEach(p => poses.push({ ms: Date.parse(p.t), x: p.x, z: p.z, map: mi }))));
   poses.sort((a, b) => a.ms - b.ms);
   const tl = Sessions.timeline(sorted).map(r => ({ ...r, ms: Date.parse(r.t) }));
-  const times = sorted.map(e => Date.parse(e.t)).filter(Number.isFinite);
+  // A loop, not Math.min(...times): spreading a long session's timestamps
+  // overflows the argument limit (Safari throws above about 65k).
+  let startMs = Infinity, endMs = -Infinity;
+  for (const e of sorted) {
+    const ms = Date.parse(e.t);
+    if (!Number.isFinite(ms)) continue;
+    if (ms < startMs) startMs = ms;
+    if (ms > endMs) endMs = ms;
+  }
+  if (startMs === Infinity) { startMs = 0; endMs = 0; }
   return {
-    id, summary, events: sorted, maps, poses, tl, mapIdx: 0, here: null, hereMs: null,
-    startMs: times.length ? Math.min(...times) : 0, endMs: times.length ? Math.max(...times) : 0,
+    id, summary, events: sorted, maps, poses, tl, mapIdx: 0, here: null, hereMs: null, startMs, endMs,
   };
 }
 

@@ -105,3 +105,21 @@ test('arrived and cancel take the destination name from the matching nav.request
   assert.equal(tl[4].text, 'Arrived at Toilets after 3 s');
   assert.equal(tl[5].text, 'Arrived at lift after 3 s');
 });
+
+test('a session that starts at app.foreground (new session after a long background) keeps its map', () => {
+  n = 0;
+  // What the apps re-log at seq 1.. of a new session: map.loaded (cache, ms 0), mode.enter, positioning.start.
+  const events = [
+    ev('app.foreground', {}, 0),
+    ev('map.loaded', { slug: 'flower-dome', version: 4, name: 'Flower Dome', source: 'cache', ms: 0 }, 0),
+    ev('mode.enter', { mode: 'Navigate' }, 0),
+    ev('positioning.start', { source: 'phone', localizer: 'cloud' }, 0),
+    pose(0, 0, 1), pose(1, 0, 2), pose(2, 0, 3),
+  ];
+  const segs = S.pathSegments(events);
+  assert.equal(segs.length, 1);
+  assert.equal(segs[0].slug, 'flower-dome');
+  assert.equal(segs[0].version, 4);
+  assert.equal(segs[0].points.length, 3);
+  assert.ok(S.timeline(events).some(r => /Flower Dome/.test(r.text ?? JSON.stringify(r))));
+});
