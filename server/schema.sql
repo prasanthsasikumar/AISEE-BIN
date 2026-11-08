@@ -100,3 +100,72 @@ drop policy if exists ab_field_insert on public.ab_field_results;
 create policy ab_field_insert on public.ab_field_results for insert to anon, authenticated with check (true);
 grant select, insert on public.ab_field_results to anon, authenticated;
 grant usage, select on sequence public.ab_field_results_id_seq to anon, authenticated;
+
+-- Usage logging: the apps upload one header row per session (ab_sessions) and
+-- append-only event rows (ab_events). Idempotent uploads: unique (session_id, seq)
+-- plus on_conflict ignore-duplicates. Readable with the publishable key so the
+-- review page can pull sessions without anyone sending files.
+create table if not exists public.ab_sessions (
+  session_id   uuid primary key,
+  install_id   text,
+  platform     text,                   -- ios | android
+  device       text,
+  os_version   text,
+  app_version  text,
+  build_config text,                   -- debug | release
+  simulator    boolean,
+  staff        boolean,
+  started_at   timestamptz,
+  received_at  timestamptz not null default now()
+);
+alter table public.ab_sessions enable row level security;
+drop policy if exists ab_sessions_read on public.ab_sessions;
+create policy ab_sessions_read on public.ab_sessions for select to anon, authenticated using (true);
+drop policy if exists ab_sessions_insert on public.ab_sessions;
+create policy ab_sessions_insert on public.ab_sessions for insert to anon, authenticated with check (true);
+grant select, insert on public.ab_sessions to anon, authenticated;
+
+create table if not exists public.ab_events (
+  id           bigserial primary key,
+  session_id   uuid not null,
+  seq          int not null,
+  t            timestamptz not null,
+  type         text not null,          -- map.loaded | mode.enter | loc.attempt | ...
+  data         jsonb not null default '{}'::jsonb,
+  received_at  timestamptz not null default now(),
+  unique (session_id, seq)
+);
+create index if not exists ab_events_session_seq_idx on public.ab_events (session_id, seq);
+create index if not exists ab_events_t_idx on public.ab_events (t);
+alter table public.ab_events enable row level security;
+drop policy if exists ab_events_read on public.ab_events;
+create policy ab_events_read on public.ab_events for select to anon, authenticated using (true);
+drop policy if exists ab_events_insert on public.ab_events;
+create policy ab_events_insert on public.ab_events for insert to anon, authenticated with check (true);
+grant select, insert on public.ab_events to anon, authenticated;
+grant usage, select on sequence public.ab_events_id_seq to anon, authenticated;
+
+-- One row per session, built from the events so a session whose header never
+-- arrived still shows up (header columns are then null).
+create or replace view public.ab_session_summary with (security_invoker = on) as
+select
+  e.session_id,
+  s.install_id, s.platform, s.device, s.os_version, s.app_version,
+  s.build_config, s.simulator, s.staff, s.started_at, s.received_at,
+  min(e.t) as first_t,
+  max(e.t) as last_t,
+  extract(epoch from (max(e.t) - min(e.t)))::int as duration_s,
+  count(*)::int as event_count,
+  coalesce(array_remove(array_agg(distinct e.data->>'slug') filter (where e.type = 'map.loaded'), null), '{}') as maps,
+  coalesce(array_remove(array_agg(distinct e.data->>'mode') filter (where e.type = 'mode.enter'), null), '{}') as modes,
+  (count(*) filter (where e.type = 'utterance'))::int as utterances,
+  (count(*) filter (where e.type = 'arrival'))::int as arrivals,
+  (count(*) filter (where e.type = 'cancel'))::int as cancels,
+  (count(*) filter (where e.type = 'loc.attempt' and (e.data->>'ok') = 'true'))::int as fixes,
+  (count(*) filter (where e.type = 'loc.attempt'))::int as attempts,
+  (count(*) filter (where e.type = 'error'))::int as errors
+from public.ab_events e
+left join public.ab_sessions s on s.session_id = e.session_id
+group by e.session_id, s.session_id, s.install_id, s.platform, s.device, s.os_version,
+         s.app_version, s.build_config, s.simulator, s.staff, s.started_at, s.received_at;
+grant select on public.ab_session_summary to anon, authenticated;
