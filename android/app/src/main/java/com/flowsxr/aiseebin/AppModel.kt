@@ -36,6 +36,7 @@ import com.flowsxr.aiseebin.usage.Usage
 import com.flowsxr.aiseebin.usage.usageArTracking
 import com.flowsxr.aiseebin.usage.usageData
 import com.flowsxr.aiseebin.usage.usageLocalizerName
+import com.flowsxr.aiseebin.usage.usagePose
 import com.flowsxr.aiseebin.usage.usageSetting
 import org.json.JSONObject
 import kotlinx.coroutines.flow.update
@@ -246,8 +247,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         if (poseSampler.shouldSample(nowMs)) {
             // Glasses fixes are accepted ones only; the phone's are ARCore motion through an anchor set by an accepted fix.
             val tracking = if (_source.value == PositionSource.PHONE) arTracking else "none"
-            Usage.record("pose", usageData("x" to cm(fix.position.x), "z" to cm(fix.position.z),
-                "heading" to Math.round(fix.heading * 1000.0) / 1000.0, "tracking" to tracking, "localized" to true))
+            usagePose(fix.position.x, fix.position.z, fix.heading, tracking, true)?.let { Usage.record("pose", it) }
         }
         if (!announcedFirstFix) {
             announcedFirstFix = true
@@ -663,7 +663,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         Usage.record("positioning.stop", usageData("source" to source.name.lowercase(), "attempts" to s.attempts, "fixes" to s.fixes))
     }
 
-    /** `ar.tracking` on each change, and a 1 Hz `pose` with `localized: false` while the ARCore pose is not yet in map coordinates. GL thread. */
+    /** `ar.tracking` on each change. GL thread. No `pose` here: ARCore's frame is not map coordinates until anchored, and handleFix logs poses then. */
     private fun logArFrame(frame: com.google.ar.core.Frame) {
         val camera = frame.camera
         val fields = usageArTracking(camera.trackingState.name, camera.trackingFailureReason.name)
@@ -671,10 +671,6 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         if (fields != arTrackingLogged) {
             arTrackingLogged = fields
             Usage.record("ar.tracking", usageData("state" to fields.first, "reason" to fields.second))
-        }
-        // Once anchored, handleFix logs the pose in map coordinates; before that ARCore's own frame is not the map's.
-        if (phone.state.value.lastFix == null && poseSampler.shouldSample(System.currentTimeMillis())) {
-            Usage.record("pose", usageData("x" to null, "z" to null, "heading" to null, "tracking" to arTracking, "localized" to false))
         }
     }
 

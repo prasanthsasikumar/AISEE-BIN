@@ -11,6 +11,7 @@ import com.flowsxr.aiseebin.usage.UsageValue
 import com.flowsxr.aiseebin.usage.usageArTracking
 import com.flowsxr.aiseebin.usage.usageData
 import com.flowsxr.aiseebin.usage.usageLocalizerName
+import com.flowsxr.aiseebin.usage.usagePose
 import com.flowsxr.aiseebin.usage.usageSetting
 import org.json.JSONArray
 import org.json.JSONObject
@@ -396,5 +397,13 @@ class UsageLogTest {
         assertEquals("limited" to "initializing", usageArTracking("PAUSED", "NONE"))
         assertEquals("not_available" to null, usageArTracking("STOPPED", null))
     }
-}
 
+    @Test fun poseNeverLoggedWithoutNumericPosition() {
+        assertEquals(null, usagePose(null, null, null, "normal", false))   // unanchored AR frame
+        assertEquals(null, usagePose(1f, null, 0f, "normal", true))
+        assertEquals(null, usagePose(Float.NaN, 2f, 0f, "normal", true))
+        val p = usagePose(1.234f, 5.678f, 0.12345f, "normal", true)!!
+        assertEquals(1.23, p.getDouble("x"), 1e-9); assertEquals(5.68, p.getDouble("z"), 1e-9)
+        assertEquals(0.123, p.getDouble("heading"), 1e-9); assertEquals(true, p.getBoolean("localized"))
+    }
+}

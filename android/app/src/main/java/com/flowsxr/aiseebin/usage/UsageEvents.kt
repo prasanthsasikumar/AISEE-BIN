@@ -32,3 +32,14 @@ fun usageArTracking(trackingState: String, failureReason: String?): Pair<String,
     "PAUSED" -> "limited" to (if (failureReason == null || failureReason == "NONE") "initializing" else failureReason.lowercase())
     else -> "not_available" to null
 }
+
+/**
+ * `pose` data in map-graph metres (cm-rounded), or null when there is no numeric
+ * position: a pose is never logged without x and z (before the ARCore anchor
+ * exists, `ar.tracking` covers that period).
+ */
+fun usagePose(x: Float?, z: Float?, heading: Float?, tracking: String, localized: Boolean): JSONObject? {
+    if (x == null || z == null || !x.isFinite() || !z.isFinite()) return null
+    return usageData("x" to Math.round(x * 100.0) / 100.0, "z" to Math.round(z * 100.0) / 100.0,
+        "heading" to heading?.let { Math.round(it * 1000.0) / 1000.0 }, "tracking" to tracking, "localized" to localized)
+}
