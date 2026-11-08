@@ -80,6 +80,10 @@ node --test web/*.test.js
 
 About 200 XCTest cases cover the pure-logic layer: pathfinding, geometry, route tracking, command parsing, the gzip codec, map sync, Immersal pose decoding and alignment, the fix gate, scan linking. None of it needs a camera. The simulator links stubs in place of the device-only libraries. The node tests cover the editor's scan alignment and Immersal parsing.
 
+### Usage logging and the Sessions page
+
+Both apps log usage events (launch and background, modes, map loads, speech heard and said, navigation, a 1 Hz position trace, localization attempts, Explore questions, errors) as text and numbers only, with no audio or images. Events are queued on the device and uploaded in batches to the `ab_sessions` and `ab_events` tables. Review them at **https://aiseebin.flowsxr.com/#/sessions**: a filterable session list (debug and simulator sessions are hidden by default) and a replay with the walked path, fixes and a scrubbable timeline, with CSV and JSON export. Design: [`docs/superpowers/specs/2026-11-07-usage-logging-design.md`](docs/superpowers/specs/2026-11-07-usage-logging-design.md).
+
 ---
 
 ## Using it

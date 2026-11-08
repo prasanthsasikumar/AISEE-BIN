@@ -119,3 +119,17 @@ POC; the builder should check and note the real number after a test session.
 - Retention: keep everything for now; note how to prune.
 - Tests: unit tests for the queue/upload logic and event encoding on both
   platforms; the web page tested against a recorded session.
+
+## Verification
+
+Verified 2026-11-08 on the iOS Simulator (iPhone 17, debug build, no device):
+
+- A launch followed by backgrounding produced a session row (`platform=ios`, `simulator=true`, `build_config=debug`) in `ab_session_summary` with 11 events; `seq` 0 was `app.launch` and `app.background` was present.
+- Terminating the app without backgrounding, then relaunching, gave a new session whose `app.launch` carried `unclean_previous` equal to the terminated session's id. The terminated session's events were present once; counts did not change across further relaunch and background cycles (duplicates dropped by `on_conflict`).
+- The Sessions page replay (`#/sessions/<id>`) rendered the simulator session with its timeline and stats.
+
+Still owed:
+
+- A real walk on a device, to measure the actual data volume (MB/hour) against the 0.5 MB/hour estimate above. The estimate is unchanged until then.
+- The offline/airplane-mode test (events queued offline arrive once after reconnecting).
+- An Android device check of logging.
