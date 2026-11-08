@@ -16,8 +16,8 @@ import java.util.TimeZone
  * same day. Blocking; call off the main thread.
  */
 object FieldResults {
-    private const val BASE = "https://djfpemdkeguztyuerxqc.supabase.co"
-    private const val KEY = "sb_publishable_hEk_pFTUws4X_SL7QKiFUA_DeFU9-YL"
+    internal const val BASE = "https://djfpemdkeguztyuerxqc.supabase.co"
+    internal const val KEY = "sb_publishable_hEk_pFTUws4X_SL7QKiFUA_DeFU9-YL"
     private const val BUCKET = "aiseebin-maps"
 
     val device: String get() = "${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}"
