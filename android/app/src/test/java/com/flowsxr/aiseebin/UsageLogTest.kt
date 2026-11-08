@@ -1,5 +1,6 @@
 package com.flowsxr.aiseebin
 
+import com.flowsxr.aiseebin.usage.PoseSampler
 import com.flowsxr.aiseebin.usage.SessionHeader
 import com.flowsxr.aiseebin.usage.UsageHttpException
 import com.flowsxr.aiseebin.usage.UsageLog
@@ -7,7 +8,10 @@ import com.flowsxr.aiseebin.usage.UsageQueue
 import com.flowsxr.aiseebin.usage.UsageUploader
 import com.flowsxr.aiseebin.usage.UsageUploading
 import com.flowsxr.aiseebin.usage.UsageValue
+import com.flowsxr.aiseebin.usage.usageArTracking
 import com.flowsxr.aiseebin.usage.usageData
+import com.flowsxr.aiseebin.usage.usageLocalizerName
+import com.flowsxr.aiseebin.usage.usageSetting
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
@@ -352,4 +356,45 @@ class UsageLogTest {
         assertEquals(4_000, hand.getString("s").length)
         assertEquals("a", hand.getJSONArray("arr").getString(0))
     }
+
+    // MARK: - Task 6: instrumentation helpers
+
+    @Test fun poseSamplerOnePerSecond() {
+        val sampler = PoseSampler()
+        val results = listOf(0L, 400L, 1000L, 1500L, 2100L).map { sampler.shouldSample(1_000_000L + it) }
+        assertEquals(listOf(true, false, true, false, true), results)
+    }
+
+    @Test fun visitorModeChangeLogsLeaveThenEnter() {
+        val events = usageForVisitorMode(AppModel.VisitorMode.NAVIGATE, AppModel.VisitorMode.EXPLORE, 12.34)
+        assertEquals(listOf("mode.leave", "mode.enter"), events.map { it.first })
+        assertEquals("Navigate", events[0].second.getString("mode"))
+        assertEquals(12.3, events[0].second.getDouble("seconds"), 0.0)
+        assertEquals("Explore", events[1].second.getString("mode"))
+        assertTrue(usageForVisitorMode(AppModel.VisitorMode.EXPLORE, AppModel.VisitorMode.EXPLORE, 1.0).isEmpty())
+    }
+
+    @Test fun settingChangeOnlyWhenDifferentAndSecretsHidden() {
+        assertEquals(null, usageSetting("k", "a", "a"))
+        val plain = usageSetting("localizer_mode", "auto", "server")!!
+        assertEquals("auto", plain.getString("old")); assertEquals("server", plain.getString("new"))
+        val secret = usageSetting("immersal_token", "", "abc123secret", secret = true)!!
+        assertEquals("empty", secret.getString("old")); assertEquals("set", secret.getString("new"))
+        assertTrue(!secret.toString().contains("abc123"))
+    }
+
+    @Test fun localizerNamesMatchIos() {
+        assertEquals("cloud", usageLocalizerName("cloud"))
+        assertEquals("on device", usageLocalizerName("on-device"))
+        assertEquals("on device", usageLocalizerName("auto · on-device"))
+        assertEquals("cloud", usageLocalizerName("auto · cloud"))
+    }
+
+    @Test fun arTrackingFieldsMatchIos() {
+        assertEquals("normal" to null, usageArTracking("TRACKING", null))
+        assertEquals("limited" to "excessive_motion", usageArTracking("PAUSED", "EXCESSIVE_MOTION"))
+        assertEquals("limited" to "initializing", usageArTracking("PAUSED", "NONE"))
+        assertEquals("not_available" to null, usageArTracking("STOPPED", null))
+    }
 }
+

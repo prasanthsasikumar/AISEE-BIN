@@ -31,6 +31,13 @@ import com.flowsxr.aiseebin.phone.ArCamera
 import com.flowsxr.aiseebin.phone.ArSupport
 import com.flowsxr.aiseebin.positioning.PhonePositioning
 import com.flowsxr.aiseebin.positioning.PositioningState
+import com.flowsxr.aiseebin.usage.PoseSampler
+import com.flowsxr.aiseebin.usage.Usage
+import com.flowsxr.aiseebin.usage.usageArTracking
+import com.flowsxr.aiseebin.usage.usageData
+import com.flowsxr.aiseebin.usage.usageLocalizerName
+import com.flowsxr.aiseebin.usage.usageSetting
+import org.json.JSONObject
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -47,6 +54,16 @@ data class MapState(
     /** The map came from the copy saved on the phone because the server was unreachable. */
     val offline: Boolean = false,
 )
+
+/** `mode.leave` then `mode.enter` for a visitor-mode change, with iOS's `AppMode` names; empty when nothing changed. */
+fun usageForVisitorMode(old: AppModel.VisitorMode, new: AppModel.VisitorMode, secondsInOld: Double): List<Pair<String, JSONObject>> {
+    if (old == new) return emptyList()
+    fun name(m: AppModel.VisitorMode) = if (m == AppModel.VisitorMode.EXPLORE) "Explore" else "Navigate"
+    return listOf(
+        "mode.leave" to usageData("mode" to name(old), "seconds" to Math.round(secondsInOld * 10) / 10.0),
+        "mode.enter" to usageData("mode" to name(new)),
+    )
+}
 
 class AppModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("app", Context.MODE_PRIVATE)
@@ -79,6 +96,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         if (source == _source.value) return
         val wasRunning = position.value.running
         stopPositioning()
+        logSetting("position_source", _source.value.name.lowercase(), source.name.lowercase())
         _source.value = source
         prefs.edit().putString(KEY_SOURCE, source.name).apply()
         append("position source: ${source.label}")
@@ -119,6 +137,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     fun setLocalizerMode(mode: LocalizerMode) {
         if (mode == _localizerMode.value) return
+        logSetting("localizer_mode", localizerName(_localizerMode.value), localizerName(mode))
         _localizerMode.value = mode
         prefs.edit().putString(KEY_LOCALIZER, mode.name).apply()
         append("localization set to ${mode.label}")
@@ -131,6 +150,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     val staff: StateFlow<Boolean> = _staff
 
     fun setStaff(on: Boolean) {
+        if (on != _staff.value) Usage.record(if (on) "staff.unlock" else "staff.exit")
         _staff.value = on
         prefs.edit().putBoolean(KEY_STAFF, on).apply()
         append("staff mode ${if (on) "on" else "off"}")
@@ -144,6 +164,11 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     val visitorMode: StateFlow<VisitorMode> = _visitorMode
 
     fun setVisitorMode(mode: VisitorMode) {
+        val old = _visitorMode.value
+        val now = System.currentTimeMillis()
+        logSetting("visitor_mode", old.name.lowercase(), mode.name.lowercase())
+        for ((type, data) in usageForVisitorMode(old, mode, (now - modeSince) / 1000.0)) Usage.record(type, data)
+        if (old != mode) modeSince = now
         _visitorMode.value = mode
         prefs.edit().putString(KEY_VISITOR, mode.name).apply()
     }
@@ -162,6 +187,12 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     private val token: String get() = _tokenOverride.value.trim().ifEmpty { BuildConfig.IMMERSAL_TOKEN }
 
     private var announcedFirstFix = false
+    // Usage logging state. Fixes arrive on the main thread, ARCore frames on the GL thread.
+    private val poseSampler = PoseSampler()
+    @Volatile private var arTracking = "none"
+    private var arTrackingLogged: Pair<String, String?>? = null
+    private var loggedPositioning: PositionSource? = null
+    private var modeSince = System.currentTimeMillis()
     // Declared before init: init already logs.
     private val clock = java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm:ss")
     /** Also kept on disk for after a walk: `adb pull /sdcard/Android/data/com.flowsxr.aiseebin/files/diag.log`. */
@@ -177,6 +208,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                 if (g.stream != Stream.PLAYING && frameOverride == null && _source.value == PositionSource.GLASSES &&
                     (positioning.state.value.running || startJob?.isActive == true)) {
                     cancelStart()
+                    logPositioningStop()
                     positioning.stop()
                     append("positioning stopped: camera is ${g.stream.name.lowercase()}")
                 }
@@ -201,12 +233,22 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         }
         append("native Immersal plugin: ${if (ImmersalNative.available) "available" else "missing (cloud only)"}")
         append("built-in Immersal token: ${if (hasBuiltInToken) "yes" else "no"}")
+        positioning.onLocAttempt = { logLocAttempt("glasses", it) }
+        phone.onLocAttempt = { logLocAttempt("phone", it) }
+        Usage.record("mode.enter", usageData("mode" to if (_staff.value) "Home" else visitorModeName(_visitorMode.value)))
         refreshMaps()
         glasses.reconnectLast()
     }
 
     /** A position from either source: the first is spoken, then places are announced on the way past. */
     private fun handleFix(fix: Fix) {
+        val nowMs = System.currentTimeMillis()
+        if (poseSampler.shouldSample(nowMs)) {
+            // Glasses fixes are accepted ones only; the phone's are ARCore motion through an anchor set by an accepted fix.
+            val tracking = if (_source.value == PositionSource.PHONE) arTracking else "none"
+            Usage.record("pose", usageData("x" to cm(fix.position.x), "z" to cm(fix.position.z),
+                "heading" to Math.round(fix.heading * 1000.0) / 1000.0, "tracking" to tracking, "localized" to true))
+        }
         if (!announcedFirstFix) {
             announcedFirstFix = true
             viewModelScope.launch { describe(fix)?.let { speak("Located. $it") } }
@@ -239,6 +281,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             }.onFailure { e ->
                 _maps.update { it.copy(loading = false, status = "Could not reach the map server: ${e.message}") }
                 append("map list failed: $e")
+                logError("map.list", e)
                 // The last map used may still be saved on the phone.
                 _maps.value.selectedSlug?.let { if (_maps.value.map == null) selectMap(it) }
             }
@@ -247,10 +290,12 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     fun selectMap(slug: String) {
         cancelStart()
+        logPositioningStop()
         positioning.stop()
         phone.stop()
         prefs.edit().putString(KEY_MAP, slug).apply()
         _maps.update { it.copy(selectedSlug = slug, map = null, loading = true, status = "Loading $slug…") }
+        val loadStart = System.currentTimeMillis()
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) { runCatching { MapRepository.load(slug, mapDir) } }
             result.onSuccess { (map, offline) ->
@@ -262,10 +307,14 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                         status = if (ids.isEmpty()) "This map has no Immersal alignment, so the glasses cannot position in it." else null)
                 }
                 append("loaded map ${map.name}: ${map.pois.size} places, Immersal $ids")
+                Usage.record("map.loaded", usageData("slug" to slug,
+                    "version" to _maps.value.available.firstOrNull { it.slug == slug }?.version, "name" to map.name,
+                    "source" to if (offline) "cache" else "network", "ms" to System.currentTimeMillis() - loadStart))
                 if (!offline && ids.any { !cache.has(it) }) downloadMaps()
             }.onFailure { e ->
                 _maps.update { it.copy(loading = false, status = "Could not load $slug: ${e.message}") }
                 append("map load failed: $e")
+                logError("map.switch", e)
             }
         }
     }
@@ -275,12 +324,21 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         val ids = _maps.value.map?.alignment?.mapIds.orEmpty()
         if (ids.isEmpty() || token.isBlank() || _maps.value.downloading) return
         _maps.update { it.copy(downloading = true) }
+        val slug = _maps.value.selectedSlug
+        val version = _maps.value.available.firstOrNull { it.slug == slug }?.version
         viewModelScope.launch {
+            // `map.download` covers the transfers only: one event per run that fetched anything.
+            var fetched = 0; var bytes = 0L; var firstError: String? = null
+            val started = System.currentTimeMillis()
             for (id in ids) {
                 if (cache.has(id)) continue
                 val error = withContext(Dispatchers.IO) { cache.download(token, id) }
+                fetched++
+                if (error == null) bytes += cache.size(id) else if (firstError == null) firstError = error
                 append(if (error == null) "Immersal map $id cached on this phone" else "Immersal map $id not cached: $error")
             }
+            if (fetched > 0) Usage.record("map.download", usageData("slug" to slug, "version" to version, "bytes" to bytes,
+                "ms" to System.currentTimeMillis() - started, "ok" to (firstError == null), "error" to firstError))
             _maps.update { it.copy(downloading = false, cached = ids.filter(cache::has)) }
         }
     }
@@ -305,12 +363,14 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                 announcer = com.flowsxr.aiseebin.positioning.ProximityAnnouncer(map.pois)
                 if (_source.value == PositionSource.PHONE) {
                     phone.start(localizer, alignment)
+                    logPositioningStart(PositionSource.PHONE, localizer.label)
                     append("positioning started with the phone camera (${localizer.label})")
                     return@launch
                 }
                 odometer.start()
                 append("walked distance from the ${odometer.source}")
                 positioning.start(localizer, alignment, GlassesCamera(_focalPx.value))
+                logPositioningStart(PositionSource.GLASSES, localizer.label)
                 append("positioning started (${localizer.label}, focal ${_focalPx.value.toInt()} px)")
             } finally {
                 _starting.value = false
@@ -403,6 +463,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     fun stopPositioning() {
         cancelStart()
+        logPositioningStop()
         positioning.stop()
         phone.stop()
         append("positioning stopped")
@@ -419,6 +480,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             }
         }
         append("where am I ($trigger): $text")
+        Usage.record("speech.intent", usageData("text" to null, "intent" to "where_am_i", "args" to mapOf("trigger" to trigger)))
         speak(text)
     }
 
@@ -478,10 +540,11 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                 "%.1f m off (90%% within %.1f m) · %d fixes / %d tries".format(err, p90, fixes.size, tries)
             }
             _checks.update { it + (poi.id to summary) }
+            Usage.record("field.result", usageData("kind" to "check", "point_id" to poi.id, "payload" to payload))
             append("check ${poi.name}: $summary")
             withContext(Dispatchers.IO) {
                 runCatching { FieldResults.post("check", _maps.value.selectedSlug, if (_source.value == PositionSource.PHONE) "phone" else "glasses", after.localizer, poi.id, poi.name, payload) }
-                    .onFailure { append("check not uploaded: ${it.message}") }
+                    .onFailure { append("check not uploaded: ${it.message}"); logError("field.check", it) }
             }
             _fieldBusy.value = null
         }
@@ -508,6 +571,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setAnnouncePlaces(on: Boolean) {
+        logSetting("announce_places", _announcePlaces.value.toString(), on.toString())
         _announcePlaces.value = on
         prefs.edit().putBoolean(KEY_ANNOUNCE, on).apply()
     }
@@ -517,6 +581,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     /** Each ARCore frame (GL thread) feeds phone positioning while it runs. */
     fun onArFrame(frame: com.google.ar.core.Frame) {
         if (!phone.state.value.running) return
+        logArFrame(frame)
         val problem = ArCamera.problem(frame)
         phone.onFrame(if (problem == null) ArCamera.floorPose(frame) else null, problem, System.currentTimeMillis()) { ArCamera.shot(frame) }
     }
@@ -527,6 +592,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     fun stopCamera() {
         cancelStart()
+        logPositioningStop()
         positioning.stop()
         glasses.stopStream()
     }
@@ -541,6 +607,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setTokenOverride(value: String) {
+        logSetting("immersal_token", _tokenOverride.value, value, secret = true)
         _tokenOverride.value = value
         prefs.edit().putString(KEY_TOKEN, value).apply()
     }
@@ -549,6 +616,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     fun append(line: String) {
         val stamped = "${java.time.LocalDateTime.now().format(clock)} $line"
+        Usage.record("diag", usageData("line" to line))
         android.util.Log.i("AISEEBIN", line)
         _log.update { (it + stamped).takeLast(120) }
         diagFile?.let { f ->
@@ -561,8 +629,61 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // MARK: - Usage events
+
+    private fun cm(v: Float) = Math.round(v * 100.0) / 100.0
+
+    private fun logSetting(key: String, old: String, new: String, secret: Boolean = false) {
+        usageSetting(key, old, new, secret)?.let { Usage.record("settings.changed", it) }
+    }
+
+    private fun logError(where: String, e: Throwable) =
+        Usage.record("error", usageData("where" to where, "message" to (e.message ?: e.javaClass.simpleName)))
+
+    private fun logLocAttempt(source: String, a: com.flowsxr.aiseebin.positioning.LocAttempt) {
+        val r = a.result
+        Usage.record("loc.attempt", usageData("source" to source, "localizer" to usageLocalizerName(a.localizer),
+            "ok" to a.ok, "error" to if (a.ok) null else if (r.success) "malformed pose" else r.error,
+            "map_id" to r.mapId, "ms" to r.latencyMs, "bytes" to r.requestBytes,
+            "jump_m" to a.jump?.let { cm(it) }, "accepted" to a.accepted))
+    }
+
+    private fun logPositioningStart(source: PositionSource, localizerLabel: String) {
+        logPositioningStop()
+        loggedPositioning = source
+        poseSampler.reset()
+        Usage.record("positioning.start", usageData("source" to source.name.lowercase(), "localizer" to usageLocalizerName(localizerLabel)))
+    }
+
+    /** Ends the open `positioning.start`, if any, with its tries and fixes so far. */
+    private fun logPositioningStop() {
+        val source = loggedPositioning ?: return
+        loggedPositioning = null
+        val s = (if (source == PositionSource.PHONE) phone.state else positioning.state).value
+        Usage.record("positioning.stop", usageData("source" to source.name.lowercase(), "attempts" to s.attempts, "fixes" to s.fixes))
+    }
+
+    /** `ar.tracking` on each change, and a 1 Hz `pose` with `localized: false` while the ARCore pose is not yet in map coordinates. GL thread. */
+    private fun logArFrame(frame: com.google.ar.core.Frame) {
+        val camera = frame.camera
+        val fields = usageArTracking(camera.trackingState.name, camera.trackingFailureReason.name)
+        arTracking = when (fields.first) { "normal" -> "normal"; "limited" -> "limited"; else -> "none" }
+        if (fields != arTrackingLogged) {
+            arTrackingLogged = fields
+            Usage.record("ar.tracking", usageData("state" to fields.first, "reason" to fields.second))
+        }
+        // Once anchored, handleFix logs the pose in map coordinates; before that ARCore's own frame is not the map's.
+        if (phone.state.value.lastFix == null && poseSampler.shouldSample(System.currentTimeMillis())) {
+            Usage.record("pose", usageData("x" to null, "z" to null, "heading" to null, "tracking" to arTracking, "localized" to false))
+        }
+    }
+
+    private fun localizerName(m: LocalizerMode) = when (m) { LocalizerMode.AUTO -> "auto"; LocalizerMode.ON_PHONE -> "onPhone"; LocalizerMode.SERVER -> "server" }
+    private fun visitorModeName(m: VisitorMode) = if (m == VisitorMode.EXPLORE) "Explore" else "Navigate"
+
     override fun onCleared() {
         cancelStart()
+        logPositioningStop()
         positioning.stop()
         phone.stop()
         ar.close()

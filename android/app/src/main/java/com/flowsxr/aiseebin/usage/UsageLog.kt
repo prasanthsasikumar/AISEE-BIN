@@ -21,6 +21,11 @@ import java.util.concurrent.TimeUnit
 /** The app's usage log, set up in `AiseeApp.onCreate` (main process only). */
 object Usage {
     lateinit var log: UsageLog
+
+    /** Fire-and-forget `log`, safe where the log may not exist (a non-main process, a unit test). */
+    fun record(type: String, data: JSONObject = JSONObject()) {
+        if (::log.isInitialized) log.log(type, data)
+    }
 }
 
 /**

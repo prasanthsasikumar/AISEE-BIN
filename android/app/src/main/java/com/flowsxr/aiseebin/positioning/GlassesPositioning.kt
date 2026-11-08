@@ -23,6 +23,9 @@ import java.io.File
 
 data class Fix(val position: Vec2, val heading: Float, val atMillis: Long, val mapId: Int?)
 
+/** One localization request, for `loc.attempt`: [ok] means Immersal returned a usable pose, [accepted] that it then moved the visitor; [jump] (metres) is null with nothing to jump from. */
+data class LocAttempt(val localizer: String, val result: LocalizeResult, val ok: Boolean, val jump: Float?, val accepted: Boolean)
+
 data class PositioningState(
     val running: Boolean = false,
     val attempts: Int = 0,
@@ -62,6 +65,7 @@ class GlassesPositioning(
 
     /** Called on the positioning thread after every attempt, with a one-line summary. */
     var onAttempt: ((String) -> Unit)? = null
+    var onLocAttempt: ((LocAttempt) -> Unit)? = null
 
     private var job: Job? = null
 
@@ -121,6 +125,7 @@ class GlassesPositioning(
             "${result.latencyMs} ms ${result.requestBytes} B")
         val planar = result.pose?.takeIf { result.success }?.let { ImmersalPose.planar(it) }
         if (planar == null) {
+            onLocAttempt?.invoke(LocAttempt(label, result, ok = false, jump = null, accepted = false))
             _state.update {
                 it.copy(
                     attempts = it.attempts + 1,
@@ -135,7 +140,11 @@ class GlassesPositioning(
         }
         val position = alignment.toGraph(Vec2(planar.x, planar.z), result.mapId)
         val walkedNow = walked()
-        val (believed, jump) = synchronized(gate) { gate.evaluate(position, walkedNow) to gate.lastJump }
+        val (believed, jump, hadAnchor) = synchronized(gate) {
+            val had = gate.isAnchored
+            Triple(gate.evaluate(position, walkedNow), gate.lastJump, had)
+        }
+        onLocAttempt?.invoke(LocAttempt(label, result, ok = true, jump = if (hadAnchor) jump else null, accepted = believed))
         if (!believed) {
             onAttempt?.invoke("fix rejected: jumped %.1f m, walked %.1f m".format(jump, walkedNow))
             _state.update {

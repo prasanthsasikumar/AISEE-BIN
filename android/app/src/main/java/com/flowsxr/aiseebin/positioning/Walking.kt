@@ -30,6 +30,9 @@ class FixGate(private val slack: Float = 1.5f, private val maxRejections: Int = 
         return false
     }
 
+    /** Whether a fix has been believed yet, i.e. [lastJump] means something. */
+    val isAnchored: Boolean get() = anchor != null
+
     fun reset() { anchor = null; consecutiveRejections = 0; lastJump = 0f }
 
     private fun accept(position: Vec2, walked: Float) {

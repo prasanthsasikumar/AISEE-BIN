@@ -150,6 +150,7 @@ class ImmersalMapCache(root: File) {
 
     fun has(id: Int) = file(id).length() > MIN_BYTES
     fun bytes(id: Int): ByteArray? = file(id).takeIf { it.length() > MIN_BYTES }?.readBytes()
+    fun size(id: Int): Long = file(id).length()
     fun delete(id: Int) { file(id).delete() }
     fun cachedIds(): List<Int> = dir.listFiles()?.mapNotNull { it.name.removeSuffix(".bytes").toIntOrNull() }?.sorted().orEmpty()
 

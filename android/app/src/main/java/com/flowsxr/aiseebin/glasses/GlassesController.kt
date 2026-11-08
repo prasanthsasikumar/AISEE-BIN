@@ -1,5 +1,7 @@
 package com.flowsxr.aiseebin.glasses
 
+import com.flowsxr.aiseebin.usage.Usage
+import com.flowsxr.aiseebin.usage.usageData
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
 import android.content.Context
@@ -157,7 +159,23 @@ class GlassesController(context: Context, private val scope: CoroutineScope) {
         connect(address, prefs.getString(KEY_NAME, null) ?: address)
     }
 
+    /** `glasses.connect` / `glasses.disconnect` go out once per connection; SDK callbacks may arrive on any thread. */
+    private var loggedConnected = false
+
+    @Synchronized private fun logConnected() {
+        if (loggedConnected) return
+        loggedConnected = true
+        Usage.record("glasses.connect", usageData("battery" to _state.value.battery))
+    }
+
+    @Synchronized private fun logDisconnected(reason: String) {
+        if (!loggedConnected) return
+        loggedConnected = false
+        Usage.record("glasses.disconnect", usageData("reason" to reason))
+    }
+
     fun disconnect() {
+        logDisconnected("user")
         if (_state.value.stream != Stream.OFF) stopStream()
         val err = client?.connectionManager?.disconnect() ?: connection?.disconnect()
         say("disconnect → ${err?.code}")
@@ -195,6 +213,7 @@ class GlassesController(context: Context, private val scope: CoroutineScope) {
                     // The glasses are gone; tear down our side of the stream (player
                     // service, its Wi-Fi request, the frame tap) without talking to them.
                     connectTimeout?.cancel()
+                    logDisconnected("lost")
                     teardownLocal()
                     _state.update { it.copy(link = Link.DISCONNECTED, battery = null) }
                     disconnectQuietly()
@@ -224,6 +243,7 @@ class GlassesController(context: Context, private val scope: CoroutineScope) {
             super.onSmartWearDeviceInitSuccess()
             say("glasses initialised")
             _state.update { it.copy(link = Link.READY) }
+            logConnected()
             client?.getBudInfo()
             client?.getDeviceBatteryInfo()
         }
@@ -233,6 +253,7 @@ class GlassesController(context: Context, private val scope: CoroutineScope) {
             say("glasses init failed")
             // Still usable for streaming in the reference app; keep going.
             _state.update { it.copy(link = Link.READY, error = "Glasses reported an init failure") }
+            logConnected()
         }
 
         override fun onReceivedDeviceBatteryInfo(primaryBattery: Int, secondaryBattery: Int) {

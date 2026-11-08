@@ -35,6 +35,7 @@ class PhonePositioning(private val scope: CoroutineScope) {
     /** Every position, on the main thread: Immersal fixes and the ARCore motion between them. */
     var onFix: ((Fix) -> Unit)? = null
     var onAttempt: ((String) -> Unit)? = null
+    var onLocAttempt: ((LocAttempt) -> Unit)? = null
 
     private val anchor = PlanarAnchor()
     @Volatile private var localizer: Localizer? = null
@@ -111,17 +112,21 @@ class PhonePositioning(private val scope: CoroutineScope) {
         val planar = result.pose?.takeIf { result.success }?.let { ImmersalPose.planar(it) }
         var accepted = false
         var jump = 0f
+        var hadAnchor = false
         if (planar != null) {
             val graph = FloorPose(
                 alignment.toGraph(Vec2(planar.x, planar.z), result.mapId),
                 alignment.toGraphHeading(planar.heading, result.mapId),
             )
             synchronized(anchor) {
+                hadAnchor = anchor.isAnchored
                 accepted = anchor.update(graph, session)
                 jump = anchor.lastJump
             }
             if (accepted) lastMapId = result.mapId
         }
+        onLocAttempt?.invoke(LocAttempt(localizer?.label ?: _state.value.localizer.orEmpty(), result,
+            ok = planar != null, jump = if (planar != null && hadAnchor) jump else null, accepted = accepted))
         val counts = synchronized(anchor) { anchor.fixes to anchor.rejected }
         _state.update {
             it.copy(

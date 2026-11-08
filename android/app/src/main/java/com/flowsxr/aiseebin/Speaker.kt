@@ -8,6 +8,8 @@ import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
+import com.flowsxr.aiseebin.usage.Usage
+import com.flowsxr.aiseebin.usage.usageData
 import java.util.Locale
 
 /**
@@ -29,7 +31,8 @@ class Speaker(context: Context) {
         .build()
 
     private var ready = false
-    private val queue = ArrayDeque<String>()
+    private class Item(val text: String, val interrupt: Boolean)
+    private val queue = ArrayDeque<Item>()
     private var player: MediaPlayer? = null
     private var currentId: String? = null
     private var nextId = 0
@@ -63,7 +66,7 @@ class Speaker(context: Context) {
     fun say(text: String, interrupt: Boolean = true) {
         main.post {
             if (interrupt) stopNow()
-            queue.addLast(text)
+            queue.addLast(Item(text, interrupt))
             if (!busy) next()
         }
     }
@@ -79,17 +82,23 @@ class Speaker(context: Context) {
     }
 
     private fun next() {
-        val text = queue.removeFirstOrNull() ?: return
-        if (playClip(text)) return
+        val item = queue.removeFirstOrNull() ?: return
+        val text = item.text
+        if (playClip(text)) { logSaid(item, "clip"); return }
         if (!ready) {
             // Wait for TextToSpeech; init posts next() when it is up.
-            queue.addFirst(text)
+            queue.addFirst(item)
             return
         }
+        logSaid(item, "system")
         val id = "u${nextId++}"
         currentId = id
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
     }
+
+    /** `speech.said` as the phrase starts: queued phrases cut off by an interrupt were never said and are not logged. */
+    private fun logSaid(item: Item, voice: String) =
+        Usage.record("speech.said", usageData("text" to item.text, "voice" to voice, "interrupt" to item.interrupt))
 
     private fun playClip(text: String): Boolean {
         val fd = clips.open(text) ?: return false
