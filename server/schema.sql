@@ -161,7 +161,9 @@ select
   (count(*) filter (where e.type = 'speech.heard'))::int as utterances,
   (count(*) filter (where e.type = 'nav.arrived'))::int as arrivals,
   (count(*) filter (where e.type = 'nav.cancel'))::int as cancels,
-  (count(*) filter (where e.type = 'loc.attempt' and (e.data->>'ok') = 'true'))::int as fixes,
+  -- A fix is an accepted one: ok, and not rejected by the jump gate (accepted false).
+  (count(*) filter (where e.type = 'loc.attempt' and (e.data->>'ok') = 'true'
+                    and coalesce(e.data->>'accepted', 'true') <> 'false'))::int as fixes,
   (count(*) filter (where e.type = 'loc.attempt'))::int as attempts,
   (count(*) filter (where e.type = 'error'))::int as errors
 from public.ab_events e

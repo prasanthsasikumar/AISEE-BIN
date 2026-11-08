@@ -2042,12 +2042,23 @@ function setHere(ms, { scroll }) {
   r.tl.forEach((row, i) => { if (row.ms <= ms) active = i; });
   for (const li of $('timeline').querySelectorAll('li.active')) li.classList.remove('active');
   const li = $('timeline').querySelector(`li[data-i="${active}"]`);
-  if (li) { li.classList.add('active'); if (scroll) li.scrollIntoView({ block: 'nearest' }); }
+  if (li) { li.classList.add('active'); if (scroll) scrollTimelineTo(li); }
   const gap = best ? Math.abs(best.ms - ms) / 1000 : null;
   $('replayMapNote').textContent = !r.poses.length ? 'No positions were recorded in this session.'
     : gap > 5 ? `No position at this moment; the marker is the nearest, ${Sessions.duration(gap)} ${best.ms < ms ? 'earlier' : 'later'}.` : '';
   $('replayMapNote').hidden = !$('replayMapNote').textContent;
   drawReplay();
+}
+
+/// Brings a timeline row into view inside the timeline only. On a phone the
+/// timeline is not its own scroll box (the page is), and scrolling the page
+/// mid-drag would carry the scrubber off screen, so it is left alone there.
+function scrollTimelineTo(li) {
+  const box = $('timeline');
+  if (getComputedStyle(box).overflowY === 'visible') return;
+  const r = li.getBoundingClientRect(), b = box.getBoundingClientRect();
+  if (r.top < b.top) box.scrollTop -= b.top - r.top;
+  else if (r.bottom > b.bottom) box.scrollTop += r.bottom - b.bottom;
 }
 
 function resizeReplay() {
