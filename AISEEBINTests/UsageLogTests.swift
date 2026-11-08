@@ -43,9 +43,14 @@ final class UsageLogTests: XCTestCase {
                       app_version: "1.0 (1)", build_config: "debug", simulator: true, staff: false, started_at: clock)
     }
 
-    private func makeLog(_ uploader: UsageUploading, header: SessionHeader? = nil) -> UsageLog {
-        UsageLog(directory: directory, uploader: uploader, now: { [unowned self] in self.clock }, header: header ?? self.header())
+    private func makeLog(_ uploader: UsageUploading, header: SessionHeader? = nil,
+                         staff: (() -> Bool)? = nil) -> UsageLog {
+        UsageLog(directory: directory, uploader: uploader, now: { [unowned self] in self.clock },
+                 header: header ?? self.header(), staff: staff)
     }
+
+    /// What is still on disk, oldest first.
+    private func queued() -> [Data] { (try? UsageQueue(directory: directory).peekBatch(max: 100)) ?? [] }
 
     private func stubbedUploader() -> UsageUploader {
         let configuration = URLSessionConfiguration.ephemeral
@@ -98,11 +103,11 @@ final class UsageLogTests: XCTestCase {
         TestURLStub.stub = (500, "boom")
         await log.flush()
         // One header line plus three events still on disk.
-        XCTAssertEqual(UsageQueue(directory: directory).peekBatch(max: 100).count, 4)
+        XCTAssertEqual(queued().count, 4)
 
         TestURLStub.stub = (201, "")
         await log.flush()
-        XCTAssertTrue(UsageQueue(directory: directory).peekBatch(max: 100).isEmpty)
+        XCTAssertTrue(queued().isEmpty)
     }
 
     func testRetryIsIdempotent() async {
@@ -127,7 +132,7 @@ final class UsageLogTests: XCTestCase {
         log.log("bad")
         TestURLStub.stub = (400, "invalid input")
         await log.flush()
-        XCTAssertTrue(UsageQueue(directory: directory).peekBatch(max: 100).isEmpty, "a permanent 4xx drops the batch")
+        XCTAssertTrue(queued().isEmpty, "a permanent 4xx drops the batch")
 
         log.log("good")
         TestURLStub.reset()
@@ -135,7 +140,7 @@ final class UsageLogTests: XCTestCase {
         await log.flush()
         XCTAssertEqual(TestURLStub.urlRequests.count, 1, "only the new event, no retry of the rejected batch")
         XCTAssertTrue(TestURLStub.urlRequests[0].url!.absoluteString.contains("ab_events"))
-        XCTAssertTrue(UsageQueue(directory: directory).peekBatch(max: 100).isEmpty)
+        XCTAssertTrue(queued().isEmpty)
     }
 
     func testRetryableErrorsKeepBatch() async {
@@ -144,7 +149,7 @@ final class UsageLogTests: XCTestCase {
         for status in [408, 429, 503] {
             TestURLStub.stub = (status, "")
             await log.flush()
-            XCTAssertEqual(UsageQueue(directory: directory).peekBatch(max: 100).count, 2, "status \(status)")
+            XCTAssertEqual(queued().count, 2, "status \(status)")
         }
     }
 
@@ -160,7 +165,7 @@ final class UsageLogTests: XCTestCase {
         let reopened = makeLog(working)
         await reopened.flush()
         XCTAssertEqual(working.events.map(\.type), ["e5", "e6", "e7", "e8", "e9"])
-        XCTAssertEqual(UsageLog.maxQueueLines, 50_000)
+        XCTAssertEqual(UsageLog.maxQueueLines, 200_000)
     }
 
     func testNewSessionAfterLongBackground() async {
@@ -210,7 +215,11 @@ final class UsageLogTests: XCTestCase {
     }
 
     func testCleanExitNotReported() async {
-        let firstLog = makeLog(FakeUploader())
+        // The first log's background flush runs on its own and would otherwise
+        // race the second log for the shared queue file; failing, it drops nothing.
+        let failing = FakeUploader()
+        failing.failing = true
+        let firstLog = makeLog(failing)
         firstLog.appDidLaunch()
         firstLog.appDidEnterBackground()
         _ = firstLog.sessionID
@@ -241,5 +250,171 @@ final class UsageLogTests: XCTestCase {
 
         let decoded = try JSONDecoder().decode(UsageValue.self, from: JSONEncoder().encode(["k": UsageValue.string("v")]))
         XCTAssertEqual(decoded, .object(["k": .string("v")]))
+    }
+
+    // MARK: - New sessions
+
+    func testNewSessionHookRelogsContextRightAfterForeground() async {
+        let uploader = FakeUploader()
+        let log = makeLog(uploader)
+        var calls = 0
+        log.onNewSession = {
+            calls += 1
+            log.log("map.loaded", ["slug": "dome", "source": "cache", "ms": 0])
+            log.log("mode.enter", ["mode": "Navigate"])
+        }
+        log.appDidLaunch()
+        log.appDidEnterBackground()
+        clock += 10
+        log.appDidEnterForeground()
+        XCTAssertEqual(calls, 0, "not at launch, not after a short background")
+
+        log.appDidEnterBackground()
+        clock += 301
+        log.appDidEnterForeground()
+        log.log("pose", ["x": 1, "z": 2])
+        XCTAssertEqual(calls, 1)
+        await log.flush()
+
+        let second = uploader.events.filter { $0.session_id == log.sessionID }
+        XCTAssertEqual(second.map(\.type), ["app.foreground", "map.loaded", "mode.enter", "pose"])
+        XCTAssertEqual(second.map(\.seq), [0, 1, 2, 3])
+        XCTAssertEqual(second[1].data["slug"], "dome")
+    }
+
+    func testStaffFlagReadForEachNewSession() async {
+        let uploader = FakeUploader()
+        var staff = false
+        let first = SessionHeader(session_id: UUID(), install_id: "install", platform: "ios", device: "test",
+                                  os_version: "17.0", app_version: "1.0 (1)", build_config: "debug",
+                                  simulator: true, staff: true, started_at: clock)
+        let log = makeLog(uploader, header: first, staff: { staff })
+        log.appDidLaunch()
+        let firstID = log.sessionID
+        log.appDidEnterBackground()
+        staff = false
+        clock += 301
+        log.appDidEnterForeground()
+        let secondID = log.sessionID
+        log.appDidEnterBackground()
+        staff = true
+        clock += 301
+        log.appDidEnterForeground()
+        let thirdID = log.sessionID
+        await log.flush()
+
+        let byID = Dictionary(uniqueKeysWithValues: uploader.sessions.map { ($0.session_id, $0.staff) })
+        XCTAssertEqual(byID[firstID], true, "the first header as given")
+        XCTAssertEqual(byID[secondID], false)
+        XCTAssertEqual(byID[thirdID], true)
+    }
+
+    func testCurrentHeaderReadsStoredStaffFlag() {
+        let defaults = UserDefaults.standard
+        let saved = defaults.object(forKey: SessionHeader.staffDefaultsKey)
+        defer { defaults.set(saved, forKey: SessionHeader.staffDefaultsKey) }
+        defaults.set(true, forKey: SessionHeader.staffDefaultsKey)
+        XCTAssertTrue(SessionHeader.current().staff)
+        defaults.set(false, forKey: SessionHeader.staffDefaultsKey)
+        XCTAssertFalse(SessionHeader.current().staff)
+        XCTAssertEqual(SessionHeader.staffDefaultsKey, "staff.mode")
+    }
+
+    // MARK: - Queue
+
+    private func line(_ i: Int) -> Data { Data("{\"i\":\(i),\"pad\":\"\(String(repeating: "x", count: 40))\"}".utf8) }
+    private func index(_ data: Data) -> Int {
+        (try! JSONSerialization.jsonObject(with: data) as! [String: Any])["i"] as! Int
+    }
+
+    func testLargeBacklogDrainsWithFewRewrites() throws {
+        var compactions = 0
+        let queue = UsageQueue(directory: directory, onCompact: { compactions += 1 })
+        for i in 0..<20_000 { try queue.append(line(i)) }
+        var seen: [Int] = []
+        while true {
+            let batch = try queue.peekBatch(max: UsageLog.batchSize)
+            if batch.isEmpty { break }
+            seen += batch.map(index)
+            try queue.drop(count: batch.count)
+        }
+        XCTAssertEqual(seen, Array(0..<20_000))
+        XCTAssertLessThanOrEqual(compactions, 8, "40 batches, file rewritten only when over half consumed")
+        XCTAssertGreaterThan(compactions, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: queue.file.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: queue.offsetFile.path))
+    }
+
+    func testOffsetAndCompactionSurviveReopen() throws {
+        var compactions = 0
+        let first = UsageQueue(directory: directory, onCompact: { compactions += 1 })
+        for i in 0..<10 { try first.append(line(i)) }
+        let size = try FileManager.default.attributesOfItem(atPath: first.file.path)[.size] as! NSNumber
+        try first.drop(count: 3)
+        XCTAssertEqual(compactions, 0, "under half consumed: only the offset moves")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: first.offsetFile.path))
+        XCTAssertEqual((try FileManager.default.attributesOfItem(atPath: first.file.path)[.size] as! NSNumber), size,
+                       "file not rewritten")
+
+        let second = UsageQueue(directory: directory, onCompact: { compactions += 1 })
+        XCTAssertEqual(try second.peekBatch(max: 100).map(index), Array(3..<10))
+        try second.drop(count: 3)
+        XCTAssertEqual(compactions, 1, "over half consumed: compacted")
+        XCTAssertEqual(try String(contentsOf: second.offsetFile, encoding: .utf8), "0")
+
+        let third = UsageQueue(directory: directory)
+        XCTAssertEqual(try third.peekBatch(max: 100).map(index), Array(6..<10))
+        try third.append(line(10))
+        XCTAssertEqual(try third.peekBatch(max: 100).map(index), Array(6..<11))
+    }
+
+    func testCapTrimMovesOffset() throws {
+        let queue = UsageQueue(directory: directory)
+        for i in 0..<100 { try queue.append(line(i)) }
+        XCTAssertEqual(try queue.trim(keepingLast: 60), 40)
+        XCTAssertEqual(try queue.peekBatch(max: 1000).map(index), Array(40..<100))
+        XCTAssertEqual(try queue.trim(keepingLast: 60), 0)
+    }
+
+    func testReadErrorNeverEmptiesTheQueue() throws {
+        let queue = UsageQueue(directory: directory)
+        for i in 0..<3 { try queue.append(line(i)) }
+        let before = try Data(contentsOf: queue.file)
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: queue.file.path)
+        XCTAssertThrowsError(try queue.drop(count: 1))
+        XCTAssertThrowsError(try queue.peekBatch(max: 10))
+        XCTAssertThrowsError(try queue.trim(keepingLast: 0))
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: queue.file.path)
+        XCTAssertEqual(try Data(contentsOf: queue.file), before, "queue untouched by the failed reads")
+        XCTAssertEqual(try queue.peekBatch(max: 10).count, 3)
+    }
+
+    func testAppendNeverReplacesAnExistingQueue() throws {
+        let queue = UsageQueue(directory: directory)
+        for i in 0..<3 { try queue.append(line(i)) }
+        let before = try Data(contentsOf: queue.file)
+        try FileManager.default.setAttributes([.posixPermissions: 0o444], ofItemAtPath: queue.file.path)
+        XCTAssertThrowsError(try queue.append(line(3)), "an existing file that cannot be opened is an error, not a rewrite")
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: queue.file.path)
+        XCTAssertEqual(try Data(contentsOf: queue.file), before)
+    }
+
+    func testAppendAfterCrashStartsOnFreshLine() throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let queue = UsageQueue(directory: directory)
+        try Data("{\"i\":0}\n{\"i\":1,\"trunc".utf8).write(to: queue.file)
+        try queue.append(line(2))
+        let lines = try queue.peekBatch(max: 10)
+        XCTAssertEqual(lines.count, 3)
+        XCTAssertEqual(String(data: lines[1], encoding: .utf8), "{\"i\":1,\"trunc")
+        XCTAssertEqual(index(lines[2]), 2, "the new line is whole")
+    }
+
+    func testStaleOffsetIgnoredForNewFile() throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let queue = UsageQueue(directory: directory)
+        try Data("999".utf8).write(to: queue.offsetFile)
+        try queue.append(line(0))
+        XCTAssertEqual(try queue.peekBatch(max: 10).map(index), [0])
     }
 }

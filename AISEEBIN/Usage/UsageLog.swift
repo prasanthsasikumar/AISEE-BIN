@@ -19,20 +19,22 @@ protocol UsageLogging {
 /// errors go to `os.Logger` instead.
 final class UsageLog: UsageLogging, @unchecked Sendable {
     static let shared = UsageLog(directory: UsageQueue.defaultDirectory, uploader: UsageUploader(),
-                                 now: Date.init, header: .current())
+                                 now: Date.init, header: .current(), staff: SessionHeader.storedStaff)
 
     static let sessionTimeout: TimeInterval = 300
     static let batchSize = 500
     static let flushInterval: TimeInterval = 30
     /// Queue lines kept while uploads fail; older lines are dropped past this.
-    /// About 14 hours of 1 Hz pose samples, a few MB on disk.
-    static let maxQueueLines = 50_000
+    /// With positioning running the app logs about 2.7 lines a second (pose,
+    /// loc.attempt, diag, speech), so this is about 20 hours, a few tens of MB.
+    static let maxQueueLines = 200_000
 
     private let queue = DispatchQueue(label: "com.flowsxr.aiseebin.usage")
     private let store: UsageQueue
     private let uploader: UsageUploading
     private let now: () -> Date
     private let maxQueueLines: Int
+    private let staff: (() -> Bool)?
     private let logger = Logger(subsystem: "com.flowsxr.aiseebin", category: "usage")
     private var marker: URL { store.directory.appendingPathComponent("running") }
 
@@ -49,14 +51,22 @@ final class UsageLog: UsageLogging, @unchecked Sendable {
     private let flushLock = NSLock()
     private var lastFlush: Task<Void, Never>?
 
+    /// Called when coming back from a long background has started a new
+    /// session, right after its `app.foreground` is recorded, on the thread
+    /// that called `appDidEnterForeground` (the main thread in the app). The
+    /// app re-logs what the new session would otherwise not know: the map, the
+    /// mode and any positioning run. Set it before the first foreground.
+    var onNewSession: (() -> Void)?
+
     /// `header` describes the first session; later sessions copy it with a fresh
-    /// id and start time.
+    /// id and start time, and `staff` (when given) as it is then.
     init(directory: URL, uploader: UsageUploading, now: @escaping () -> Date, header: SessionHeader,
-         maxQueueLines: Int = UsageLog.maxQueueLines) {
-        store = UsageQueue(directory: directory)
+         maxQueueLines: Int = UsageLog.maxQueueLines, staff: (() -> Bool)? = nil, onCompact: (() -> Void)? = nil) {
+        store = UsageQueue(directory: directory, onCompact: onCompact)
         self.uploader = uploader
         self.now = now
         self.maxQueueLines = maxQueueLines
+        self.staff = staff
         template = header
         session = header
         foregroundSince = now()
@@ -86,19 +96,27 @@ final class UsageLog: UsageLogging, @unchecked Sendable {
     }
 
     /// Logs `app.foreground` after a real trip to the background (the first
-    /// `.active` at launch is not one), starting a new session after a long one.
+    /// `.active` at launch is not one), starting a new session after a long one;
+    /// then `onNewSession` runs. Waits for the queue (a few file writes), so
+    /// the hook's events follow `app.foreground` directly.
     func appDidEnterForeground() {
         let t = now()
-        queue.async {
+        let startedSession: Bool = queue.sync {
+            var started = false
             if let since = self.backgroundSince {
-                if t.timeIntervalSince(since) > Self.sessionTimeout { self.startSession(at: t) }
+                if t.timeIntervalSince(since) > Self.sessionTimeout {
+                    self.startSession(at: t)
+                    started = true
+                }
                 self.foregroundSince = t
                 self.backgroundSince = nil
                 self.record("app.foreground", [:], at: t)
             }
             self.writeMarker()
             self.startTimer()
+            return started
         }
+        if startedSession { onNewSession?() }
     }
 
     func appDidEnterBackground() {
@@ -154,6 +172,7 @@ final class UsageLog: UsageLogging, @unchecked Sendable {
         session = template
         session.session_id = UUID()
         session.started_at = t
+        if let staff { session.staff = staff() }
         headerQueued = false
         nextSeq = 0
     }
@@ -199,7 +218,13 @@ final class UsageLog: UsageLogging, @unchecked Sendable {
             } catch { self.logger.error("usage queue trim failed: \(error.localizedDescription, privacy: .public)") }
         }
         while true {
-            let batch = await onQueue { self.store.peekBatch(max: Self.batchSize) }
+            let read: Result<[Data], Error> = await onQueue { Result { try self.store.peekBatch(max: Self.batchSize) } }
+            guard case .success(let batch) = read else {
+                if case .failure(let error) = read {
+                    logger.error("usage queue read failed: \(error.localizedDescription, privacy: .public)")
+                }
+                return
+            }
             if batch.isEmpty { return }
             var sessions: [SessionHeader] = []
             var events: [QueuedEvent] = []
@@ -221,10 +246,11 @@ final class UsageLog: UsageLogging, @unchecked Sendable {
                 logger.error("usage upload failed, keeping \(batch.count) lines: \(error.localizedDescription, privacy: .public)")
                 return
             }
-            await onQueue {
-                do { try self.store.drop(count: batch.count) }
-                catch { self.logger.error("usage queue drop failed: \(error.localizedDescription, privacy: .public)") }
+            let dropped: Bool = await onQueue {
+                do { try self.store.drop(count: batch.count); return true }
+                catch { self.logger.error("usage queue drop failed: \(error.localizedDescription, privacy: .public)"); return false }
             }
+            if !dropped { return }
             if batch.count < Self.batchSize { return }
         }
     }
@@ -281,6 +307,12 @@ private final class BackgroundTask {
 }
 
 extension SessionHeader {
+    /// The app's staff-mode switch (`NavigationViewModel.isStaff`).
+    static let staffDefaultsKey = "staff.mode"
+
+    /// Staff mode as last saved; read when a session starts.
+    @Sendable static func storedStaff() -> Bool { UserDefaults.standard.bool(forKey: staffDefaultsKey) }
+
     /// This device and build, starting now with a fresh session id.
     static func current() -> SessionHeader {
         #if DEBUG
@@ -296,6 +328,6 @@ extension SessionHeader {
         return SessionHeader(session_id: UUID(), install_id: ExploreConfig.installID, platform: "ios",
                              device: FieldTestClient.deviceName, os_version: UIDevice.current.systemVersion,
                              app_version: FieldTestClient.appVersion, build_config: config,
-                             simulator: simulator, staff: false, started_at: Date())
+                             simulator: simulator, staff: storedStaff(), started_at: Date())
     }
 }

@@ -11,6 +11,7 @@ final class UsageInstrumentationTests: XCTestCase {
         var events: [(type: String, data: [String: UsageValue])] { lock.withLock { _events } }
         func log(_ type: String, _ data: [String: UsageValue]) { lock.withLock { _events.append((type, data)) } }
         func types() -> [String] { events.map(\.type) }
+        func clear() { lock.withLock { _events.removeAll() } }
     }
 
     func testModeChangeLogsLeaveAndEnter() {
@@ -23,6 +24,43 @@ final class UsageInstrumentationTests: XCTestCase {
         XCTAssertEqual(fake.events[0].data["mode"], "Navigate")
         XCTAssertNotNil(fake.events[0].data["seconds"])
         XCTAssertEqual(fake.events[1].data["mode"], "Explore")
+    }
+
+    func testLaunchLogsExactlyOneModeEnter() {
+        let fake = FakeUsage()
+        let vm = NavigationViewModel(map: SampleGreenhouseMap.map, usage: fake)
+        XCTAssertEqual(fake.types(), ["mode.enter"], "no mode.leave/mode.enter from the init assignment")
+        XCTAssertEqual(fake.events[0].data["mode"], .string(vm.mode.rawValue))
+        vm.mode = vm.mode == .explore ? .navigation : .explore
+        XCTAssertEqual(fake.types(), ["mode.enter", "mode.leave", "mode.enter"], "later changes still logged")
+    }
+
+    func testNewSessionContextRelogsMapModeAndPositioning() {
+        let fake = FakeUsage()
+        let vm = NavigationViewModel(map: SampleGreenhouseMap.map, usage: fake)
+        vm.mode = .navigation
+        fake.clear()
+        vm.logSessionContext()
+        XCTAssertEqual(fake.types(), ["map.loaded", "mode.enter"], "no positioning running, none re-logged")
+        XCTAssertEqual(fake.events[0].data["ms"], .number(0))
+        XCTAssertEqual(fake.events[0].data["name"], .string(SampleGreenhouseMap.map.name))
+        XCTAssertEqual(fake.events[0].data["source"], "cache")
+        XCTAssertEqual(fake.events[1].data["mode"], "Navigate")
+
+        let version = LocalMapVersion(version: 4, source: .web, updatedAt: Date(), slug: "flower-dome")
+        let events = NavigationViewModel.sessionContext(map: SampleGreenhouseMap.map, version: version, mapSource: "network",
+                                                        mode: .explore, positioning: ["source": "glasses", "localizer": "cloud"])
+        XCTAssertEqual(events.map(\.0), ["map.loaded", "mode.enter", "positioning.start"])
+        XCTAssertEqual(events[0].1["slug"], "flower-dome")
+        XCTAssertEqual(events[0].1["version"], .number(4))
+        XCTAssertEqual(events[0].1["source"], "cache")
+        XCTAssertEqual(events[0].1["ms"], .number(0))
+        XCTAssertEqual(events[1].1["mode"], "Explore")
+        XCTAssertEqual(events[2].1["source"], "glasses")
+        let bundled = NavigationViewModel.sessionContext(map: SampleGreenhouseMap.map, version: nil, mapSource: "bundle",
+                                                         mode: .navigation, positioning: nil)
+        XCTAssertEqual(bundled[0].1["source"], "bundle")
+        XCTAssertEqual(bundled[0].1["slug"], .null)
     }
 
     func testStaffUnlockAndExitLogged() {

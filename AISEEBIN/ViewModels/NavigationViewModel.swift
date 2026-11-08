@@ -184,6 +184,12 @@ final class NavigationViewModel {
     /// Where usage events go; tests inject a fake.
     @ObservationIgnored var usage: UsageLogging = UsageLog.shared
     @ObservationIgnored private var modeSince = Date()
+    /// False during init: the launch's one `mode.enter` is logged explicitly,
+    /// not from `mode`'s didSet (which @Observable runs for init assignments).
+    @ObservationIgnored private var logsModeChanges = false
+    /// Where the current map came from ("bundle", "cache", "network"), for
+    /// the `map.loaded` a new session repeats.
+    @ObservationIgnored private var mapSource = "bundle"
     /// The source whose `positioning.start` has no `positioning.stop` yet.
     @ObservationIgnored private var loggedPositioning: PositioningSource?
     /// `pose` at 1 Hz from the per-frame path.
@@ -200,8 +206,8 @@ final class NavigationViewModel {
     }
     /// Staff mode: Home, authoring and the developer settings. Off, the phone
     /// shows visitors only their mode; five taps on the logo turn it on.
-    var isStaff: Bool = UserDefaults.standard.bool(forKey: "staff.mode") {
-        didSet { UserDefaults.standard.set(isStaff, forKey: "staff.mode") }
+    var isStaff: Bool = UserDefaults.standard.bool(forKey: SessionHeader.staffDefaultsKey) {
+        didSet { UserDefaults.standard.set(isStaff, forKey: SessionHeader.staffDefaultsKey) }
     }
     /// What this phone hands visitors: the welcome screen with both paths
     /// (the default), or straight into Navigate or Explore.
@@ -333,7 +339,9 @@ final class NavigationViewModel {
          guidance: GuidanceManager? = nil,
          recognizer: VoiceCommandRecognizer? = nil,
          glasses: GlassesService? = nil,
-         glassesPositioning: GlassesPositioning? = nil) {
+         glassesPositioning: GlassesPositioning? = nil,
+         usage: UsageLogging = UsageLog.shared) {
+        self.usage = usage
         self.thresholds = thresholds
         self.mapStore = mapStore
         self.arManager = arManager ?? ARNavigationManager(mapStore: mapStore)
@@ -371,11 +379,37 @@ final class NavigationViewModel {
         } else {
             self.mode = visitorMode
         }
+        mapSource = map != nil ? "injected" : storedMap == nil ? "bundle" : "cache"
         if map == nil {
             usage.log("map.loaded", Self.mapLoadedData(map: initialMap, version: localVersion,
-                                                       source: storedMap == nil ? "bundle" : "cache", since: loadStart))
+                                                       source: mapSource, since: loadStart))
         }
         usage.log("mode.enter", ["mode": .string(self.mode.rawValue)])
+        modeSince = Date()
+        logsModeChanges = true
+    }
+
+    /// A new usage session (after a long background) starts with only
+    /// `app.foreground`; this repeats the context its replay needs: the map
+    /// (`ms` 0, from memory), the mode, and the positioning run if one is open.
+    func logSessionContext() {
+        for (type, data) in Self.sessionContext(map: baseMap, version: localVersion, mapSource: mapSource, mode: mode,
+                                                positioning: loggedPositioning.map { positioningStartData($0) }) {
+            usage.log(type, data)
+        }
+        modeSince = Date()
+    }
+
+    /// The events `logSessionContext` logs, in order. `map.loaded` says "cache"
+    /// for any map held on the phone and "bundle" for the built-in sample.
+    static func sessionContext(map: NavigationMap, version: LocalMapVersion?, mapSource: String, mode: AppMode,
+                               positioning: [String: UsageValue]?) -> [(String, [String: UsageValue])] {
+        var data = mapLoadedData(map: map, version: version, source: mapSource == "bundle" ? "bundle" : "cache",
+                                 since: Date())
+        data["ms"] = .number(0)
+        var events: [(String, [String: UsageValue])] = [("map.loaded", data), ("mode.enter", ["mode": .string(mode.rawValue)])]
+        if let positioning { events.append(("positioning.start", positioning)) }
+        return events
     }
 
     private static func mapLoadedData(map: NavigationMap, version: LocalMapVersion?, source: String,
@@ -389,6 +423,15 @@ final class NavigationViewModel {
     // MARK: - Session lifecycle
 
     func startSession() {
+        if let log = usage as? UsageLog {
+            log.onNewSession = { [weak self] in
+                if Thread.isMainThread {
+                    MainActor.assumeIsolated { self?.logSessionContext() }
+                } else {
+                    Task { @MainActor in self?.logSessionContext() }
+                }
+            }
+        }
         arManager.onFrame = { [weak self] snapshot in
             guard let self else { return }
             self.handle(self.anchored(snapshot))
@@ -430,9 +473,7 @@ final class NavigationViewModel {
     private func startPositioning() {
         logPositioningStop()
         loggedPositioning = positioningSource
-        let localizer = positioningSource == .glasses ? glassesPositioning.localizerName : phoneLocalizer.localizerName
-        usage.log("positioning.start", ["source": .string(Self.sourceName(positioningSource)),
-                                        "localizer": .string(localizer.isEmpty ? ImmersalConfig.localizerMode.rawValue : localizer)])
+        usage.log("positioning.start", positioningStartData(positioningSource))
         switch positioningSource {
         case .phone:
             glassesPositioning.stop()
@@ -521,6 +562,12 @@ final class NavigationViewModel {
                 self.observeGlassesConnection()
             }
         }
+    }
+
+    private func positioningStartData(_ source: PositioningSource) -> [String: UsageValue] {
+        let localizer = source == .glasses ? glassesPositioning.localizerName : phoneLocalizer.localizerName
+        return ["source": .string(Self.sourceName(source)),
+                "localizer": .string(localizer.isEmpty ? ImmersalConfig.localizerMode.rawValue : localizer)]
     }
 
     private static func sourceName(_ source: PositioningSource) -> String {
@@ -870,8 +917,8 @@ final class NavigationViewModel {
         baseMap = stored ?? SampleGreenhouseMap.map
         localVersion = mapStore.loadVersion()
         rebuildEngine()
-        usage.log("map.loaded", Self.mapLoadedData(map: baseMap, version: localVersion,
-                                                   source: source ?? (stored == nil ? "bundle" : "cache"), since: start))
+        mapSource = source ?? (stored == nil ? "bundle" : "cache")
+        usage.log("map.loaded", Self.mapLoadedData(map: baseMap, version: localVersion, source: mapSource, since: start))
         startPositioning()
     }
 
@@ -1134,9 +1181,11 @@ final class NavigationViewModel {
 
     private func didChange(mode: AppMode, from previous: AppMode) {
         let now = Date()
-        usage.log("mode.leave", ["mode": .string(previous.rawValue),
-                                 "seconds": .number((now.timeIntervalSince(modeSince) * 10).rounded() / 10)])
-        usage.log("mode.enter", ["mode": .string(mode.rawValue)])
+        if logsModeChanges {
+            usage.log("mode.leave", ["mode": .string(previous.rawValue),
+                                     "seconds": .number((now.timeIntervalSince(modeSince) * 10).rounded() / 10)])
+            usage.log("mode.enter", ["mode": .string(mode.rawValue)])
+        }
         modeSince = now
         if previous == .explore {
             // Hand the session back exactly as Navigate expects it, whichever mode is next.
