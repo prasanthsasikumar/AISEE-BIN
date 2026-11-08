@@ -172,6 +172,7 @@ final class NavigationViewModel {
         didSet {
             guard beaconEnabled != oldValue else { return }
             usage.logSetting("beep_guidance", old: String(oldValue), new: String(beaconEnabled))
+            usage.log("beacon", ["on": .bool(beaconEnabled)])
             UserDefaults.standard.set(beaconEnabled, forKey: "guidance.beacon")
             policy.progressReminderInterval = beaconEnabled ? Self.beaconProgressReminderInterval : thresholds.progressReminderInterval
             if !beaconEnabled {
@@ -185,6 +186,15 @@ final class NavigationViewModel {
     @ObservationIgnored private var modeSince = Date()
     /// The source whose `positioning.start` has no `positioning.stop` yet.
     @ObservationIgnored private var loggedPositioning: PositioningSource?
+    /// `pose` at 1 Hz from the per-frame path.
+    @ObservationIgnored private var poseSampler = PoseSampler()
+    /// The active route's start and the metres walked on it, summed between
+    /// consecutive trusted pose samples.
+    @ObservationIgnored private var routeStartedAt: Date?
+    @ObservationIgnored private var walkedOnRoute: Float = 0
+    @ObservationIgnored private var lastWalkSample: SIMD2<Float>?
+    /// `speech.heard.via`: the microphone the current listen opened.
+    @ObservationIgnored private var listeningVia = "phone"
     var mode: AppMode = .navigation {
         didSet { if mode != oldValue { didChange(mode: mode, from: oldValue) } }
     }
@@ -397,10 +407,14 @@ final class NavigationViewModel {
             feed?.consume(frame)          // lanyard mode; a feed that is not running drops it at the claim
         }
         glassesFeed.onFix = { [weak self] pose, arrivedAt in
-            self?.phoneLocalizer.offer(glassesFix: pose, arrivedAt: arrivedAt)
+            self?.phoneLocalizer.offer(glassesFix: pose, arrivedAt: arrivedAt) ?? GlassesFixOutcome(accepted: false, jump: nil)
         }
         glasses.onKeyPress = { [weak self] action in self?.handle(keyAction: action) }
-        recognizer.onFinalTranscript = { [weak self] text in self?.handle(transcript: text) }
+        recognizer.onFinalTranscript = { [weak self] text in
+            guard let self else { return }
+            self.logHeard(text)
+            self.handle(transcript: text)
+        }
         recognizer.onDidStopListening = { [weak self] in self?.closeGlassesMicrophone() }
         AppCommandBus.shared.handler = { [weak self] command in self?.handle(appCommand: command) }
 
@@ -459,6 +473,7 @@ final class NavigationViewModel {
                     try await glasses.startStreaming()
                 } catch {
                     guidance.speak("The glasses camera did not start. \(error.localizedDescription)", interrupt: true)
+                    guidance.usage.logError("glasses.stream", error)
                 }
             }
             guidance.speak("Using the glasses. Please look around slowly.", interrupt: true)
@@ -480,6 +495,7 @@ final class NavigationViewModel {
                     try await glasses.startStreaming()
                 } catch {
                     guidance.speak("The glasses camera did not start. \(error.localizedDescription)", interrupt: true)
+                    guidance.usage.logError("glasses.stream", error)
                 }
             }
             guidance.speak("Using the phone and the glasses. Please look around slowly.", interrupt: true)
@@ -529,7 +545,7 @@ final class NavigationViewModel {
         if let mode = GlassesMode(source: source) { mode.save() }
         // ARKit pauses under the glasses, so a scan-link walk cannot continue.
         if source == .glasses { scanLinker.stop() }
-        stopNavigation()
+        stopNavigation(reason: "positioning_change")
         pendingDestinationID = nil
         statusMessage = nil
         startPositioning()
@@ -555,6 +571,7 @@ final class NavigationViewModel {
             serverMaps = try await sync.availableMaps()
         } catch {
             mapListError = error.localizedDescription
+            usage.logError("map.list", error)
         }
     }
 
@@ -564,7 +581,7 @@ final class NavigationViewModel {
         guard switchingToSlug == nil else { return }
         switchingToSlug = slug
         defer { switchingToSlug = nil }
-        stopNavigation()
+        stopNavigation(reason: "map_change")
         syncState = .checking
         do {
             guard let remote = try await sync.latestVersion(slug: slug) else {
@@ -576,13 +593,15 @@ final class NavigationViewModel {
             syncState = .upToDate(remote.version)
         } catch {
             syncState = .failed(error.localizedDescription)
+            usage.logError("map.switch", error)
         }
     }
 
     /// The welcome screen's talk button. Its answer picks the path.
     func listenOnWelcome() {
         if !recognizer.isListening {
-            transcriptOverride = { [weak self] text in self?.handleWelcome(transcript: text) }
+            // Heard is logged where the recognizer delivers, so not again here.
+            transcriptOverride = { [weak self] text in self?.routeWelcome(transcript: text) }
         }
         toggleListening()
     }
@@ -590,6 +609,11 @@ final class NavigationViewModel {
     /// A time or a tour goes to Explore's planner; anything else ("take me to
     /// the orchids", "where am I?") is a Navigate command.
     func handleWelcome(transcript: String) {
+        logHeard(transcript)
+        routeWelcome(transcript: transcript)
+    }
+
+    private func routeWelcome(transcript: String) {
         transcriptOverride = nil
         let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
@@ -660,6 +684,7 @@ final class NavigationViewModel {
         } catch {
             print("[AISEE sync] FAILED: \(error)")
             syncState = .failed(error.localizedDescription)
+            usage.logError("map.update", error)
         }
     }
 
@@ -810,7 +835,7 @@ final class NavigationViewModel {
 
     func stopSession() {
         logPositioningStop()
-        stopNavigation()
+        stopNavigation(reason: "session_end")
         arManager.pause()
         glassesPositioning.stop()
         phoneLocalizer.stop()
@@ -838,7 +863,7 @@ final class NavigationViewModel {
     /// `source` is "network" right after an install; otherwise the map comes
     /// from the on-device copy ("cache") or the app bundle's sample.
     private func reloadMapAndRestart(source: String?) {
-        stopNavigation()
+        stopNavigation(reason: "map_change")
         selectedDestination = nil
         let start = Date()
         let stored = mapStore.loadMap()
@@ -861,7 +886,10 @@ final class NavigationViewModel {
         }
 
         let path = engine.findPath(from: engine.name(of: start), to: destination.id)
-        guard !path.isEmpty else {
+        let newTracker = path.isEmpty ? nil : RouteTracker(path: path, thresholds: thresholds)
+        usage.log("nav.request", ["to_id": .string(destination.id), "to_name": .string(destination.name),
+                                  "path_m": newTracker.map { .number(UsageRound.cm(Double($0.remainingDistance(from: position)))) } ?? .null])
+        guard let newTracker else {
             // Distinguish "the map is broken" from "you are standing somewhere odd".
             let destinationConnected = engine.map.edges.contains { $0.from == destination.id || $0.to == destination.id }
             let startName = engine.displayName(of: start)
@@ -873,10 +901,14 @@ final class NavigationViewModel {
             return
         }
 
-        tracker = RouteTracker(path: path, thresholds: thresholds)
+        tracker = newTracker
         policy.reset()
         beaconPolicy.reset()
         isNavigating = true
+        routeStartedAt = Date()
+        walkedOnRoute = 0
+        lastWalkSample = nil
+        usage.log("nav.start", [:])
         hasArrived = false
         arrivedPlaceName = nil
         isOffRoute = false
@@ -899,8 +931,11 @@ final class NavigationViewModel {
         }
     }
 
-    func stopNavigation() {
+    /// `reason` is for `nav.cancel`: "user" unless the app ended the route
+    /// itself ("mode_change", "map_change", "positioning_change", "new_route", "session_end").
+    func stopNavigation(reason: String = "user") {
         guard isNavigating else { return }
+        usage.log("nav.cancel", routeSummary().merging(["reason": .string(reason)]) { $1 })
         isNavigating = false
         tracker = nil
         currentInstruction = nil
@@ -920,7 +955,7 @@ final class NavigationViewModel {
     // MARK: - World map
 
     func resetSession(discardSavedMap: Bool) {
-        stopNavigation()
+        stopNavigation(reason: "map_change")
         if discardSavedMap {
             try? mapStore.deleteAll()
             try? arManager.deleteSavedWorldMap()
@@ -953,14 +988,17 @@ final class NavigationViewModel {
             guidance.play(.nodeReached)       // tactile "I'm listening"
             if positioningSource != .phone, glasses.isConnected {
                 // The phone is in a pocket: listen through the glasses' microphone.
+                listeningVia = "glasses"
                 recognizer.startListening(input: .external)
                 do {
                     try await glasses.startMicrophone { [recognizer] buffer in recognizer.append(buffer) }
                 } catch {
                     recognizer.stopListening(deliver: false)
                     guidance.speak("The glasses microphone did not open.", interrupt: true)
+                    usage.logError("glasses.microphone", error)
                 }
             } else {
+                listeningVia = "phone"
                 recognizer.startListening()
             }
         }
@@ -978,11 +1016,19 @@ final class NavigationViewModel {
         }
         guidance.play(.turnLeft) // short double tap: "got it, thinking"
         let command = commandParser.parse(transcript)
+        logIntent(text: transcript, command: command)
         statusMessage = transcript.isEmpty ? nil : "Heard: “\(transcript)”"
         handle(command: command)
     }
 
     private func handle(appCommand: AppCommand) {
+        switch appCommand {
+        case .startListening:
+            usage.log("speech.intent", ["text": .null, "intent": "listen", "args": ["via": "app_intent"]])
+        case .navigate(let poiID):
+            usage.log("speech.intent", ["text": .null, "intent": "navigate",
+                                        "args": ["poi_id": .string(poiID), "via": "app_intent"]])
+        }
         switch appCommand {
         case .startListening:
             if !recognizer.isListening { toggleListening() }
@@ -1007,7 +1053,7 @@ final class NavigationViewModel {
                 guidance.speak("I don't know that place.", interrupt: true)
                 return
             }
-            stopNavigation()
+            stopNavigation(reason: "new_route")
             selectedDestination = poi
             if localizationStatus.isReliable {
                 startNavigation()
@@ -1094,7 +1140,7 @@ final class NavigationViewModel {
         modeSince = now
         if previous == .explore {
             // Hand the session back exactly as Navigate expects it, whichever mode is next.
-            stopNavigation()
+            stopNavigation(reason: "mode_change")
             quietGuidance = false
             speakCuesWhenQuiet = false
             onArrived = nil
@@ -1102,7 +1148,7 @@ final class NavigationViewModel {
         }
         switch mode {
         case .authoring:
-            stopNavigation()
+            stopNavigation(reason: "mode_change")
             recognizer.stopListening(deliver: false)
             guidance.stopSpeaking()
         case .navigation:
@@ -1115,7 +1161,7 @@ final class NavigationViewModel {
             if previous == .authoring { reloadMapAndRestart() }
         case .welcome:
             // Back to the start: whatever path was running ends here.
-            stopNavigation()
+            stopNavigation(reason: "mode_change")
             if previous == .authoring { reloadMapAndRestart() }
         }
     }
@@ -1141,6 +1187,7 @@ final class NavigationViewModel {
 
         let position = NavigationGeometry.planarPosition(of: snapshot.cameraTransform)
         let heading = NavigationGeometry.heading(of: snapshot.cameraTransform)
+        if poseSampler.shouldSample(at: Date()) { logPose(position: position, heading: heading, snapshot: snapshot) }
 
         if snapshot.trackingReliable {
             startPendingNavigationIfNeeded()
@@ -1153,6 +1200,7 @@ final class NavigationViewModel {
         // during relocalization the pose can jump arbitrarily.
         let event: RouteEvent = snapshot.trackingReliable ? tracker.update(position: position) : .none
         self.tracker = tracker
+        if case .reachedNode(let id) = event { usage.log("nav.waypoint", ["id": .string(id)]) }
 
         let instruction = makeInstruction(from: snapshot.cameraTransform)
             ?? lastInstruction
@@ -1196,6 +1244,8 @@ final class NavigationViewModel {
             finishNavigation(at: selectedDestination?.name ?? id)
             onArrived?(selectedDestination?.id ?? id)
         case .offRoute:
+            usage.log("nav.off_route", ["distance_m": tracker.distanceFromLeg(position: position)
+                .map { .number(UsageRound.cm(Double($0))) } ?? .null])
             replanRoute(from: position)
         default:
             break
@@ -1240,7 +1290,9 @@ final class NavigationViewModel {
         guard let destination = selectedDestination, let start = engine.nearestNode(to: position) else { return }
         let path = engine.findPath(from: engine.name(of: start), to: destination.id)
         guard !path.isEmpty else { return }
-        tracker = RouteTracker(path: path, thresholds: thresholds)
+        let replanned = RouteTracker(path: path, thresholds: thresholds)
+        tracker = replanned
+        usage.log("nav.reroute", ["path_m": .number(UsageRound.cm(Double(replanned.remainingDistance(from: position))))])
         routeLeg = 1
         routeLegCount = path.count
         debug.routeNodes = path.map(engine.displayName(of:))
@@ -1248,6 +1300,7 @@ final class NavigationViewModel {
     }
 
     private func finishNavigation(at name: String) {
+        usage.log("nav.arrived", routeSummary())
         isNavigating = false
         hasArrived = true
         arrivedPlaceName = name
@@ -1262,6 +1315,61 @@ final class NavigationViewModel {
         delayedCue?.cancel()
         beacon.stop()
         beaconPolicy.reset()
+    }
+
+    // MARK: - Usage events
+
+    /// `speech.heard` for a finished transcript, wherever it goes next.
+    private func logHeard(_ text: String) {
+        usage.log("speech.heard", ["text": .string(text), "via": .string(listeningVia)])
+    }
+
+    /// `speech.intent` for what the parser made of a transcript.
+    private func logIntent(text: String, command: VoiceCommand) {
+        let intent: String
+        var args: [String: UsageValue] = [:]
+        switch command {
+        case .navigate(let poiID):
+            intent = "navigate"
+            args["poi_id"] = .string(poiID)
+        case .whereAmI: intent = "where_am_i"
+        case .whatsNearby: intent = "whats_nearby"
+        case .repeatInstruction: intent = "repeat"
+        case .stop: intent = "stop"
+        case .beacon(let on):
+            intent = "beacon"
+            args["on"] = .bool(on)
+        case .unknown: intent = "unknown"
+        }
+        usage.log("speech.intent", ["text": .string(text), "intent": .string(intent), "args": .object(args)])
+    }
+
+    /// `to_id`, `seconds` and `walked_m` of the route being ended.
+    private func routeSummary() -> [String: UsageValue] {
+        ["to_id": selectedDestination.map { .string($0.id) } ?? .null,
+         "seconds": routeStartedAt.map { .number(UsageRound.tenths(Date().timeIntervalSince($0))) } ?? .null,
+         "walked_m": .number(UsageRound.cm(Double(walkedOnRoute)))]
+    }
+
+    /// One `pose` sample, in graph coordinates (`position` is the graph's
+    /// x, z, as `LiveMapView` draws it), and the walked-distance step.
+    private func logPose(position: SIMD2<Float>, heading: Float, snapshot: PoseSnapshot) {
+        let tracking: String
+        if positioningSource == .glasses {
+            tracking = "none"                       // ARKit is paused under the glasses
+        } else {
+            let state = arManager.trackingStateDescription
+            tracking = state == "normal" ? "normal" : state.hasPrefix("limited") ? "limited" : "none"
+        }
+        usage.log("pose", ["x": .number(UsageRound.cm(Double(position.x))), "z": .number(UsageRound.cm(Double(position.y))),
+                           "heading": .number((Double(heading) * 1000).rounded() / 1000),
+                           "tracking": .string(tracking), "localized": .bool(snapshot.trackingReliable)])
+        guard isNavigating, snapshot.trackingReliable else {
+            lastWalkSample = nil
+            return
+        }
+        if let last = lastWalkSample { walkedOnRoute += simd_distance(last, position) }
+        lastWalkSample = position
     }
 
     /// Distance + turn toward the tracker's current target, or `nil` when there is no target.

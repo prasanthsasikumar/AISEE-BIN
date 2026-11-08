@@ -26,7 +26,10 @@ final class GlassesFixFeed {
 
     /// A fix: camera pose in the graph frame, and when the frame arrived
     /// (`ProcessInfo.systemUptime`, the same clock as ARKit's frame timestamps).
-    @ObservationIgnored var onFix: ((simd_float4x4, TimeInterval) -> Void)?
+    /// Returns what the phone's anchor made of it.
+    @ObservationIgnored var onFix: ((simd_float4x4, TimeInterval) -> GlassesFixOutcome)?
+    /// Where `loc.attempt` goes; tests inject a fake.
+    @ObservationIgnored var usage: UsageLogging = UsageLog.shared
 
     var camera = GlassesCamera.load()
 
@@ -168,6 +171,8 @@ final class GlassesFixFeed {
         Self.logger.notice("localize \(self.attempts): \(result.success ? "fix" : result.error, privacy: .public) map=\(result.mapID ?? -1) \(self.lastLatencyMS ?? 0) ms")
         DiagnosticsLog.write("glasses-fix localize \(attempts): \(result.success ? "fix" : result.error) map=\(result.mapID ?? -1) \(lastLatencyMS ?? 0) ms \(result.requestBytes) B \(source.logText)")
         guard result.success, let raw = result.pose, let poseInMap = ImmersalPose.cameraPoseInMap(raw) else {
+            usage.logLocAttempt(source: "glasses", localizer: localizerName, result: result, ok: false,
+                                jump: nil, accepted: false)
             lastError = result.success ? "malformed pose" : result.error
             if ImmersalConfig.recoverFromRejectedToken(ImmersalConfig.token, error: result.error) {
                 lastError = "\(result.error) · typed token dropped, retrying with the built-in one"
@@ -176,6 +181,8 @@ final class GlassesFixFeed {
         }
         fixes += 1
         lastError = nil
-        onFix?(alignment.toGraph(cameraPose: poseInMap, mapID: result.mapID), arrivedAt)
+        let outcome = onFix?(alignment.toGraph(cameraPose: poseInMap, mapID: result.mapID), arrivedAt)
+        usage.logLocAttempt(source: "glasses", localizer: localizerName, result: result, ok: true,
+                            jump: outcome?.jump, accepted: outcome?.accepted ?? false)
     }
 }

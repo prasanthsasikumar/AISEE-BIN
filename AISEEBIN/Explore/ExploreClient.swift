@@ -32,8 +32,13 @@ final class ExploreClient {
     static let firstByteTimeout: TimeInterval = 10
 
     private let session: URLSession
+    /// Where `explore.ask` / `explore.plan` go; tests inject a fake.
+    private let usage: UsageLogging
 
-    init(session: URLSession = .shared) { self.session = session }
+    init(session: URLSession = .shared, usage: UsageLogging = UsageLog.shared) {
+        self.session = session
+        self.usage = usage
+    }
 
     func ask(question: String, jpeg: Data?, mapSlug: String, places: [AskPlace],
              venueInfo: String?, history: [AskTurn]) -> AsyncThrowingStream<String, Error> {
@@ -49,8 +54,19 @@ final class ExploreClient {
                         places: places, venueInfo: venueInfo, history: history)
         let request = makeRequest(path: "ask", body: body)
         let session = self.session
+        let usage = self.usage
+        let hadImage = jpeg != nil
+        let started = Date()
         return AsyncThrowingStream { continuation in
             let task = Task {
+                // `explore.ask` once the stream ends either way; never the image itself.
+                var answer = ""
+                func logAsk(_ error: Error?) {
+                    usage.log("explore.ask", ["question": .string(question), "answer": .string(answer),
+                                              "had_image": .bool(hadImage), "ms": .number(UsageRound.ms(since: started)),
+                                              "ok": .bool(error == nil),
+                                              "error": error.map { .string($0.localizedDescription) } ?? .null])
+                }
                 do {
                     let (bytes, response) = try await session.bytes(for: request)
                     let status = (response as? HTTPURLResponse)?.statusCode ?? 0
@@ -60,12 +76,15 @@ final class ExploreClient {
                         pending.append(byte)
                         // Hand over whole UTF-8 characters only.
                         if let text = String(data: pending, encoding: .utf8) {
+                            answer += text
                             continuation.yield(text)
                             pending.removeAll(keepingCapacity: true)
                         }
                     }
+                    logAsk(nil)
                     continuation.finish()
                 } catch {
+                    logAsk(error)
                     continuation.finish(throwing: error)
                 }
             }
@@ -80,11 +99,26 @@ final class ExploreClient {
         let request = makeRequest(path: "plan", body: Body(utterance: utterance, exhibits: exhibits.map {
             Exhibit(id: $0.id, name: $0.name, tags: $0.tags)
         }))
-        let (data, response) = try await session.data(for: request)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        guard status == 200 else { throw ExploreClientError.http(status) }
-        let reply = try JSONDecoder().decode(Reply.self, from: data)
-        return TourRequest(minutes: reply.minutes, interests: reply.interests, mustSee: reply.mustSee)
+        let started = Date()
+        func logPlan(_ reply: Reply?, _ error: Error?) {
+            usage.log("explore.plan", ["utterance": .string(utterance),
+                                       "minutes": reply.map { .number($0.minutes) } ?? .null,
+                                       "interests": reply.map { .array($0.interests.map { .string($0) }) } ?? .null,
+                                       "must_see": reply.map { .array($0.mustSee.map { .string($0) }) } ?? .null,
+                                       "ms": .number(UsageRound.ms(since: started)), "ok": .bool(error == nil),
+                                       "error": error.map { .string($0.localizedDescription) } ?? .null])
+        }
+        do {
+            let (data, response) = try await session.data(for: request)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            guard status == 200 else { throw ExploreClientError.http(status) }
+            let reply = try JSONDecoder().decode(Reply.self, from: data)
+            logPlan(reply, nil)
+            return TourRequest(minutes: reply.minutes, interests: reply.interests, mustSee: reply.mustSee)
+        } catch {
+            logPlan(nil, error)
+            throw error
+        }
     }
 
     private func makeRequest(path: String, body: some Encodable) -> URLRequest {

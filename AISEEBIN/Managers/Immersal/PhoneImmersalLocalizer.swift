@@ -33,6 +33,11 @@ final class PhoneImmersalLocalizer {
 
     /// Fired once per `start`, on the first accepted fix.
     @ObservationIgnored var onFirstFix: (() -> Void)?
+    /// Where `loc.attempt` goes; tests inject a fake.
+    @ObservationIgnored var usage: UsageLogging = UsageLog.shared
+    /// `loc.attempt.source` for this camera: "lanyard" when started for
+    /// lanyard mode (the only caller that records history), else "phone".
+    @ObservationIgnored private var usageSource = "phone"
 
     @ObservationIgnored private var alignment: ImmersalAlignment?
     @ObservationIgnored private var localizer: (any ImmersalLocalizer)?
@@ -103,6 +108,7 @@ final class PhoneImmersalLocalizer {
         bootstrap.reset()
         glassesFixes = 0
         history.set(enabled: recordHistory)
+        usageSource = recordHistory ? "lanyard" : "phone"
         attempts = 0
         lastError = nil
         lastFixAt = nil
@@ -203,6 +209,8 @@ final class PhoneImmersalLocalizer {
         Self.logger.notice("localize \(self.attempts): \(result.success ? "fix" : result.error, privacy: .public) map=\(result.mapID ?? -1) \(self.lastLatencyMS) ms")
         DiagnosticsLog.write("phone-immersal localize \(attempts): \(result.success ? "fix" : result.error) map=\(result.mapID ?? -1) \(lastLatencyMS) ms \(result.requestBytes) B")
         guard result.success, let raw = result.pose, let poseInMap = ImmersalPose.cameraPoseInMap(raw) else {
+            usage.logLocAttempt(source: usageSource, localizer: localizerName, result: result, ok: false,
+                                jump: nil, accepted: false)
             lastError = result.success ? "malformed pose" : result.error
             if ImmersalConfig.recoverFromRejectedToken(token, error: result.error) {
                 lastError = "\(result.error) · typed token dropped, retrying with the built-in one"
@@ -212,7 +220,10 @@ final class PhoneImmersalLocalizer {
         }
         let wasAnchored = anchor.isAnchored
         let graphPose = alignment.toGraph(cameraPose: poseInMap, mapID: result.mapID)
-        if anchor.update(graphPose: graphPose, sessionPose: sessionPose) {
+        let accepted = anchor.update(graphPose: graphPose, sessionPose: sessionPose)
+        usage.logLocAttempt(source: usageSource, localizer: localizerName, result: result, ok: true,
+                            jump: wasAnchored ? anchor.lastJump : nil, accepted: accepted)
+        if accepted {
             lastError = nil
             bootstrap.reset()
             lastFixAt = capturedAt
@@ -228,18 +239,20 @@ final class PhoneImmersalLocalizer {
     /// A glasses fix in lanyard mode: position only, paired with the session
     /// pose from when the frame was shot (arrival minus the stream latency).
     /// With an anchor it nudges the translation; without one it feeds the
-    /// bootstrap until that solves.
-    func offer(glassesFix graphPose: simd_float4x4, arrivedAt: TimeInterval) {
-        guard running else { return }
+    /// bootstrap until that solves. Returns what became of the fix, for `loc.attempt`.
+    @discardableResult
+    func offer(glassesFix graphPose: simd_float4x4, arrivedAt: TimeInterval) -> GlassesFixOutcome {
+        guard running else { return GlassesFixOutcome(accepted: false, jump: nil) }
         guard let sessionPose = history.pose(at: arrivedAt - streamLatency) else {
             lastError = "glasses fix: no ARKit pose for that moment"
             DiagnosticsLog.write("glasses-fix dropped: no session pose within 0.5 s")
-            return
+            return GlassesFixOutcome(accepted: false, jump: nil)
         }
         glassesFixes += 1
         let graphPosition = NavigationGeometry.planarPosition(of: graphPose)
         if anchor.isAnchored {
-            if anchor.updatePosition(graphPosition: graphPosition, sessionPose: sessionPose) {
+            let accepted = anchor.updatePosition(graphPosition: graphPosition, sessionPose: sessionPose)
+            if accepted {
                 lastError = nil
                 lastFixAt = arrivedAt
                 DiagnosticsLog.write(String(format: "glasses-fix %d: graph (%.2f, %.2f) jump %.1f m", glassesFixes, graphPosition.x, graphPosition.y, anchor.lastJump))
@@ -247,17 +260,26 @@ final class PhoneImmersalLocalizer {
                 lastError = String(format: "glasses fix rejected: jumped %.1f m", anchor.lastJump)
                 DiagnosticsLog.write(String(format: "glasses-fix rejected: jumped %.1f m", anchor.lastJump))
             }
-            return
+            return GlassesFixOutcome(accepted: accepted, jump: anchor.lastJump)
         }
         let s = sessionPose.columns.3, g = graphPose.columns.3
         bootstrap.add(session: SIMD3(s.x, s.y, s.z), graph: SIMD3(g.x, g.y, g.z))
         DiagnosticsLog.write("glasses-fix bootstrap pair \(bootstrap.pairs.count)")
-        guard let fit = bootstrap.solve() else { return }
+        // A bootstrap pair is used, though it moves nobody until the fit solves.
+        guard let fit = bootstrap.solve() else { return GlassesFixOutcome(accepted: true, jump: nil) }
         anchor.install(fit: fit)
         bootstrap.reset()
         lastError = nil
         lastFixAt = arrivedAt
         DiagnosticsLog.write(String(format: "glasses-fix anchored by bootstrap: yaw %.0f deg t (%.1f, %.1f)", fit.yaw * 180 / .pi, fit.tx, fit.tz))
         onFirstFix?()
+        return GlassesFixOutcome(accepted: true, jump: nil)
     }
+}
+
+/// What the phone's anchor made of a lanyard-mode glasses fix.
+struct GlassesFixOutcome: Equatable {
+    var accepted: Bool
+    /// Metres from where the anchor had the visitor; nil without an anchor.
+    var jump: Float?
 }

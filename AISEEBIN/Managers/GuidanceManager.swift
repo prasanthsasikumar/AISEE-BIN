@@ -31,12 +31,14 @@ final class GuidanceManager: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlaye
     @ObservationIgnored private let clips = VoiceClips.bundled
     /// One queue for clips and synthesized speech, so a clip waits behind a
     /// sentence the synthesizer is still reading and the other way round.
-    @ObservationIgnored private var pending: [String] = []
+    @ObservationIgnored private var pending: [(text: String, interrupt: Bool)] = []
     @ObservationIgnored private var currentUtterance: AVSpeechUtterance?
     @ObservationIgnored private var clipPlayer: AVAudioPlayer?
     @ObservationIgnored private var hapticEngine: CHHapticEngine?
     @ObservationIgnored private let fallbackImpact = UIImpactFeedbackGenerator(style: .heavy)
     @ObservationIgnored private let fallbackNotification = UINotificationFeedbackGenerator()
+    /// Where `speech.said` goes; tests inject a fake.
+    @ObservationIgnored var usage: UsageLogging = UsageLog.shared
 
     /// Settings → Speaking rate. Normal is slightly below the system default,
     /// which reads more clearly over greenhouse noise.
@@ -85,7 +87,7 @@ final class GuidanceManager: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlaye
     func speak(_ text: String, interrupt: Bool) {
         guard !isMuted else { return }
         if interrupt { stopSpeaking() }
-        pending.append(text)
+        pending.append((text, interrupt))
         lastSpokenText = text
         if currentUtterance == nil && clipPlayer == nil { startNext() }
     }
@@ -104,20 +106,30 @@ final class GuidanceManager: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlaye
             isSpeaking = false
             return
         }
-        let text = pending.removeFirst()
+        let (text, interrupt) = pending.removeFirst()
         isSpeaking = true
         if let url = clips.url(for: text), let player = try? AVAudioPlayer(contentsOf: url) {
             player.delegate = self
             clipPlayer = player
-            if player.play() { return }
+            if player.play() {
+                logSaid(text, voice: "clip", interrupt: interrupt)
+                return
+            }
             clipPlayer = nil
         }
+        logSaid(text, voice: "system", interrupt: interrupt)
         let utterance = AVSpeechUtterance(string: text)
         utterance.rate = voiceRate
         utterance.prefersAssistiveTechnologySettings = true
         utterance.preUtteranceDelay = 0.05
         currentUtterance = utterance
         synthesizer.speak(utterance)
+    }
+
+    /// `speech.said` as the phrase starts: queued phrases cut off by an
+    /// interrupt were never said and are not logged.
+    private func logSaid(_ text: String, voice: String, interrupt: Bool) {
+        usage.log("speech.said", ["text": .string(text), "voice": .string(voice), "interrupt": .bool(interrupt)])
     }
 
     /// Moves the queue on, unless the item that finished was already cut off.

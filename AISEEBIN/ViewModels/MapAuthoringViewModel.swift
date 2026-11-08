@@ -43,6 +43,8 @@ final class MapAuthoringViewModel {
     @ObservationIgnored private let sync = MapSyncService()
     /// Captures an Immersal map during a fresh scan, on ARKit's own poses.
     let scanner = ImmersalScanRecorder()
+    /// Where `author.*` and `error` events go; tests inject a fake.
+    @ObservationIgnored var usage: UsageLogging = UsageLog.shared
     /// Off, and a walk only produces the ARKit map as before.
     var immersalScanEnabled: Bool {
         get { UserDefaults.standard.object(forKey: "authoring.immersalScan") as? Bool ?? true }
@@ -157,11 +159,18 @@ final class MapAuthoringViewModel {
     /// running because Publish still has to capture the world map.
     func finishWalking() {
         scanner.stop()
+        logScan("stop", photos: scanner.captured)
         stage = .publish
     }
     func backToWalking() {
         if immersalScanEnabled { scanner.resume() }
+        logScan("start", photos: scanner.captured)
         stage = .walk
+    }
+
+    /// `author.scan`: the walk starting (fresh, continued or resumed) or ending.
+    private func logScan(_ phase: String, photos: Int) {
+        usage.log("author.scan", ["phase": .string(phase), "photos": .number(Double(photos))])
     }
     func startAnother() { stage = .start }
 
@@ -264,6 +273,7 @@ final class MapAuthoringViewModel {
         hasUnsavedChanges = false
         resetTrail()
         session.setImmersalAlignment(nil)
+        logScan("start", photos: 0)
         if immersalScanEnabled, !ImmersalConfig.token.isEmpty {
             Task { await scanner.start(clearing: true) }
             statusMessage = "Fresh scan started. Walk slowly and sweep the camera across the space; photos for Immersal are taken as you go."
@@ -277,6 +287,7 @@ final class MapAuthoringViewModel {
     /// to an existing scan.
     func continueExistingScan() {
         arManager.start(relocalize: true)
+        logScan("start", photos: scanner.captured)
         statusMessage = "Relocalizing against the saved map. Wait for Tracking Ready before marking."
     }
 
@@ -362,6 +373,7 @@ final class MapAuthoringViewModel {
             return (worldMapData, points)
         } catch {
             log("save FAILED: \(error)")
+            usage.logError("authoring.save", error)
             errorMessage = "Could not capture the world map: \(error.localizedDescription)\n\nKeep scanning with slow sweeps until mapping reads ‘extending’ or ‘mapped’, then try again."
             statusMessage = "Save failed."
             return nil
@@ -412,6 +424,7 @@ final class MapAuthoringViewModel {
                 log("immersal: construction started, map \(id) from \(scanner.uploaded) photos")
             } catch {
                 log("immersal: construct FAILED: \(error)")
+                usage.logError("authoring.immersal_construct", error)
                 errorMessage = "Immersal map not built: \(error.localizedDescription). The ARKit map is being published anyway."
             }
         }
@@ -432,6 +445,7 @@ final class MapAuthoringViewModel {
         do {
             worldMap = try mapStore.loadWorldMapData()
         } catch {
+            usage.logError("authoring.publish_saved", error)
             errorMessage = "No saved world map on this phone: \(error.localizedDescription)"
             return
         }
@@ -491,6 +505,8 @@ final class MapAuthoringViewModel {
             localVersion = record
             statusMessage = "Published “\(session.map.name)” as version \(saved.version). Fine-tune it at \(ServerConfig.editorURL.host ?? "the web editor")."
             log("upload: done, version \(saved.version)")
+            usage.log("author.publish", ["slug": .string(saved.mapSlug), "version": .number(Double(saved.version)),
+                                         "ok": true, "error": .null])
             if let id = immersalMapID {
                 statusMessage = "Published version \(saved.version). Immersal is building map \(id) from \(scanner.uploaded) photos; this takes a few minutes."
                 self.immersalMapID = id
@@ -508,6 +524,8 @@ final class MapAuthoringViewModel {
             }
         } catch {
             log("upload FAILED: \(error)")
+            usage.log("author.publish", ["slug": .string(targetSlug), "version": .null,
+                                         "ok": false, "error": .string(error.localizedDescription)])
             errorMessage = "Upload failed: \(error.localizedDescription)"
             statusMessage = "Upload failed."
         }
@@ -532,6 +550,7 @@ final class MapAuthoringViewModel {
             log("picker: \(availableMaps.count) maps on server")
         } catch {
             log("picker FAILED: \(error)")
+            usage.logError("authoring.map_list", error)
             mapListError = error.localizedDescription
         }
     }
@@ -586,6 +605,7 @@ final class MapAuthoringViewModel {
             log("import: done")
         } catch {
             log("import FAILED: \(error)")
+            usage.logError("authoring.import", error)
             errorMessage = "Import failed: \(error.localizedDescription)"
             statusMessage = "Import failed."
         }

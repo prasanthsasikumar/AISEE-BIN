@@ -67,9 +67,15 @@ struct RouteTracker {
     /// `true` when the user is further than `offRouteDistance` from the leg they
     /// should be walking along.
     func isOffRoute(position: SIMD2<Float>) -> Bool {
-        guard let target = targetNode else { return false }
+        guard let distance = distanceFromLeg(position: position) else { return false }
+        return distance > thresholds.offRouteDistance
+    }
+
+    /// Metres from the current leg, or `nil` once arrived.
+    func distanceFromLeg(position: SIMD2<Float>) -> Float? {
+        guard let target = targetNode else { return nil }
         let from = previousNode?.position ?? target.position
-        return NavigationGeometry.distance(from: position, toSegment: from, target.position) > thresholds.offRouteDistance
+        return NavigationGeometry.distance(from: position, toSegment: from, target.position)
     }
 
     /// Metres to walk: current leg remainder plus all following edges.

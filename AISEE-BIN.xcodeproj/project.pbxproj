@@ -147,6 +147,7 @@
 		D12B52E1385E154EE6DD18DC /* ProbeSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F7839F7B8A1E5CAA24193C /* ProbeSession.swift */; };
 		D27E4537E96FB437616B1812 /* ProbeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6623A7D62AEA4A6BA847D15B /* ProbeView.swift */; };
 		D300C0182CC65DA51EC02D42 /* ImmersalMapDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F95ED4DD35644F26C28B1B /* ImmersalMapDownloader.swift */; };
+		D3A15A9C7C690C29C72DF7F7 /* PoseSampler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5731C5B698375344B4FAE24E /* PoseSampler.swift */; };
 		D492E48823754B0317C9C220 /* GlassesFrameSelectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E98FCA412A74134E5CCC650 /* GlassesFrameSelectorTests.swift */; };
 		D50AEBB7E738E97E25AC36EB /* MapDownloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 061A49BCDCE064003CC9EA08 /* MapDownloadTests.swift */; };
 		D53269B6C3B17A42E8A7B200 /* GlassesFixFeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41C3FC86DF6322E4628A76A0 /* GlassesFixFeed.swift */; };
@@ -265,6 +266,7 @@
 		4FAE97AF5CC1E0AF218453C1 /* MapSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSyncTests.swift; sourceTree = "<group>"; };
 		54196F600034E5C2027BCE73 /* UsageInstrumentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageInstrumentationTests.swift; sourceTree = "<group>"; };
 		56DDEA53927268D0EC20BE7A /* ImmersalFrameEncoderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalFrameEncoderTests.swift; sourceTree = "<group>"; };
+		5731C5B698375344B4FAE24E /* PoseSampler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoseSampler.swift; sourceTree = "<group>"; };
 		5AE3FDFB08E19B06A845F1D0 /* FocalCalibrationRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocalCalibrationRunner.swift; sourceTree = "<group>"; };
 		6158B2EB890DD39BA2A443E5 /* AISEEBINApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISEEBINApp.swift; sourceTree = "<group>"; };
 		618BF33F7C5275D8E63A4D60 /* PathfindingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathfindingEngine.swift; sourceTree = "<group>"; };
@@ -504,6 +506,7 @@
 		854C0A3B9F945967093B2377 /* Usage */ = {
 			isa = PBXGroup;
 			children = (
+				5731C5B698375344B4FAE24E /* PoseSampler.swift */,
 				9066C58145B619F476AA147C /* UsageInstrumentation.swift */,
 				62294BBBF4BEC9D71C49A32D /* UsageLog.swift */,
 				4771FF98C893F119DC090DBE /* UsageQueue.swift */,
@@ -916,6 +919,7 @@
 				543503ED5029B68EAC774712 /* PointCloudCodec.swift in Sources */,
 				A42FD855D360089F2B3C23A6 /* PoseExtrapolator.swift in Sources */,
 				7BB95B7129AE1378F1BFE8EA /* PoseHistory.swift in Sources */,
+				D3A15A9C7C690C29C72DF7F7 /* PoseSampler.swift in Sources */,
 				6A051B975FC3A1C88E319CE1 /* PositionPairBootstrap.swift in Sources */,
 				07304DF33200BE3D6DBD045C /* ProbeLog.swift in Sources */,
 				D12B52E1385E154EE6DD18DC /* ProbeSession.swift in Sources */,

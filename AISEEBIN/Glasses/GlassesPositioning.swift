@@ -95,6 +95,8 @@ final class GlassesPositioning {
 
     /// Every tick, once there has been a first fix.
     @ObservationIgnored var onPose: ((PoseSnapshot) -> Void)?
+    /// Where `loc.attempt` goes; tests inject a fake.
+    @ObservationIgnored var usage: UsageLogging = UsageLog.shared
 
     // MARK: Internals
 
@@ -361,6 +363,8 @@ final class GlassesPositioning {
         lastMapID = result.mapID
         guard result.success, let raw = result.pose,
               let poseInMap = ImmersalPose.cameraPoseInMap(raw) else {
+            usage.logLocAttempt(source: "glasses", localizer: localizerName, result: result, ok: false,
+                                jump: nil, accepted: false)
             lastError = result.success ? "malformed pose" : result.error
             if ImmersalConfig.recoverFromRejectedToken(ImmersalConfig.token, error: result.error) {
                 lastError = "\(result.error) · typed token dropped, retrying with the built-in one"
@@ -374,7 +378,11 @@ final class GlassesPositioning {
         let position = NavigationGeometry.planarPosition(of: poseInGraph)
         let heading = NavigationGeometry.heading(of: poseInGraph)
 
-        guard gate.evaluate(position: position, walked: walked) else {
+        let hadAnchor = gate.anchor != nil
+        let accepted = gate.evaluate(position: position, walked: walked)
+        usage.logLocAttempt(source: "glasses", localizer: localizerName, result: result, ok: true,
+                            jump: hadAnchor ? gate.lastJump : nil, accepted: accepted)
+        guard accepted else {
             rejectedFixes += 1
             Self.logger.notice("fix rejected: jumped \(self.gate.lastJump) m after walking \(walked) m")
             DiagnosticsLog.write(String(format: "glasses-immersal fix rejected: jumped %.1f m after walking %.1f m", gate.lastJump, walked))

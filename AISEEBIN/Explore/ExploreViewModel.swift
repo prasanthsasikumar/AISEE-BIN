@@ -223,6 +223,7 @@ final class ExploreViewModel {
         if stopIndex < plan.stopIDs.count {
             clock?.arrived(at: stopIndex, now: Date())
             phase = .arrived(stopIndex: stopIndex)
+            nav.usage.log("explore.stop", ["poi_id": .string(id), "poi_name": poi(id).map { .string($0.name) } ?? .null])
             if let poi = poi(id) {
                 nav.guidance.speak(poi.details?.isEmpty == false ? poi.details! : "This is \(poi.name).", interrupt: true)
             }

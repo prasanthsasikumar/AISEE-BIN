@@ -93,6 +93,12 @@ final class GlassesService {
     }
     /// Temple-button gestures, on the main actor.
     @ObservationIgnored var onKeyPress: ((KeyAction) -> Void)?
+    /// Where `glasses.connect` / `glasses.disconnect` go; tests inject a fake.
+    @ObservationIgnored var usage: UsageLogging = UsageLog.shared
+    @ObservationIgnored private var loggedConnected = false
+    @ObservationIgnored private var disconnectRequested = false
+    /// Holds `glasses.connect` back until the battery reading lands (or 5 s pass).
+    @ObservationIgnored private var connectLogTask: Task<Void, Never>?
 
     var isConnected: Bool { connection.state.isConnected }
     var deviceName: String? {
@@ -232,6 +238,7 @@ final class GlassesService {
             }
         }
         observeConnection()
+        observeConnectionForUsage()
     }
 
     /// The log sink is created before `self` exists, so it reaches the service
@@ -243,7 +250,10 @@ final class GlassesService {
     func startScan() { connection.startScan() }
     func stopScan() { connection.stopScan() }
     func connect(_ id: UUID) { connection.connect(id) }
-    func disconnect() { connection.disconnect() }
+    func disconnect() {
+        if isConnected { disconnectRequested = true }
+        connection.disconnect()
+    }
     func reconnectLastDevice() { connection.reconnectLastDevice() }
     func refreshBattery() async { await connection.refreshBattery() }
 
@@ -279,6 +289,49 @@ final class GlassesService {
                 self.observeConnection()
             }
         }
+    }
+
+    /// Separate from `observeConnection` so a battery reading never re-attaches
+    /// the coordinator.
+    private func observeConnectionForUsage() {
+        withObservationTracking {
+            _ = connection.state
+            _ = connection.battery
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                self.logConnectionChange()
+                self.observeConnectionForUsage()
+            }
+        }
+    }
+
+    private func logConnectionChange() {
+        if isConnected {
+            guard !loggedConnected else { return }
+            if connection.battery != nil {
+                logConnect()
+            } else if connectLogTask == nil {
+                connectLogTask = Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(5))
+                    guard let self, !Task.isCancelled, self.isConnected, !self.loggedConnected else { return }
+                    self.logConnect()
+                }
+            }
+            return
+        }
+        if connectLogTask != nil { logConnect() }   // dropped before the battery came in
+        guard loggedConnected else { disconnectRequested = false; return }
+        loggedConnected = false
+        usage.log("glasses.disconnect", ["reason": .string(disconnectRequested ? "user" : "lost")])
+        disconnectRequested = false
+    }
+
+    private func logConnect() {
+        connectLogTask?.cancel()
+        connectLogTask = nil
+        loggedConnected = true
+        usage.log("glasses.connect", ["battery": connection.battery.map { .number(Double($0)) } ?? .null])
     }
 
     /// The kit binds nothing itself: every connection change must be handed to

@@ -32,7 +32,12 @@ enum FieldTestClient {
         return "\(info?["CFBundleShortVersionString"] as? String ?? "?") (\(info?["CFBundleVersion"] as? String ?? "?"))"
     }
 
+    /// Where `field.result` goes; tests inject a fake.
+    nonisolated(unsafe) static var usage: UsageLogging = UsageLog.shared
+
     static func post(_ row: Row) async throws {
+        usage.log("field.result", ["kind": .string(row.kind), "point_id": row.point_id.map { .string($0) } ?? .null,
+                                   "payload": .object(row.payload)])
         var req = URLRequest(url: ServerConfig.supabaseURL.appendingPathComponent("rest/v1/ab_field_results"))
         req.httpMethod = "POST"
         req.setValue(ServerConfig.publishableKey, forHTTPHeaderField: "apikey")

@@ -58,6 +58,8 @@ final class ARNavigationManager: NSObject, ARSessionDelegate {
     private(set) var framesPerSecond: Double = 0
     private(set) var worldMappingStatus: ARFrame.WorldMappingStatus = .notAvailable
     private(set) var hasSavedWorldMap = false
+    /// Where `ar.tracking` goes; tests inject a fake.
+    @ObservationIgnored var usage: UsageLogging = UsageLog.shared
     /// `true` once a saved map was handed to the session; tracking reaches
     /// `.trackingReady` only after ARKit has matched the environment to it.
     private(set) var isUsingSavedWorldMap = false
@@ -307,7 +309,9 @@ final class ARNavigationManager: NSObject, ARSessionDelegate {
         }
     }
 
-    private func apply(trackingState: ARCamera.TrackingState) {
+    /// Internal so tests can drive tracking without a camera.
+    func apply(trackingState: ARCamera.TrackingState) {
+        logTracking(trackingState)
         switch trackingState {
         case .notAvailable:
             trackingStateDescription = "notAvailable"
@@ -337,6 +341,24 @@ final class ARNavigationManager: NSObject, ARSessionDelegate {
             localizationStatus = .trackingReady
             trackingReliable = true
         }
+    }
+
+    /// `ar.tracking` on each change ARKit reports.
+    private func logTracking(_ state: ARCamera.TrackingState) {
+        let fields: (state: String, reason: String?)
+        switch state {
+        case .notAvailable: fields = ("not_available", nil)
+        case .normal: fields = ("normal", nil)
+        case .limited(let reason):
+            switch reason {
+            case .initializing: fields = ("limited", "initializing")
+            case .relocalizing: fields = ("limited", "relocalizing")
+            case .excessiveMotion: fields = ("limited", "excessive_motion")
+            case .insufficientFeatures: fields = ("limited", "insufficient_features")
+            @unknown default: fields = ("limited", "unknown")
+            }
+        }
+        usage.log("ar.tracking", ["state": .string(fields.state), "reason": fields.reason.map { .string($0) } ?? .null])
     }
 }
 
