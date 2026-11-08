@@ -158,9 +158,9 @@ select
   count(*)::int as event_count,
   coalesce(array_remove(array_agg(distinct e.data->>'slug') filter (where e.type = 'map.loaded'), null), '{}') as maps,
   coalesce(array_remove(array_agg(distinct e.data->>'mode') filter (where e.type = 'mode.enter'), null), '{}') as modes,
-  (count(*) filter (where e.type = 'utterance'))::int as utterances,
-  (count(*) filter (where e.type = 'arrival'))::int as arrivals,
-  (count(*) filter (where e.type = 'cancel'))::int as cancels,
+  (count(*) filter (where e.type = 'speech.heard'))::int as utterances,
+  (count(*) filter (where e.type = 'nav.arrived'))::int as arrivals,
+  (count(*) filter (where e.type = 'nav.cancel'))::int as cancels,
   (count(*) filter (where e.type = 'loc.attempt' and (e.data->>'ok') = 'true'))::int as fixes,
   (count(*) filter (where e.type = 'loc.attempt'))::int as attempts,
   (count(*) filter (where e.type = 'error'))::int as errors
