@@ -21,7 +21,7 @@ data class SessionHeader(
     val startedAt: Long,
 ) {
     fun toJson(): JSONObject = JSONObject()
-        .put("session_id", sessionId).put("install_id", installId).put("platform", platform)
+        .put("session_id", sessionId).put("install_id", installId).put("app", "aiseebin").put("platform", platform)
         .put("device", device).put("os_version", osVersion).put("app_version", appVersion)
         .put("build_config", buildConfig).put("simulator", simulator).put("staff", staff)
         .put("started_at", UsageLog.timestamp(startedAt))

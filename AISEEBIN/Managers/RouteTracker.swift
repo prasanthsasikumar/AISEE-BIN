@@ -21,10 +21,16 @@ struct RouteTracker {
     let path: [GKGraphNode2D]
     private let thresholds: GuidanceThresholds
     private(set) var targetIndex: Int
+    /// Camera height per node id (`BuildingLevels.heights`); empty on maps without heights.
+    private let heights: [String: Float]
+    /// A node counts as reached only within this height of it, so standing under
+    /// the top of the stairs (or in the lift before it moves) is not arriving there.
+    static let reachHeightTolerance: Float = 1.5
 
-    init(path: [GKGraphNode2D], thresholds: GuidanceThresholds) {
+    init(path: [GKGraphNode2D], thresholds: GuidanceThresholds, heights: [String: Float] = [:]) {
         self.path = path
         self.thresholds = thresholds
+        self.heights = heights
         // A path of 0 or 1 nodes means there is nowhere to go.
         targetIndex = path.count > 1 ? 1 : path.count
     }
@@ -55,11 +61,14 @@ struct RouteTracker {
     }
 
     /// Advances the target when the user is within the arrival radius.
-    mutating func update(position: SIMD2<Float>) -> RouteEvent {
+    mutating func update(position: SIMD2<Float>, height: Float? = nil) -> RouteEvent {
         guard let target = targetNode else { return .none }
         guard simd_distance(position, target.position) <= thresholds.arrivalDistance else { return .none }
 
         let id = (target as? POIGraphNode)?.poi.id ?? "?"
+        if let height, let targetHeight = heights[id], abs(height - targetHeight) > Self.reachHeightTolerance {
+            return .none
+        }
         targetIndex += 1
         return hasArrived ? .arrived(id) : .reachedNode(id)
     }

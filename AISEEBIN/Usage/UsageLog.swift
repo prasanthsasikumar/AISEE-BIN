@@ -325,7 +325,12 @@ extension SessionHeader {
         #else
         let simulator = false
         #endif
-        return SessionHeader(session_id: UUID(), install_id: ExploreConfig.installID, platform: "ios",
+        #if NUS_APP
+        let app = "nus-open-house"
+        #else
+        let app = "aiseebin"
+        #endif
+        return SessionHeader(session_id: UUID(), install_id: ExploreConfig.installID, app: app, platform: "ios",
                              device: FieldTestClient.deviceName, os_version: UIDevice.current.systemVersion,
                              app_version: FieldTestClient.appVersion, build_config: config,
                              simulator: simulator, staff: storedStaff(), started_at: Date())

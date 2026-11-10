@@ -123,3 +123,12 @@ test('a session that starts at app.foreground (new session after a long backgrou
   assert.equal(segs[0].points.length, 3);
   assert.ok(S.timeline(events).some(r => /Flower Dome/.test(r.text ?? JSON.stringify(r))));
 });
+
+test('appName treats a missing app as aiseebin and names the NUS app', () => {
+  assert.equal(S.appId(undefined), 'aiseebin');
+  assert.equal(S.appId(null), 'aiseebin');
+  assert.equal(S.appName(null), 'AISEE-BIN');
+  assert.equal(S.appName('aiseebin'), 'AISEE-BIN');
+  assert.equal(S.appName('nus-open-house'), 'NUS Open House');
+  assert.equal(S.appName('other'), 'other');
+});

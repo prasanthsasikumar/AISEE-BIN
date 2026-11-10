@@ -464,7 +464,8 @@ final class NavigationViewModel {
         startPositioning()
         observeGlassesConnection()
         glasses.connectAutomatically()
-        Task { _ = await recognizer.requestAuthorization() }
+        // The NUS app has no voice input: no microphone prompt at launch.
+        if !ServerConfig.isNUSApp { Task { _ = await recognizer.requestAuthorization() } }
         Task { await checkForMapUpdate() }
     }
 
@@ -615,7 +616,7 @@ final class NavigationViewModel {
         mapListError = nil
         defer { isListingMaps = false }
         do {
-            serverMaps = try await sync.availableMaps()
+            serverMaps = try await sync.availableMaps().filter { ServerConfig.lists(slug: $0.slug) }
         } catch {
             mapListError = error.localizedDescription
             usage.logError("map.list", error)
@@ -715,7 +716,12 @@ final class NavigationViewModel {
     func checkForMapUpdate() async {
         syncState = .checking
         do {
-            guard let remote = try await sync.latestVersion(slug: localVersion?.slug ?? (mapStore.hasSavedMap ? ServerConfig.mapSlug : ServerConfig.starterMapSlug)) else {
+            var slug = localVersion?.slug ?? (mapStore.hasSavedMap ? ServerConfig.mapSlug : ServerConfig.starterMapSlug)
+            if ServerConfig.isNUSApp, localVersion == nil {
+                // No NUS map on this phone yet: install the newest one published.
+                slug = ServerConfig.starterSlug(from: try await sync.availableMaps()) ?? slug
+            }
+            guard let remote = try await sync.latestVersion(slug: slug) else {
                 syncState = mapStore.hasSavedMap ? .upToDate(localVersion?.version ?? 0) : .offlineSample
                 return
             }
@@ -927,13 +933,14 @@ final class NavigationViewModel {
     func startNavigation() {
         guard let destination = selectedDestination else { return }
         let position = NavigationGeometry.planarPosition(of: currentTransform)
-        guard let start = localizationStatus.isReliable ? engine.nearestNode(to: position) : nil else {
+        let height = currentTransform.columns.3.y
+        guard let start = localizationStatus.isReliable ? engine.nearestNode(to: position, height: height) : nil else {
             statusMessage = "Wait for tracking before starting."
             return
         }
 
         let path = engine.findPath(from: engine.name(of: start), to: destination.id)
-        let newTracker = path.isEmpty ? nil : RouteTracker(path: path, thresholds: thresholds)
+        let newTracker = path.isEmpty ? nil : RouteTracker(path: path, thresholds: thresholds, heights: engine.levels.heights)
         usage.log("nav.request", ["to_id": .string(destination.id), "to_name": .string(destination.name),
                                   "path_m": newTracker.map { .number(UsageRound.cm(Double($0.remainingDistance(from: position)))) } ?? .null])
         guard let newTracker else {
@@ -1247,7 +1254,7 @@ final class NavigationViewModel {
 
         // Only trust the pose for route progress when tracking is normal;
         // during relocalization the pose can jump arbitrarily.
-        let event: RouteEvent = snapshot.trackingReliable ? tracker.update(position: position) : .none
+        let event: RouteEvent = snapshot.trackingReliable ? tracker.update(position: position, height: snapshot.cameraTransform.columns.3.y) : .none
         self.tracker = tracker
         if case .reachedNode(let id) = event { usage.log("nav.waypoint", ["id": .string(id)]) }
 
@@ -1336,10 +1343,11 @@ final class NavigationViewModel {
 
     /// Recomputes the route from the nearest node after the user strays.
     private func replanRoute(from position: SIMD2<Float>) {
-        guard let destination = selectedDestination, let start = engine.nearestNode(to: position) else { return }
+        guard let destination = selectedDestination,
+              let start = engine.nearestNode(to: position, height: currentTransform.columns.3.y) else { return }
         let path = engine.findPath(from: engine.name(of: start), to: destination.id)
         guard !path.isEmpty else { return }
-        let replanned = RouteTracker(path: path, thresholds: thresholds)
+        let replanned = RouteTracker(path: path, thresholds: thresholds, heights: engine.levels.heights)
         tracker = replanned
         usage.log("nav.reroute", ["path_m": .number(UsageRound.cm(Double(replanned.remainingDistance(from: position))))])
         routeLeg = 1

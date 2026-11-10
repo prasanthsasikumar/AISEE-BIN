@@ -1755,6 +1755,7 @@ const replayCanvas = $('replayCanvas');
 const rctx = replayCanvas.getContext('2d');
 const clockTime = ms => new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 const sessionStart = r => r.started_at || r.first_t;
+const appName = Sessions.appName;
 const platformName = p => ({ ios: 'iOS', android: 'Android' }[p] || p || '—');
 const sessMapName = slug => sess.mapNames?.get(slug) || slug;
 
@@ -1788,6 +1789,9 @@ function sessionQuery(offset) {
   const day = v => new Date(`${v}T00:00`);   // local midnight
   if ($('fFrom').value) q.push(`first_t=gte.${encodeURIComponent(day($('fFrom').value).toISOString())}`);
   if ($('fTo').value) q.push(`first_t=lt.${encodeURIComponent(new Date(day($('fTo').value).getTime() + 864e5).toISOString())}`);
+  // Rows from before the app column (or a missing header) count as aiseebin.
+  if ($('fApp').value === 'aiseebin') q.push('or=(app.is.null,app.eq.aiseebin)');
+  else if ($('fApp').value) q.push(`app=eq.${encodeURIComponent($('fApp').value)}`);
   if ($('fPlatform').value) q.push(`platform=eq.${encodeURIComponent($('fPlatform').value)}`);
   if ($('fMap').value) q.push(`maps=cs.${encodeURIComponent(pgList($('fMap').value))}`);
   if ($('fMode').value) q.push(`modes=cs.${encodeURIComponent(pgList($('fMode').value))}`);
@@ -1849,9 +1853,10 @@ function renderSessionRows() {
     tr.append(
       start,
       td(Sessions.duration(r.duration_s), 'mono', 'Duration'),
+      td(appName(r.app), null, 'App'),
       td(platformName(r.platform), null, 'Platform'),
       device,
-      td(r.app_version, 'mono', 'App'),
+      td(r.app_version, 'mono', 'Version'),
       td((r.maps || []).map(sessMapName).join(', ') || '—', null, 'Maps'),
       td((r.modes || []).join(', ') || '—', null, 'Modes'),
       td(String(r.utterances ?? 0), 'num', 'Heard'),
@@ -1878,7 +1883,7 @@ function openSessionList() {
 }
 
 let sessFilterTimer = null;
-for (const id of ['fFrom', 'fTo', 'fPlatform', 'fMap', 'fMode', 'fHideDebug']) $(id).addEventListener('change', () => loadSessions());
+for (const id of ['fFrom', 'fTo', 'fApp', 'fPlatform', 'fMap', 'fMode', 'fHideDebug']) $(id).addEventListener('change', () => loadSessions());
 $('fInstall').addEventListener('input', () => { clearTimeout(sessFilterTimer); sessFilterTimer = setTimeout(() => loadSessions(), 350); });
 $('sessMore').onclick = () => loadSessions(true);
 

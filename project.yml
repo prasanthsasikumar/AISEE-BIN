@@ -88,6 +88,40 @@ targets:
         # Explore's proxy token (server/explore). Never committed: pass it on the
         # xcodebuild command line, like IMMERSAL_DEFAULT_TOKEN. Empty = Ask fails (401).
         EXPLORE_TOKEN: ""
+  NUSOpenHouse:
+    # NUS Open House Guide (2026-11-10): the AISEE-BIN sources with their own
+    # entry point, screens and assets, compiled with NUS_APP. No glasses SDK:
+    # the RTK frameworks are not linked, so the kit compiles its stub path.
+    type: application
+    platform: iOS
+    sources:
+      - path: AISEEBIN
+        excludes:
+          - "Glasses/AiSeeGlassKit/README.md"
+          - "AISEEBINApp.swift"
+          - "Assets.xcassets"
+          - "Info.plist"
+          - "AISEEBIN.entitlements"
+      - path: Vendor/Immersal/ImmersalNativeStubs.c
+      - path: NUSOpenHouse
+        excludes: ["Info.plist"]
+    preBuildScripts:
+      - name: Fetch Immersal plugin
+        script: '"$SRCROOT/Vendor/Immersal/fetch.sh"'
+        basedOnDependencyAnalysis: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.flowsxr.nusopenhouse
+        PRODUCT_NAME: NUSOpenHouse
+        INFOPLIST_FILE: NUSOpenHouse/Info.plist
+        SUPPORTS_MACCATALYST: false
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) NUS_APP"
+        "EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]": ImmersalNativeStubs.c
+        # No glasses kit: drop Vendor/RTK from the search paths the project sets.
+        "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": ""
+        "SWIFT_INCLUDE_PATHS[sdk=iphoneos*]": "$(SRCROOT)/Vendor/Immersal"
   AISEEBINTests:
     type: bundle.unit-test
     platform: iOS
@@ -116,3 +150,9 @@ schemes:
       config: Debug
       targets:
         - AISEEBINTests
+  NUSOpenHouse:
+    build:
+      targets:
+        NUSOpenHouse: all
+    run:
+      config: Debug

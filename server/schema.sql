@@ -124,6 +124,8 @@ create policy ab_sessions_read on public.ab_sessions for select to anon, authent
 drop policy if exists ab_sessions_insert on public.ab_sessions;
 create policy ab_sessions_insert on public.ab_sessions for insert to anon, authenticated with check (true);
 grant select, insert on public.ab_sessions to anon, authenticated;
+-- Which app logged the session: aiseebin | nus-open-house (older rows and clients: aiseebin).
+alter table public.ab_sessions add column if not exists app text not null default 'aiseebin';
 
 create table if not exists public.ab_events (
   id           bigserial primary key,
@@ -147,10 +149,12 @@ grant usage, select on sequence public.ab_events_id_seq to anon, authenticated;
 
 -- One row per session, built from the events so a session whose header never
 -- arrived still shows up (header columns are then null).
-create or replace view public.ab_session_summary with (security_invoker = on) as
+-- Dropped first: adding `app` moves the columns, which create or replace cannot do.
+drop view if exists public.ab_session_summary;
+create view public.ab_session_summary with (security_invoker = on) as
 select
   e.session_id,
-  s.install_id, s.platform, s.device, s.os_version, s.app_version,
+  s.install_id, s.app, s.platform, s.device, s.os_version, s.app_version,
   s.build_config, s.simulator, s.staff, s.started_at, s.received_at,
   min(e.t) as first_t,
   max(e.t) as last_t,
@@ -168,6 +172,6 @@ select
   (count(*) filter (where e.type = 'error'))::int as errors
 from public.ab_events e
 left join public.ab_sessions s on s.session_id = e.session_id
-group by e.session_id, s.session_id, s.install_id, s.platform, s.device, s.os_version,
+group by e.session_id, s.session_id, s.install_id, s.app, s.platform, s.device, s.os_version,
          s.app_version, s.build_config, s.simulator, s.staff, s.started_at, s.received_at;
 grant select on public.ab_session_summary to anon, authenticated;

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>NUS Open House</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>ImmersalDefaultToken</key>
+	<string>$(IMMERSAL_DEFAULT_TOKEN)</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>NUS Open House Guide does not use Bluetooth; this text is required by a shared library and the app never asks for it.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>NUS Open House Guide uses the camera to find where you are in the building and show SoCat leading the way.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>NUS Open House Guide can listen for a spoken destination when you press the talk button.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>NUS Open House Guide uses motion to keep track of where you are between position fixes.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>NUS Open House Guide converts what you say to text to pick a destination.</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arkit</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+</dict>
+</plist>

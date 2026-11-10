@@ -34,11 +34,14 @@ final class PathfindingEngine {
     private static let logger = Logger(subsystem: "com.flowsxr.aiseebin", category: "pathfinding")
 
     let map: NavigationMap
+    /// Floors, from the heights places were marked at; one level on old maps.
+    let levels: BuildingLevels
     private let graph = GKGraph()
     private let nodesByID: [String: POIGraphNode]
 
     init(map: NavigationMap) {
         self.map = map
+        self.levels = BuildingLevels(map: map)
 
         var lookup: [String: POIGraphNode] = [:]
         for poi in map.pois {
@@ -82,6 +85,23 @@ final class PathfindingEngine {
     /// route start once the user has relocalized.
     func nearestNode(to position: SIMD2<Float>) -> GKGraphNode2D? {
         nodesByID.values.min { simd_distance_squared($0.position, position) < simd_distance_squared($1.position, position) }
+    }
+
+    /// Weight of height difference against floor distance when snapping: a node
+    /// one storey up (~3.5 m) counts as ~10 m away, so the one on your own floor wins.
+    static let heightWeight: Float = 3
+
+    /// The nearest node allowing for floors: planar distance plus `heightWeight`
+    /// × the height difference, for nodes whose height is known. Without a
+    /// camera height, or on a map without heights, this is `nearestNode(to:)`.
+    func nearestNode(to position: SIMD2<Float>, height: Float?) -> GKGraphNode2D? {
+        guard let height, !levels.heights.isEmpty else { return nearestNode(to: position) }
+        func cost(_ node: POIGraphNode) -> Float {
+            let planar = simd_distance(node.position, position)
+            guard let y = levels.heights[node.poi.id] else { return planar }
+            return planar + Self.heightWeight * abs(y - height)
+        }
+        return nodesByID.values.min { cost($0) < cost($1) }
     }
 
     // MARK: - Routing

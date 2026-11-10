@@ -29,7 +29,7 @@ struct MapAuthoringSession {
     /// edges follow the corridor instead of cutting through walls.
     @discardableResult
     mutating func addNode(name: String, category: POICategory, details: String?,
-                          position: SIMD2<Float>, trail: [SIMD2<Float>] = []) -> NavigationPOI {
+                          position: SIMD2<Float>, trail: [SIMD2<Float>] = [], height: Float? = nil) -> NavigationPOI {
         if let previous = lastAddedID, !trail.isEmpty,
            let previousPOI = map.pois.first(where: { $0.id == previous }) {
             let corners = PathSimplifier.simplify([previousPOI.planarPosition] + trail + [position],
@@ -39,12 +39,13 @@ struct MapAuthoringSession {
             }
         }
 
-        let poi = NavigationPOI(id: uniqueID(for: name),
+        var poi = NavigationPOI(id: uniqueID(for: name),
                                 name: name,
                                 x: position.x,
                                 z: position.y,
                                 category: category,
                                 details: details?.isEmpty == true ? nil : details)
+        poi.y = height
         map.pois.append(poi)
         if let previous = lastAddedID {
             connect(previous, to: poi.id)

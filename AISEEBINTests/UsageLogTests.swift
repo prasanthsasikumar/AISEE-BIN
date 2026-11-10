@@ -39,7 +39,7 @@ final class UsageLogTests: XCTestCase {
     }
 
     private func header(_ id: UUID = UUID()) -> SessionHeader {
-        SessionHeader(session_id: id, install_id: "install", platform: "ios", device: "test", os_version: "17.0",
+        SessionHeader(session_id: id, install_id: "install", app: "aiseebin", platform: "ios", device: "test", os_version: "17.0",
                       app_version: "1.0 (1)", build_config: "debug", simulator: true, staff: false, started_at: clock)
     }
 
@@ -285,7 +285,7 @@ final class UsageLogTests: XCTestCase {
     func testStaffFlagReadForEachNewSession() async {
         let uploader = FakeUploader()
         var staff = false
-        let first = SessionHeader(session_id: UUID(), install_id: "install", platform: "ios", device: "test",
+        let first = SessionHeader(session_id: UUID(), install_id: "install", app: "aiseebin", platform: "ios", device: "test",
                                   os_version: "17.0", app_version: "1.0 (1)", build_config: "debug",
                                   simulator: true, staff: true, started_at: clock)
         let log = makeLog(uploader, header: first, staff: { staff })
@@ -318,6 +318,11 @@ final class UsageLogTests: XCTestCase {
         defaults.set(false, forKey: SessionHeader.staffDefaultsKey)
         XCTAssertFalse(SessionHeader.current().staff)
         XCTAssertEqual(SessionHeader.staffDefaultsKey, "staff.mode")
+        #if NUS_APP
+        XCTAssertEqual(SessionHeader.current().app, "nus-open-house")
+        #else
+        XCTAssertEqual(SessionHeader.current().app, "aiseebin")
+        #endif
     }
 
     // MARK: - Queue

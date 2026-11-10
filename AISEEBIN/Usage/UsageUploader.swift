@@ -4,6 +4,7 @@ import Foundation
 struct SessionHeader: Codable, Equatable, Sendable {
     var session_id: UUID
     var install_id: String
+    var app: String                 // aiseebin | nus-open-house
     var platform: String
     var device: String
     var os_version: String

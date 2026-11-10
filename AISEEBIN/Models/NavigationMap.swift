@@ -56,6 +56,9 @@ struct NavigationPOI: Identifiable, Hashable, Codable {
     var about: String?
     /// Optional photo shown on the stop card.
     var photo: String?
+    /// Camera height (metres, ARKit world frame) where the place was marked; nil on
+    /// maps made before heights were recorded. Tells the floors of a building apart.
+    var y: Float?
 
     var visitMinutes: Double { minutes ?? 3 }
     var highlightLevel: Int { highlight ?? 2 }
@@ -95,7 +98,7 @@ struct NavigationPOI: Identifiable, Hashable, Codable {
     private enum CodingKeys: String, CodingKey {
         case id, name, x, z, category, details, aliases
         case customAnnounceRadius = "announceRadius"
-        case minutes, highlight, tags, about, photo
+        case minutes, highlight, tags, about, photo, y
     }
 
     init(from decoder: Decoder) throws {
@@ -113,6 +116,7 @@ struct NavigationPOI: Identifiable, Hashable, Codable {
         tags = (try? c.decodeIfPresent([String].self, forKey: .tags)) ?? []
         about = try c.decodeIfPresent(String.self, forKey: .about)
         photo = try c.decodeIfPresent(String.self, forKey: .photo)
+        y = try? c.decodeIfPresent(Float.self, forKey: .y)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -130,6 +134,7 @@ struct NavigationPOI: Identifiable, Hashable, Codable {
         if !tags.isEmpty { try c.encode(tags, forKey: .tags) }
         try c.encodeIfPresent(about, forKey: .about)
         try c.encodeIfPresent(photo, forKey: .photo)
+        try c.encodeIfPresent(y, forKey: .y)
     }
 }
 

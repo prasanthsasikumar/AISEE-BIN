@@ -164,7 +164,12 @@
     return lines.join('\r\n');
   }
 
-  const api = { sortEvents, pathSegments, fixMarkers, timeline, toCSV, summaryCSV, duration };
+  // Which app logged a session; rows from before the app column count as aiseebin.
+  const APP_NAMES = { aiseebin: 'AISEE-BIN', 'nus-open-house': 'NUS Open House' };
+  const appId = a => a || 'aiseebin';
+  const appName = a => APP_NAMES[appId(a)] || appId(a);
+
+  const api = { appId, appName, sortEvents, pathSegments, fixMarkers, timeline, toCSV, summaryCSV, duration };
   root.Sessions = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

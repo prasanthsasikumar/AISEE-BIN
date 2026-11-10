@@ -23,6 +23,27 @@ enum ServerConfig {
     static let starterMapSlug = "labeltransfertest"
     static let editorURL = URL(string: "https://aiseebin.flowsxr.com")!
 
+    /// Maps for NUS Open House Guide are published as `nus-…`; that app lists
+    /// only those and AISEE-BIN hides them. One rule, shared by both apps.
+    static let nusPrefix = "nus-"
+    #if NUS_APP
+    static let isNUSApp = true
+    #else
+    static let isNUSApp = false
+    #endif
+
+    /// Whether this app offers a map in its pickers.
+    static func lists(slug: String, nusApp: Bool = isNUSApp) -> Bool {
+        slug.hasPrefix(nusPrefix) == nusApp
+    }
+
+    /// The map to install on a phone with none: AISEE-BIN's starter, or the most
+    /// recently published `nus-` map in the NUS app.
+    static func starterSlug(from maps: [RemoteMapSummary], nusApp: Bool = isNUSApp) -> String? {
+        guard nusApp else { return starterMapSlug }
+        return maps.filter { lists(slug: $0.slug, nusApp: true) }.max { $0.createdAt < $1.createdAt }?.slug
+    }
+
     /// Turns a map name into a server slug, matching the web editor's rule
     /// (`web/app.js`): lowercased, runs of non-alphanumerics collapsed to a
     /// single dash, no leading or trailing dash. A name with nothing to slugify

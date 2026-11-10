@@ -297,7 +297,8 @@ final class MapAuthoringViewModel {
         let transform = arManager.cameraTransform
         let position = NavigationGeometry.planarPosition(of: transform)
         let before = session.map.pois.count
-        let poi = session.addNode(name: name, category: category, details: details, position: position, trail: trail)
+        let poi = session.addNode(name: name, category: category, details: details, position: position, trail: trail,
+                                  height: transform.columns.3.y)
         let waypoints = session.map.pois.count - before - 1
         arManager.addPOIAnchor(id: poi.id, transform: transform)
         resetTrail()
