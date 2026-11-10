@@ -718,8 +718,13 @@ final class NavigationViewModel {
         do {
             var slug = localVersion?.slug ?? (mapStore.hasSavedMap ? ServerConfig.mapSlug : ServerConfig.starterMapSlug)
             if ServerConfig.isNUSApp, localVersion == nil {
-                // No NUS map on this phone yet: install the newest one published.
-                slug = ServerConfig.starterSlug(from: try await sync.availableMaps()) ?? slug
+                // No NUS map on this phone yet: install the newest one published,
+                // and never another app's map.
+                guard let nusSlug = ServerConfig.starterSlug(from: try await sync.availableMaps()) else {
+                    syncState = .offlineSample
+                    return
+                }
+                slug = nusSlug
             }
             guard let remote = try await sync.latestVersion(slug: slug) else {
                 syncState = mapStore.hasSavedMap ? .upToDate(localVersion?.version ?? 0) : .offlineSample

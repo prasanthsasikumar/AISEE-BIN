@@ -16,13 +16,15 @@ enum NUS {
 struct NUSButtonStyle: ButtonStyle {
     var fill: Color
     var ink: Color = .white
+    @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .opacity(isEnabled ? 1 : 0.6)
             .font(.title3.weight(.semibold))
             .foregroundStyle(ink)
             .frame(maxWidth: .infinity, minHeight: 64)
             .padding(.horizontal, 20)
-            .background(fill.opacity(configuration.isPressed ? 0.8 : 1), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .background(fill.opacity(!isEnabled ? 0.35 : configuration.isPressed ? 0.8 : 1), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }

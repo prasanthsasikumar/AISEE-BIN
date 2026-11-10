@@ -127,7 +127,7 @@ struct NUSHomeView: View {
                 Button {
                     guide.startTour()
                 } label: {
-                    Label("Start the tour (\(guide.places.count) stops)", systemImage: "figure.walk")
+                    Label(hasMap ? "Start the tour (\(guide.places.count) stops)" : "Start the tour", systemImage: "figure.walk")
                 }
                 .buttonStyle(NUSButtonStyle(fill: NUS.orange))
                 .disabled(!hasMap || guide.places.isEmpty)
@@ -156,6 +156,7 @@ struct NUSHomeView: View {
         case .checking where !hasMap: return "Getting the building map…"
         case .downloading: return "Downloading the building map… \(Int(viewModel.syncProgress * 100))%"
         case .failed(let reason) where !hasMap: return "Couldn't get the map: \(reason)"
+        case .offlineSample where !hasMap: return "No building map has been published yet."
         default:
             return hasMap ? viewModel.mapName : "No map yet. Connect to the internet to get the building map."
         }
