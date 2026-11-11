@@ -40,6 +40,16 @@ final class ImmersalAlignmentTests: XCTestCase {
         XCTAssertTrue(a.isEditorDrawn)
     }
 
+    func testPerMapHeightOffsetLiftsTheFix() throws {
+        let json = #"{"mapIDs":[10,20],"yaw":0,"tx":0,"tz":0,"pairCount":0,"rmsError":0,"maps":[{"id":10,"yaw":0,"tx":0,"tz":0},{"id":20,"yaw":0,"tx":0,"tz":0,"ty":4.5}]}"#
+        let a = try JSONDecoder().decode(ImmersalAlignment.self, from: Data(json.utf8))
+        let camera = simd_float4x4(columns: (SIMD4(1, 0, 0, 0), SIMD4(0, 1, 0, 0), SIMD4(0, 0, 1, 0), SIMD4(0, 0.1, 0, 1)))
+        // A scan made upstairs: its fixes land on the upper floor of the combined map.
+        XCTAssertEqual(a.toGraph(cameraPose: camera, mapID: 20).columns.3.y, 4.6, accuracy: 1e-5)
+        // No ty: height unchanged.
+        XCTAssertEqual(a.toGraph(cameraPose: camera, mapID: 10).columns.3.y, 0.1, accuracy: 1e-5)
+    }
+
     func testAlignmentsWithoutMapsStillDecode() throws {
         let json = #"{"mapIDs":[151658],"yaw":0,"tx":0,"tz":0,"pairCount":0,"rmsError":0}"#
         let a = try JSONDecoder().decode(ImmersalAlignment.self, from: Data(json.utf8))

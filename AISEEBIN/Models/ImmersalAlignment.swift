@@ -42,7 +42,8 @@ struct ImmersalAlignment: Codable, Equatable {
         var yaw: Float
         var tx: Float
         var tz: Float
-        /// What the editor calls the scan, and its height offset (unused by guidance).
+        /// What the editor calls the scan, and its height offset: added to a
+        /// fix's height so floors line up when several scans are combined.
         var name: String? = nil
         var ty: Float? = nil
     }
@@ -84,7 +85,8 @@ struct ImmersalAlignment: Codable, Equatable {
     }
 
     /// The full 4×4, for callers that carry a camera pose rather than a point.
-    /// Vertical offset is left at zero: nothing in guidance reads `y`.
+    /// The vertical offset is the map's own `ty` (zero for a single map), so a
+    /// fix's height lands on the same floor heights as the combined graph.
     var transform: simd_float4x4 { transform(for: nil) }
 
     func transform(for mapID: Int?) -> simd_float4x4 {
@@ -94,7 +96,7 @@ struct ImmersalAlignment: Codable, Equatable {
             SIMD4<Float>(c, 0, s, 0),
             SIMD4<Float>(0, 1, 0, 0),
             SIMD4<Float>(-s, 0, c, 0),
-            SIMD4<Float>(m.tx, 0, m.tz, 1)
+            SIMD4<Float>(m.tx, m.ty ?? 0, m.tz, 1)
         ))
     }
 
