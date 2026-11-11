@@ -14,6 +14,6 @@ version = json.loads(call("/rest/v1/rpc/ab_next_version", {"slug": slug}))
 path = f"{slug}/v{version}/points.f32.gz"
 call(f"/storage/v1/object/aiseebin-maps/{path}", raw=gzip.compress(pts.tobytes()), ctype="application/gzip", extra={"x-upsert": "true"})
 call("/rest/v1/ab_map_versions", {"map_slug": slug, "version": version, "source": "web",
-     "note": "v5 layout + each Immersal map turned onto its own scan (Immersal frame is the scan turned 106-180 deg about its origin): all 14 Immersal scans, adjusted so places with the same name meet; Immersal multi-map, no world map",
+     "note": "v7: placements from the calibration walk (paired fixes, 11 Nov 03:02-03:26 UTC), washroom corridor from the walk trail",
      "graph": graph, "worldmap_path": None, "pointcloud_path": path, "point_count": int(len(pts))}, extra={"Prefer": "return=minimal"})
 print("published", slug, "v", version, len(pts), "points")

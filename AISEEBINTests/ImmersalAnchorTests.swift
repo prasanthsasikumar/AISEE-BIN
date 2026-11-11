@@ -77,6 +77,16 @@ final class ImmersalAnchorTests: XCTestCase {
         XCTAssertEqual(anchor.consecutiveRejections, 0)
     }
 
+    func testFarJumpNeedsSixInARow() {
+        // Another scan matching a look-alike spot 26 m away (the NUS stairwell, 11 Nov).
+        var anchor = ImmersalAnchor()
+        anchor.update(graphPose: pose(x: 0, z: 0, heading: 0), sessionPose: pose(x: 0, z: 0, heading: 0))
+        let far = pose(x: 26, z: 0, heading: 0), still = pose(x: 0, z: 0, heading: 0)
+        for _ in 0..<5 { XCTAssertFalse(anchor.update(graphPose: far, sessionPose: still)) }
+        assertPlanar(try! XCTUnwrap(anchor.toGraph(still)), x: 0, z: 0, heading: 0)
+        XCTAssertTrue(anchor.update(graphPose: far, sessionPose: still))                 // sixth: believe it
+    }
+
     func testResetForgetsEverything() {
         var anchor = ImmersalAnchor()
         anchor.update(graphPose: pose(x: 1, z: 1, heading: 1), sessionPose: pose(x: 0, z: 0, heading: 0))

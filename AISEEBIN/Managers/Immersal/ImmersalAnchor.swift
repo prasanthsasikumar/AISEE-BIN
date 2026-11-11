@@ -16,6 +16,11 @@ import simd
 struct ImmersalAnchor: Equatable {
     var maxJump: Float = 1.5
     var maxRejections = 3
+    /// A jump this far (metres) cannot be walking between fixes: it is far more
+    /// often another scan matching a look-alike spot (glass doors, stairwells),
+    /// so it needs `maxRejectionsFar` disagreeing fixes in a row instead.
+    var farJump: Float = 8
+    var maxRejectionsFar = 6
 
     /// Graph-from-session: rotation about Y by `yaw` (the same construction as
     /// `ImmersalAlignment.transform`, so yaw adds to `NavigationGeometry.heading`)
@@ -62,7 +67,8 @@ struct ImmersalAnchor: Equatable {
             if lastJump > maxJump {
                 consecutiveRejections += 1
                 rejected += 1
-                if consecutiveRejections < maxRejections { return false }
+                let needed = lastJump > farJump ? maxRejectionsFar : maxRejections
+                if consecutiveRejections < needed { return false }
             }
         } else {
             lastJump = 0

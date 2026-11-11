@@ -42,6 +42,7 @@ for s in rows:
     for e in rows[s]["graph"]["edges"]:
         a, b = alias.get(f"{s}/{e['from']}", f"{s}/{e['from']}"), alias.get(f"{s}/{e['to']}", f"{s}/{e['to']}")
         if a != b: edges.add(tuple(sorted((a, b))))
+for n in spec.get("extra_nodes", []): pois.append(dict(n, aliases=[], details=None))
 for a, b in spec.get("extra_edges", []): edges.add(tuple(sorted((a, b))))
 hy = {p["id"]: p["y"] for p in pois if "y" in p}
 nb = {}
