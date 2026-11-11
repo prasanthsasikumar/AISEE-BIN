@@ -1,9 +1,10 @@
 """Build one combined graph + Immersal multi-map alignment from placed scans."""
-import numpy as np, json, sys
+import numpy as np, json, sys, math
 sys.path.insert(0, sys.path[0])
 from align import apply, rows, anch, yaw_of
 D, spec_path, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
 spec = json.load(open(spec_path))
+IMM = json.load(open(f"{D}/imm_to_scan.json"))
 pose = {k: np.array(v) for k, v in json.load(open(f"{D}/poses.json")).items()}
 same = spec.get("same", [])          # [["nus2/makan","nus3/makan"], ...] first one kept
 rename = spec.get("rename", {})      # id -> new display name
@@ -19,8 +20,13 @@ for s in rows:
     al = rows[s]["graph"].get("immersalAlignment")
     if al:
         # python rot() is the app's yaw negated; app: x' = c x - s z + tx
-        placements.append({"id": al["mapIDs"][0], "yaw": float(-yaw_of(m)), "tx": float(m[0, 3]),
-                           "tz": float(m[2, 3]), "ty": float(m[1, 3]), "name": s})
+        # The Immersal map is the scan turned by imm["yaw"] about the scan's origin (plus a tiny
+        # offset): compose scan->graph with immersal->scan. App convention: x' = c x - s z + tx.
+        imm = IMM[s]; ys = float(-yaw_of(m)); c, sn = math.cos(ys), math.sin(ys)
+        ti = imm["t"]
+        placements.append({"id": al["mapIDs"][0], "yaw": ys + imm["yaw"],
+                           "tx": float(m[0, 3]) + c * ti[0] - sn * ti[2], "ty": float(m[1, 3]) + ti[1],
+                           "tz": float(m[2, 3]) + sn * ti[0] + c * ti[2], "name": s})
     for q in rows[s]["graph"]["pois"]:
         gid = f"{s}/{q['id']}"
         if gid in alias: continue

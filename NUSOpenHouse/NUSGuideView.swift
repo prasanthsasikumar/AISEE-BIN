@@ -23,6 +23,9 @@ struct NUSGuideView: View {
             }
         }
         .preferredColorScheme(.light)
+        .onChange(of: viewModel.localizationStatus.isReliable) { _, reliable in
+            if reliable { guide.positionIsReliable() }
+        }
     }
 
     // MARK: Header
@@ -52,11 +55,13 @@ struct NUSGuideView: View {
     }
 
     private var headerTitle: String {
+        if guide.startPending { return "Finding where you are" }
         guard let stop = guide.current else { return guide.phase == .finished ? "Tour complete" : "NUS Open House" }
         return stop.name
     }
 
     private var headerSubtitle: String? {
+        if guide.startPending { return "The tour starts from the nearest stop" }
         guard let stop = guide.current else { return nil }
         let level = guide.levelName(of: stop.id)
         if guide.isTour {
@@ -97,7 +102,7 @@ struct NUSGuideView: View {
                     .font(.subheadline)
                     .foregroundStyle(NUS.inkSecondary)
             }
-            if guide.isTour {
+            if guide.isTour && !guide.startPending {
                 Button("Skip this stop") { guide.skipStop() }
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(NUS.blue)

@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import simd
 
 /// What the visitor is doing: the tour of every location in order, or one place.
 @MainActor
@@ -25,6 +26,9 @@ final class TourGuide {
     private(set) var phase: Phase = .home
     private(set) var stops: [NavigationPOI] = []
     private(set) var index = 0
+    /// The tour was started before the phone knew where it is: the first stop
+    /// is picked (the nearest one) as soon as positioning is reliable.
+    private(set) var startPending = false
     /// Spoken guidance on or off (off by default: open-house halls are loud and shared).
     var voiceOn: Bool = UserDefaults.standard.bool(forKey: "nus.voice") {
         didSet {
@@ -55,12 +59,46 @@ final class TourGuide {
 
     // MARK: - Actions
 
+    /// Starts the tour where the visitor is: the nearest stop comes first and
+    /// the rest follow in tour order, wrapping round.
     func startTour() {
         plan = .tour
         stops = places
         index = 0
         viewModel.usage.log("tour.start", ["stops": .number(Double(stops.count))])
+        startPending = true
+        phase = .leading
+        if viewModel.localizationStatus.isReliable { beginFromHere() } else { viewModel.stopNavigation() }
+    }
+
+    /// Called when positioning becomes reliable.
+    func positionIsReliable() {
+        guard startPending, phase == .leading, isTour else { return }
+        beginFromHere()
+    }
+
+    private func beginFromHere() {
+        startPending = false
+        let here = NavigationGeometry.planarPosition(of: viewModel.currentTransform)
+        let height = viewModel.currentTransform.columns.3.y
+        if let first = Self.nearestStopIndex(stops: stops.map(\.id), from: here, height: height, engine: viewModel.engine), first > 0 {
+            stops = Array(stops[first...] + stops[..<first])
+        }
+        viewModel.usage.log("tour.start_from", ["id": .string(stops.first?.id ?? "")])
         leadToCurrent()
+    }
+
+    /// The stop closest to the visitor: planar distance plus a penalty for
+    /// being on another floor (the same weighting as the route search).
+    static func nearestStopIndex(stops: [String], from here: SIMD2<Float>, height: Float, engine: PathfindingEngine) -> Int? {
+        var best: (Int, Float)?
+        for (i, id) in stops.enumerated() {
+            guard let node = engine.node(named: id) else { continue }
+            var d = simd_distance(node.position, here)
+            if let y = engine.levels.heights[id] { d += PathfindingEngine.heightWeight * abs(y - height) }
+            if best == nil || d < best!.1 { best = (i, d) }
+        }
+        return best?.0
     }
 
     func go(to poi: NavigationPOI) {
@@ -89,6 +127,7 @@ final class TourGuide {
         phase = .home
         stops = []
         index = 0
+        startPending = false
     }
 
     private func finish() {
