@@ -1,0 +1,105 @@
+{
+ "name": "NUS Computing Open House",
+ "drop": [
+  "nus-computing"
+ ],
+ "same": [
+  [
+   "nus15/water",
+   "nus2/water"
+  ],
+  [
+   "nus2/makan",
+   "nus3/makan"
+  ],
+  [
+   "nus3/terrace",
+   "nus4/terrace",
+   "nus12/terrace"
+  ],
+  [
+   "nus9/junction-staircase",
+   "nus8/junction-staircase"
+  ],
+  [
+   "nus10/pitstop",
+   "nus9/pitstop"
+  ],
+  [
+   "nus10/junction",
+   "nus9/junction"
+  ],
+  [
+   "nus11/junction",
+   "nus10/junction-2",
+   "nus13/junction",
+   "nus14/junction"
+  ],
+  [
+   "nus12/junction",
+   "nus12/junction-2",
+   "nus11/junction-2"
+  ]
+ ],
+ "map_order": [
+  "nus15",
+  "nus2",
+  "nus3",
+  "nus4",
+  "nus12",
+  "nus11",
+  "nus10",
+  "nus9",
+  "nus8",
+  "nus7",
+  "nus6",
+  "nus5",
+  "nus13",
+  "nus14",
+  "nus-computing"
+ ],
+ "extra_edges": [
+  [
+   "nus12/junction",
+   "nus5/security"
+  ],
+  [
+   "nus5/com-2",
+   "nus6/junction"
+  ],
+  [
+   "nus6/junction",
+   "nus7/com-1"
+  ],
+  [
+   "nus7/door",
+   "nus8/technical-serviced"
+  ]
+ ],
+ "rename": {
+  "nus8/technical-serviced": "Technical Services",
+  "nus2/mph-1": "MPH 1",
+  "nus2/mph-2": "MPH 2",
+  "nus5/com-2": "COM2",
+  "nus7/com-1": "COM1"
+ },
+ "order": [
+  "nus15/entrance",
+  "nus15/water",
+  "nus15/seating",
+  "nus2/mph-2",
+  "nus2/mph-1",
+  "nus2/makan",
+  "nus3/order-kiosk",
+  "nus3/terrace",
+  "nus5/security",
+  "nus5/com-2",
+  "nus7/com-1",
+  "nus7/computer-artifact",
+  "nus8/technical-serviced",
+  "nus8/robotics",
+  "nus9/pitstop",
+  "nus14/washrooms"
+ ],
+ "tourStart": "nus15/entrance"
+}

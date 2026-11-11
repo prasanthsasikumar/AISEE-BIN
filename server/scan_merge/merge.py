@@ -1,0 +1,74 @@
+"""Build one combined graph + Immersal multi-map alignment from placed scans."""
+import numpy as np, json, sys
+sys.path.insert(0, sys.path[0])
+from align import apply, rows, anch, yaw_of
+D, spec_path, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
+spec = json.load(open(spec_path))
+pose = {k: np.array(v) for k, v in json.load(open(f"{D}/poses.json")).items()}
+same = spec.get("same", [])          # [["nus2/makan","nus3/makan"], ...] first one kept
+rename = spec.get("rename", {})      # id -> new display name
+drop_maps = set(spec.get("drop", []))
+alias = {}
+for group in same:
+    for g in group[1:]: alias[g] = group[0]
+pois, edges, seen = [], set(), {}
+placements = []
+for s in rows:
+    if s not in pose or s in drop_maps: continue
+    m = pose[s]
+    al = rows[s]["graph"].get("immersalAlignment")
+    if al:
+        # python rot() is the app's yaw negated; app: x' = c x - s z + tx
+        placements.append({"id": al["mapIDs"][0], "yaw": float(-yaw_of(m)), "tx": float(m[0, 3]),
+                           "tz": float(m[2, 3]), "ty": float(m[1, 3]), "name": s})
+    for q in rows[s]["graph"]["pois"]:
+        gid = f"{s}/{q['id']}"
+        if gid in alias: continue
+        a = anch[s].get(q["id"])
+        w = apply(m, np.array([[q["x"], a[1] if a else 0.0, q["z"]]]))[0]
+        p = dict(q); p["id"] = gid; p["x"] = round(float(w[0]), 3); p["z"] = round(float(w[2]), 3)
+        if a: p["y"] = round(float(w[1]), 3)
+        else: p.pop("y", None)
+        p["name"] = rename.get(gid, q["name"])
+        if p["category"] == "junction" and p["name"].startswith("Waypoint"):
+            p["name"] = f"{s} {p['name']}"   # unique, never shown to visitors
+        pois.append(p)
+    for e in rows[s]["graph"]["edges"]:
+        a, b = alias.get(f"{s}/{e['from']}", f"{s}/{e['from']}"), alias.get(f"{s}/{e['to']}", f"{s}/{e['to']}")
+        if a != b: edges.add(tuple(sorted((a, b))))
+for a, b in spec.get("extra_edges", []): edges.add(tuple(sorted((a, b))))
+hy = {p["id"]: p["y"] for p in pois if "y" in p}
+nb = {}
+for a, b in edges: nb.setdefault(a, []).append(b); nb.setdefault(b, []).append(a)
+grew = True
+while grew:
+    grew = False
+    for p in pois:
+        if p["id"] in hy: continue
+        ys = [hy[n] for n in nb.get(p["id"], []) if n in hy]
+        if ys: hy[p["id"]] = sum(ys) / len(ys); grew = True
+# Join scans where their route points meet: nearest pair from different scans within 2.5 m, same floor.
+scan_of = lambda i: i.split("/")[0]
+for i, p in enumerate(pois):
+    for q in pois[i + 1:]:
+        if scan_of(p["id"]) == scan_of(q["id"]): continue
+        if abs(hy.get(p["id"], 0) - hy.get(q["id"], 0)) > 1.5: continue
+        if ((p["x"] - q["x"]) ** 2 + (p["z"] - q["z"]) ** 2) ** 0.5 < 2.5: edges.add(tuple(sorted((p["id"], q["id"]))))
+ids = {p["id"] for p in pois}
+bad = [e for e in edges if e[0] not in ids or e[1] not in ids]
+assert not bad, bad
+mo = spec.get("map_order")
+if mo: placements.sort(key=lambda m: mo.index(m["name"]))
+order = spec.get("order", [])
+pois.sort(key=lambda p: order.index(p["id"]) if p["id"] in order else len(order))
+first = placements[0]
+graph = {"name": spec["name"], "tourStart": spec.get("tourStart"), "pois": pois, "edges": [{"from": a, "to": b} for a, b in sorted(edges)],
+         "immersalAlignment": {"mapIDs": [p["id"] for p in placements], "yaw": first["yaw"], "tx": first["tx"],
+                               "tz": first["tz"], "pairCount": 0, "rmsError": 0,
+                               "maps": placements}}
+json.dump(graph, open(out_path, "w"), indent=1)
+ys = sorted(p["y"] for p in pois if "y" in p)
+print(len(pois), "nodes", len(edges), "edges", len(placements), "maps")
+print("heights:", [round(y, 1) for y in ys])
+for p in pois:
+    if p["category"] not in ("junction",): print(f"  {p['id']:28} {p['category']:12} {p['name']:20} y={p.get('y')}")
