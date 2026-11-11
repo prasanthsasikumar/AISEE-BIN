@@ -181,10 +181,11 @@ struct SoCatARView: UIViewRepresentable {
             guard guide.phase == .leading, vm.isNavigating, !vm.routePath.isEmpty else { return nil }
             let targetIndex = max(0, min(vm.routeLeg - 1, vm.routePath.count - 1))
             let ids = Array(vm.routePath[targetIndex...])
-            // Riding the lift: wait at the door on the visitor's own floor until
-            // the phone is on the new level.
+            // Stairs or lift: wait at the foot (or the lift door) on the visitor's
+            // own floor until the phone is on the new level. Walking the straight
+            // line between floors would float SoCat through the stairwell.
             if targetIndex > 0,
-               levels.levelChange(from: vm.routePath[targetIndex - 1], to: ids[0]) == .lift,
+               levels.levelChange(from: vm.routePath[targetIndex - 1], to: ids[0]) != nil,
                levels.level(forHeight: graphCamera.columns.3.y) != levels.level(of: ids[0]),
                let door = vm.engine.node(named: vm.routePath[targetIndex - 1]) {
                 return Target(position: toAR(SIMD3(door.position.x, userFloorY, door.position.y)), facing: .zero, waiting: true, wave: false)
@@ -194,7 +195,7 @@ struct SoCatARView: UIViewRepresentable {
                 guard let node = vm.engine.node(named: id) else { continue }
                 let next = i + 1 < ids.count ? ids[i + 1] : nil
                 stops.append(.init(planar: node.position, floorY: levels.floorHeight(of: id),
-                                   holdHere: next.map { levels.levelChange(from: id, to: $0) == .lift } ?? false))
+                                   holdHere: next.map { levels.levelChange(from: id, to: $0) != nil } ?? false))
             }
             guard let placed = GuidePlacement.place(from: user, userFloorY: userFloorY, stops: stops, lookAhead: Self.lookAhead) else { return nil }
             return Target(position: toAR(placed.position), facing: toARDirection(placed.facing), waiting: placed.waiting, wave: false)

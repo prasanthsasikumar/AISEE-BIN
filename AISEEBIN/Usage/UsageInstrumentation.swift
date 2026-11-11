@@ -1,3 +1,4 @@
+import simd
 import Foundation
 
 extension UsageLogging {
@@ -16,9 +17,20 @@ extension UsageLogging {
     /// camera and "glasses" for the glasses camera. `ok` means Immersal returned
     /// a usable pose; `accepted` whether it then moved the visitor; `jump`
     /// (metres) is nil when there was nothing to jump from.
+    /// `mapPose` / `sessionPose` (phone fixes): the camera in the Immersal
+    /// map's own frame and in ARKit's session frame at the same instant, as
+    /// [x, y, z, heading]. Two fixes from different maps a few seconds apart
+    /// give the exact placement of one map against the other.
     func logLocAttempt(source: String, localizer: String, result: ImmersalLocalizeResult, ok: Bool,
-                       jump: Float?, accepted: Bool) {
+                       jump: Float?, accepted: Bool,
+                       mapPose: simd_float4x4? = nil, sessionPose: simd_float4x4? = nil) {
+        func pose(_ m: simd_float4x4?) -> UsageValue {
+            guard let m else { return .null }
+            let p = m.columns.3
+            return .array([p.x, p.y, p.z, NavigationGeometry.heading(of: m)].map { .number((Double($0) * 1000).rounded() / 1000) })
+        }
         log("loc.attempt", ["source": .string(source), "localizer": .string(localizer), "ok": .bool(ok),
+                            "map_pose": pose(mapPose), "session_pose": pose(sessionPose),
                             "error": ok ? .null : .string(result.success ? "malformed pose" : result.error),
                             "map_id": result.mapID.map { .number(Double($0)) } ?? .null,
                             "ms": .number((result.latency * 1000).rounded()),

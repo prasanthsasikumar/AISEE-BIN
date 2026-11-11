@@ -222,7 +222,8 @@ final class PhoneImmersalLocalizer {
         let graphPose = alignment.toGraph(cameraPose: poseInMap, mapID: result.mapID)
         let accepted = anchor.update(graphPose: graphPose, sessionPose: sessionPose)
         usage.logLocAttempt(source: usageSource, localizer: localizerName, result: result, ok: true,
-                            jump: wasAnchored ? anchor.lastJump : nil, accepted: accepted)
+                            jump: wasAnchored ? anchor.lastJump : nil, accepted: accepted,
+                            mapPose: poseInMap, sessionPose: sessionPose)
         if accepted {
             lastError = nil
             bootstrap.reset()
