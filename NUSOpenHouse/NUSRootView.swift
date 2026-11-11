@@ -86,7 +86,7 @@ struct NUSHomeView: View {
                 NUSLogoMark(onStaff: onStaff)
                 VStack(alignment: .leading, spacing: 0) {
                     Text("NUS").font(.headline.weight(.heavy)).foregroundStyle(NUS.blue)
-                    Text("Open House").font(.subheadline.weight(.semibold)).foregroundStyle(NUS.orange)
+                    Text("Computing").font(.subheadline.weight(.semibold)).foregroundStyle(NUS.orange)
                 }
                 Spacer()
                 Button { guide.voiceOn.toggle() } label: {
@@ -110,10 +110,10 @@ struct NUSHomeView: View {
                 .accessibilityHidden(true)
 
             VStack(spacing: 10) {
-                Text("Hi! I'm SoCat.")
+                Text("Hi! I'm \(NUS.mascot).")
                     .font(.largeTitle.weight(.bold))
                     .foregroundStyle(NUS.ink)
-                Text("Follow me around the Open House. Hold up your phone and I'll walk ahead of you.")
+                Text("Follow me around for a tour of NUS Computing. Hold up your phone and I'll walk ahead of you.")
                     .font(.body)
                     .foregroundStyle(NUS.inkSecondary)
                     .multilineTextAlignment(.center)

@@ -56,7 +56,7 @@ struct NUSGuideView: View {
 
     private var headerTitle: String {
         if guide.startPending { return "Finding where you are" }
-        guard let stop = guide.current else { return guide.phase == .finished ? "Tour complete" : "NUS Open House" }
+        guard let stop = guide.current else { return guide.phase == .finished ? "Tour complete" : "NUS Computing" }
         return stop.name
     }
 
@@ -94,7 +94,7 @@ struct NUSGuideView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if reliable, viewModel.isNavigating {
-                Text("\(max(1, Int(viewModel.remainingDistance.rounded()))) m to go · follow SoCat")
+                Text("\(max(1, Int(viewModel.remainingDistance.rounded()))) m to go · follow \(NUS.mascot)")
                     .font(.subheadline)
                     .foregroundStyle(NUS.inkSecondary)
             } else if !reliable {
@@ -149,7 +149,7 @@ struct NUSGuideView: View {
         VStack(spacing: 12) {
             Image("SoCatWave").resizable().scaledToFit().frame(height: 80)
             Text("Tour complete!").font(.title.weight(.bold)).foregroundStyle(NUS.ink)
-            Text("You've visited all \(guide.stops.count) stops. Thanks for exploring the NUS Open House with SoCat.")
+            Text("You've visited all \(guide.stops.count) stops. Thanks for exploring NUS Computing with \(NUS.mascot).")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(NUS.inkSecondary)
             Button { guide.exit() } label: { Text("Back to start") }
@@ -164,7 +164,7 @@ struct NUSGuideView: View {
     private var lookHint: some View {
         HStack(spacing: 8) {
             if hint == .left { Image(systemName: "arrow.left") }
-            Text("SoCat is to your \(hint == .left ? "left" : "right")")
+            Text("\(NUS.mascot) is to your \(hint == .left ? "left" : "right")")
             if hint == .right { Image(systemName: "arrow.right") }
         }
         .font(.headline)
@@ -193,8 +193,8 @@ struct NUSGuideView: View {
 
     private var instructionText: String {
         if let text = levelChangeText { return text }
-        guard let instruction = viewModel.currentInstruction else { return "Follow SoCat" }
-        if viewModel.isOffRoute { return "Let's go back to SoCat" }
+        guard let instruction = viewModel.currentInstruction else { return "Follow \(NUS.mascot)" }
+        if viewModel.isOffRoute { return "Let's go back to \(NUS.mascot)" }
         return instruction.bannerText
     }
 

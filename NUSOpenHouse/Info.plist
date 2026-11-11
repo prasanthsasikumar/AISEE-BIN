@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>NUS Open House</string>
+	<string>NUS Computing Tour</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -25,15 +25,15 @@
 	<key>ImmersalDefaultToken</key>
 	<string>$(IMMERSAL_DEFAULT_TOKEN)</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>NUS Open House Guide does not use Bluetooth; this text is required by a shared library and the app never asks for it.</string>
+	<string>This app does not use Bluetooth; this text is required by a shared library and the app never asks for it.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>NUS Open House Guide uses the camera to find where you are in the building and show SoCat leading the way.</string>
+	<string>The camera is used to find where you are in the building and show the guide cat leading the way.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>NUS Open House Guide can listen for a spoken destination when you press the talk button.</string>
+	<string>The app can listen for a spoken destination when you press the talk button.</string>
 	<key>NSMotionUsageDescription</key>
-	<string>NUS Open House Guide uses motion to keep track of where you are between position fixes.</string>
+	<string>Motion is used to keep track of where you are between position fixes.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>NUS Open House Guide converts what you say to text to pick a destination.</string>
+	<string>The app converts what you say to text to pick a destination.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

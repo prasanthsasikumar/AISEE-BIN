@@ -2,6 +2,8 @@ import SwiftUI
 
 /// NUS colours for the open-house app (AISEE-BIN's `DS` tokens are untouched).
 enum NUS {
+    /// The guide's name on screen. One place, so the mascot can be renamed.
+    static let mascot = "SoCCat"
     static let blue = Color(dsHex: 0x003D7C)
     static let orange = Color(dsHex: 0xEF7C00)
     static let ink = Color(dsHex: 0x14213D)
