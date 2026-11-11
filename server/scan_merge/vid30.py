@@ -59,14 +59,26 @@ def camera(target, yaw, pitch, distm, fov=50, oy=40):
     cy, sy, cp, spp = math.cos(yaw), math.sin(yaw), math.cos(pitch), math.sin(pitch)
     eye = np.array(target, float) + distm * np.array([sy * cp, spp, cy * cp])
     f = np.array(target, float) - eye; f /= np.linalg.norm(f)
-    r = np.array([-cy, 0.0, sy]); u = np.cross(r, f); u /= np.linalg.norm(u)
+    r = np.array([cy, 0.0, -sy]); u = np.cross(r, f); u /= np.linalg.norm(u)
     k = (Ht / 2) / math.tan(math.radians(fov) / 2)
     def proj(p):
         q = np.asarray(p, np.float32) - eye
         x, y, z = q @ r, q @ u, q @ f; z = np.maximum(z, 0.3)
         return Wd / 2 + k * x / z, Ht / 2 + oy - k * y / z, z
     return proj
-def splat(proj, pts, cols, alpha, size=2, gain=0.8):
+FLOOR_Y = float(np.percentile(P[yabs < 2.0, 1], 3))
+GRID = None
+def grid_bg(proj, alpha=70):
+    xs = np.arange(math.floor(P[:, 0].min() / 5) * 5 - 30, P[:, 0].max() + 35, 5)
+    zs = np.arange(math.floor(P[:, 2].min() / 5) * 5 - 30, P[:, 2].max() + 35, 5)
+    im = Image.fromarray((np.ones((Ht, Wd, 3)) * BG * 255).astype(np.uint8)); dr = ImageDraw.Draw(im, "RGBA")
+    for a_, b_, fixed in ((xs, zs, "x"), (zs, xs, "z")):
+        for v in a_:
+            line = np.array([[v, FLOOR_Y, w] if fixed == "x" else [w, FLOOR_Y, v] for w in np.linspace(b_[0], b_[-1], 40)])
+            sx, sy, z = proj(line); pts = [(x, y) for x, y, zz in zip(sx, sy, z) if zz > 2]
+            if len(pts) > 1: dr.line(pts, fill=(70, 90, 130, alpha), width=1)
+    return np.asarray(im, np.float32) / 255
+def splat(proj, pts, cols, alpha, size=2, gain=0.8, base=None):
     sx, sy, z = proj(pts)
     ok = (sx >= 0) & (sx < Wd - size) & (sy >= 0) & (sy < Ht - size) & (alpha > 0.01) & (z > 0.5)
     sx, sy, cols, al = sx[ok].astype(int), sy[ok].astype(int), cols[ok], alpha[ok]
@@ -75,7 +87,7 @@ def splat(proj, pts, cols, alpha, size=2, gain=0.8):
         for dy in range(size):
             np.add.at(acc, (sy + dy, sx + dx), cols * al[:, None]); np.add.at(cnt, (sy + dy, sx + dx), al)
     a = np.clip(cnt * gain, 0, 1)[..., None]; col = acc / np.maximum(cnt, 1e-6)[..., None]
-    return BG * (1 - a) + col * a
+    return (BG if base is None else base) * (1 - a) + col * a
 def ease(x): x = min(max(x, 0), 1); return x * x * (3 - 2 * x)
 def back(x):  # overshoot
     x = min(max(x, 0), 1); c1 = 1.70158; c3 = c1 + 1; return 1 + c3 * (x - 1) ** 3 + c1 * (x - 1) ** 2
@@ -92,7 +104,7 @@ center = P.mean(0); ext = np.ptp(P[:, [0, 2]], 0); TOP = max(ext[0] / 1.75, ext[
 order = [scans.index("nus15")] + [i for i in sorted(range(len(scans)), key=lambda i: int(scans[i][3:])) if scans[i] != "nus15"]
 B = lambda n: n * BAR
 T1, T2, T3, T4, T5, T6 = B(2), B(3.5), B(4.5), B(6), B(13), B(15)   # title | scans | calib | floors | nav | phones | end
-NAV_YAW, NAV_PITCH = -0.9, math.radians(42)
+NAV_YAW, NAV_PITCH = -0.9 + math.pi, math.radians(24)
 NAV_T = np.array([RP[:, 0].mean(), RP[:, 1].mean(), RP[:, 2].mean()])
 def fit_dist(yaw, pitch, target, pts, oy=40, margin=(140, 90, 170, 150)):
     lo, hi = 10.0, 400.0
@@ -109,7 +121,7 @@ for _ in range(4):   # centre the route between the margins, then fit again
     NAV_OY += ((170 + (Ht - 150)) / 2) - (sy.min() + sy.max()) / 2
     # horizontal: shift the target along the camera's right axis
     off = (Wd / 2) - (sx.min() + sx.max()) / 2
-    k = (Ht / 2) / math.tan(math.radians(50) / 2); r = np.array([-math.cos(NAV_YAW), 0.0, math.sin(NAV_YAW)])
+    k = (Ht / 2) / math.tan(math.radians(50) / 2); r = np.array([math.cos(NAV_YAW), 0.0, -math.sin(NAV_YAW)])
     NAV_T = NAV_T - r * off * NAV_DIST / k
 NAV_DIST = fit_dist(NAV_YAW, NAV_PITCH, NAV_T, FRAME_PTS, oy=NAV_OY)
 print("nav view: dist", round(NAV_DIST, 1), "oy", round(NAV_OY))
@@ -119,8 +131,8 @@ def frame(t):
     txt = []  # deferred drawing
     if t < T1:                                     # 1. title over a slowly turning cloud
         x = t / B(2)
-        proj = camera(NAV_T, -0.6 + x * 0.3, math.radians(lerp(30, 48, x)), NAV_DIST * lerp(1.25, 1.05, x), oy=NAV_OY + 60)
-        arr = splat(proj, P, colScan * 0.55, np.full(len(P), 0.35 + 0.4 * x, np.float32))
+        proj = camera(NAV_T, NAV_YAW - 0.5 + x * 0.4, math.radians(lerp(16, 26, x)), NAV_DIST * lerp(1.2, 1.02, x), oy=NAV_OY + 60)
+        arr = splat(proj, P, colScan * 0.55, np.full(len(P), 0.35 + 0.4 * x, np.float32), base=grid_bg(proj, 50))
         img = to_img(arr); dr = ImageDraw.Draw(img, "RGBA")
         lab_a = int(255 * ease((t - 0.4) / 0.8))
         for n in places:
@@ -159,14 +171,16 @@ def frame(t):
         x = ease((t - T3) / (T4 - T3))
         proj = camera(center * (1 - x) + NAV_T * x, lerp(0.0, NAV_YAW, x), lerp(math.radians(88), NAV_PITCH, x), lerp(TOP * 0.98, NAV_DIST, x), oy=lerp(40, NAV_OY, x))
         mix = ease((t - T3) / 1.0); cols = colScan * (1 - mix) + colH * mix
-        arr = splat(proj, P, cols, np.ones(len(P), np.float32), gain=0.9)
+        arr = splat(proj, P, cols, np.ones(len(P), np.float32), gain=0.9, base=grid_bg(proj, int(70 * x)))
         img = to_img(arr); dr = ImageDraw.Draw(img, "RGBA")
         slam(dr, img, "2 FLOORS", F(120), Wd / 2, 110, t - T3)
         slam(dr, img, "entrance level  +  upper level 4.6 m up", FH(40), Wd / 2, 200, t - T3 - BEAT, fill=(230, 235, 245))
     elif t < T5:                                   # 5. SoCat walks the route; the map holds still
         lt = t - T4; s = min(L - 0.01, L * ease(lt / (T5 - T4 - 0.6)))
-        proj = camera(NAV_T, NAV_YAW + 0.04 * (lt / (T5 - T4)), NAV_PITCH, NAV_DIST, oy=NAV_OY)   # barely drifts
-        arr = splat(proj, P, colH * 0.8 + colScan * 0.2, np.full(len(P), 0.85, np.float32), gain=0.9)
+        proj = camera(NAV_T, NAV_YAW, NAV_PITCH, NAV_DIST, oy=NAV_OY)   # barely drifts
+        global GRID
+        if GRID is None: GRID = grid_bg(proj)
+        arr = splat(proj, P, colH * 0.8 + colScan * 0.2, np.full(len(P), 0.85, np.float32), gain=0.9, base=GRID)
         img = to_img(arr); dr = ImageDraw.Draw(img, "RGBA")
         q = np.array([along(v) for v in np.linspace(0, L, 400)]); sx, sy, _ = proj(q)
         dr.line(list(zip(sx.tolist(), sy.tolist())), fill=(255, 255, 255, 70), width=3)          # whole route, faint
@@ -208,7 +222,7 @@ def frame(t):
     else:                                          # 7. end card
         lt = t - T6
         proj = camera(NAV_T, NAV_YAW + lt * 0.25, math.radians(40), NAV_DIST, oy=NAV_OY)
-        arr = splat(proj, P, colH * 0.5, np.full(len(P), 0.5, np.float32))
+        arr = splat(proj, P, colH * 0.5, np.full(len(P), 0.5, np.float32), base=grid_bg(proj, 50))
         img = to_img(arr); dr = ImageDraw.Draw(img, "RGBA")
         dr.rectangle([0, 0, Wd, Ht], fill=(7, 12, 24, 140))
         slam(dr, img, "NUS OPEN HOUSE GUIDE", F(110), Wd / 2, Ht / 2 - 60, lt)
