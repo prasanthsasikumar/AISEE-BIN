@@ -228,14 +228,12 @@ struct SettingsView: View {
     }
 
     private var glassesSummary: String {
-        switch viewModel.glasses.connection.state {
-        case .connected(let name):
+        let glasses = viewModel.glasses
+        if let name = glasses.deviceName, glasses.isConnected {
             return viewModel.positioningSource == .glasses ? "\(name) · positioning" : name
-        case .connecting:
-            return "Connecting…"
-        default:
-            return "Not connected"
         }
+        if glasses.kind == .aisee, case .connecting = glasses.connection.state { return "Connecting…" }
+        return "Not connected"
     }
 
     // MARK: - Measurement walk
