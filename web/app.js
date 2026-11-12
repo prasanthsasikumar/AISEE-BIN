@@ -25,7 +25,12 @@ function groundIndex() {
 function floorUnder(x, z, nearFloor = null) {
   const idx = groundIndex(); if (!idx) return null;
   const near = nearFloor !== null && nearFloor !== undefined ? nearFloor + 0.3 : (state.band ? state.band.hi : null);
-  return Ground.floorAt(idx, x, z, near === null ? {} : { near });
+  const f = Ground.floorAt(idx, x, z, near === null ? {} : { near });
+  if (f === null) return null;
+  // A ceiling is not somewhere to stand: the floor under it (indoor scans are
+  // dense at the ceiling and often sparse on the floor).
+  const under = Ground.floorUnderCeiling(idx, x, z, f);
+  return under !== null ? under : f;
 }
 function setFloor(node, floor) { if (typeof floor === 'number' && isFinite(floor)) node.y = +Ground.placeHeight(floor).toFixed(3); }
 /// True when the map already stores heights: then places added in 2D get one too.
@@ -1692,9 +1697,14 @@ function renderScanTools() {
 // three.js is fetched the first time the overlay opens, so the editor stays light.
 const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
 const v3 = { renderer: null, scene: null, cam: null, cloud: null, nodes: null, grid: null, centre: null, dist0: 10, orbit: { yaw: 0.6, pitch: 0.5, dist: 0 } };
+// The move gizmo (arrows per axis, squares per plane), as in Unity/Unreal.
+const GIZMO_URL = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js';
+function loadScript(src) {
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error(`could not load ${src}`)); document.head.appendChild(s); });
+}
 function loadThree() {
-  if (window.THREE) return Promise.resolve();
-  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = THREE_URL; s.onload = res; s.onerror = () => rej(new Error('could not load three.js')); document.head.appendChild(s); });
+  return (window.THREE ? Promise.resolve() : loadScript(THREE_URL))
+    .then(() => (THREE.TransformControls ? null : loadScript(GIZMO_URL)));
 }
 function open3D() {
   if (!state.points || !state.points.length) { setStatus('No point cloud loaded for this version.', true); return; }
@@ -1711,26 +1721,22 @@ function init3D() {
   v3.renderer = new THREE.WebGLRenderer({ canvas: cv3, antialias: true }); v3.renderer.setClearColor(0x0c0e14);
   v3.scene = new THREE.Scene(); v3.cam = new THREE.PerspectiveCamera(50, 1, 0.05, 1000);
   v3.ray = new THREE.Raycaster();
-  // One pointer: drag a place (Select tool) or turn the view; a click without
+  initGizmo3D(cv3);
+  // One pointer: turn the view, unless the move gizmo took it; a click without
   // movement runs the tool. Two pointers: pinch-zoom.
   let drag = null, down = null; const touches = new Map(); let pinch = null;
   cv3.addEventListener('pointerdown', e => { cv3.setPointerCapture(e.pointerId); touches.set(e.pointerId, e);
-    if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), dist: v3.orbit.dist }; drag = null; v3.nodeDrag = null; return; }
+    if (v3.gizmo.dragging) { down = null; return; }
+    if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), dist: v3.orbit.dist }; drag = null; return; }
     down = { x: e.clientX, y: e.clientY };
-    const hit = v3.mode === 'select' && e.button === 0 ? pickNode3D(e) : null;
-    if (hit) { selectNode(hit); v3.nodeDrag = { node: hit, snap: snapshot(), moved: false }; return; }
     drag = { x: e.clientX, y: e.clientY, yaw: v3.orbit.yaw, pitch: v3.orbit.pitch }; cv3.classList.add('drag'); });
   cv3.addEventListener('pointermove', e => { if (touches.has(e.pointerId)) touches.set(e.pointerId, e);
     if (pinch && touches.size === 2) { const [a, b] = [...touches.values()]; v3.orbit.dist = Math.max(0.5, Math.min(v3.dist0 * 5, pinch.dist * pinch.d / Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY))); render3D(); return; }
-    if (v3.nodeDrag) { dragNode3D(e); return; }
     if (!drag) return; v3.orbit.yaw = drag.yaw - (e.clientX - drag.x) * 0.008; v3.orbit.pitch = Math.max(-1.4, Math.min(1.5, drag.pitch + (e.clientY - drag.y) * 0.006)); render3D(); });
   const end = e => {
     const tap = down && touches.size === 1 && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 5;
     touches.delete(e.pointerId); if (touches.size < 2) pinch = null;
-    if (v3.nodeDrag) {
-      if (v3.nodeDrag.moved) { state.history.push(v3.nodeDrag.snap); if (state.history.length > 200) state.history.shift(); state.future = []; updateUndoButtons(); markDirty(); }
-      v3.nodeDrag = null;
-    } else if (tap && e.type === 'pointerup') click3D(e);
+    if (tap && e.type === 'pointerup') click3D(e);
     if (!touches.size) { drag = null; down = null; cv3.classList.remove('drag'); } };
   cv3.addEventListener('pointerup', end); cv3.addEventListener('pointercancel', end);
   cv3.addEventListener('wheel', e => { e.preventDefault(); v3.orbit.dist = Math.max(0.5, Math.min(v3.dist0 * 5, v3.orbit.dist * Math.exp(e.deltaY * 0.0015))); render3D(); }, { passive: false });
@@ -1743,12 +1749,12 @@ function init3D() {
 // Places are drawn standing on the floor at their own height (y − camera
 // height), so a ramp climbs through the cloud. Clicks land on the cloud and
 // take the floor under the clicked spot; drags keep a place on the floor.
-v3.mode = 'select'; v3.connectFrom = null; v3.pathFrom = null; v3.nodeDrag = null;
+v3.mode = 'select'; v3.connectFrom = null; v3.pathFrom = null; v3.gizmo = null; v3.gizmoDrag = null;
 let nodes3DQueued = false;
 after2DDraw = () => { if (!nodes3DQueued && v3.renderer && !$('view3d').hidden) { nodes3DQueued = true; requestAnimationFrame(() => { nodes3DQueued = false; rebuildNodes3D(); }); } };
 document.querySelectorAll('[data-mode3d]').forEach(b => b.addEventListener('click', () => setMode3D(b.dataset.mode3d)));
 const HINTS3D = {
-  select: 'click a place to select it · drag it to move it along the floor · drag empty space to turn · ⌦ delete · ⌘Z undo',
+  select: 'click a place, then drag an arrow: red x / blue z slide it, green y raises it; a square slides it across a plane · drag empty space to turn · ⌦ delete · ⌘Z undo',
   add: 'click the floor to add a place at that height (through a ceiling is fine; Scan view’s height band hides it) · drag to turn',
   connect: 'click a place, then another, to connect them (or remove their connection)',
   path: 'click a place to start, then click along the floor to lay waypoints · click a place to end there',
@@ -1794,7 +1800,7 @@ function rebuildNodes3D() {
   const segs = [];
   for (const e of state.graph?.edges || []) { const a = at.get(e.from), b = at.get(e.to); if (a && b) segs.push(...a, ...b); }
   if (segs.length) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(segs, 3)); v3.nodes.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: '#F7D774' }))); }
-  v3.scene.add(v3.nodes); render3D(); status3D();
+  v3.scene.add(v3.nodes); syncGizmo3D(); render3D(); status3D();
 }
 function ray3D(e) {
   const r = $('canvas3d').getBoundingClientRect();
@@ -1817,7 +1823,7 @@ function pickFloor3D(e) {
   const hits = ray.intersectObject(v3.cloud, false);
   if (!hits.length) return null;
   for (const h of hits.slice(0, 400)) {
-    const f = floorUnder(h.point.x, h.point.z, h.point.y - 0.3);
+    const f = Ground.floorAt(groundIndex(), h.point.x, h.point.z, { near: h.point.y });   // raw: may be a ceiling
     if (f === null || Math.abs(h.point.y - f) >= 0.12) continue;   // not a horizontal surface
     const under = Ground.floorUnderCeiling(groundIndex(), h.point.x, h.point.z, f);
     if (under === null) return { x: h.point.x, z: h.point.z, floor: f };
@@ -1853,17 +1859,44 @@ function click3D(e) {
     v3.pathFrom = wp; selectNode(wp); markDirty();
   }
 }
-/// Moves the dragged place across the floor: the pointer ray meets the plane of
-/// its current floor, then the floor there is looked up again, so the place
-/// rises and falls with a ramp.
-function dragNode3D(e) {
-  const d = v3.nodeDrag, n = d.node, base = nodeBase3D(n);
-  const p = new THREE.Vector3();
-  if (!ray3D(e).ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -base), p)) return;
-  n.x = +p.x.toFixed(2); n.z = +p.z.toFixed(2);
-  const fl = floorUnder(n.x, n.z, base); setFloor(n, fl !== null ? fl : base);
-  d.moved = true; rebuildNodes3D(); renderInspector(); draw();
+/// The move gizmo on the selected place (Select tool): red x and blue z slide
+/// it, green y raises or lowers it (its floor height), squares slide it across
+/// a plane. It sits on a stand-in object at the place's floor point; every
+/// change is copied onto the place, and one drag is one undo step.
+function initGizmo3D(cv3) {
+  v3.proxy = new THREE.Object3D(); v3.scene.add(v3.proxy);
+  v3.gizmo = new THREE.TransformControls(v3.cam, cv3);
+  v3.gizmo.setMode('translate'); v3.gizmo.setSpace('world'); v3.gizmo.setSize(0.9);
+  v3.scene.add(v3.gizmo);
+  v3.gizmo.addEventListener('change', render3D);
+  v3.gizmo.addEventListener('mouseDown', () => { v3.gizmoDrag = { snap: snapshot(), moved: false }; });
+  v3.gizmo.addEventListener('objectChange', () => {
+    const n = v3.gizmoNode, d = v3.gizmoDrag; if (!n || !d) return;
+    const p = v3.proxy.position;
+    n.x = +p.x.toFixed(2); n.z = +p.z.toFixed(2); setFloor(n, p.y);
+    d.moved = true; renderInspector(); draw();
+  });
+  v3.gizmo.addEventListener('mouseUp', () => {
+    const d = v3.gizmoDrag; v3.gizmoDrag = null;
+    if (d?.moved) { state.history.push(d.snap); if (state.history.length > 200) state.history.shift(); state.future = []; updateUndoButtons(); markDirty(); }
+  });
 }
+/// Shows the gizmo on the selected place in the Select tool, hides it otherwise.
+function syncGizmo3D() {
+  if (!v3.gizmo) return;
+  const n = state.selectedNode;
+  if (v3.mode === 'select' && n && state.graph?.pois.includes(n)) {
+    if (!v3.gizmoDrag) v3.proxy.position.set(n.x, nodeBase3D(n), n.z);
+    v3.gizmoNode = n;
+    if (v3.gizmo.object !== v3.proxy) v3.gizmo.attach(v3.proxy);
+  } else if (v3.gizmo.object) { v3.gizmo.detach(); v3.gizmoNode = null; }
+}
+$('dropToFloor').addEventListener('click', () => {
+  const n = state.selectedNode; if (!n || !groundIndex()) return;
+  const fl = floorUnder(n.x, n.z, Ground.floorOf(n) ?? nodeBase3D(n));
+  if (fl === null) { status3D('No scanned floor under this place.'); return; }
+  beginChange(); setFloor(n, fl); markDirty(); status3D(`${n.name} is on the floor (${fl.toFixed(2)} m).`);
+});
 $('snapHeights').addEventListener('click', () => {
   if (!state.graph || !groundIndex()) return;
   beginChange(); let moved = 0, missing = 0;
