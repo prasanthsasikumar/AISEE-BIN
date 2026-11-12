@@ -39,22 +39,34 @@ enum TurnDirection: String, Hashable {
 /// One fully-resolved guidance step: what to do, how far away it is, and where it leads.
 struct NavigationInstruction: Hashable {
     let direction: TurnDirection
-    /// Metres from the user to the next node.
+    /// Metres from the user to the next node, which may be an unnamed waypoint.
+    /// Times the cues; never spoken or shown as the distance to a place.
     let distance: Float
+    /// The next named place along the route (`RouteTracker.spokenTargetName`).
     let nextNodeName: String
     /// `true` when the next node is the destination itself.
     let isFinal: Bool
+    /// Metres to walk along the route to `nextNodeName`. This is the number
+    /// the user hears and sees, so it must belong to the place it is said with.
+    let placeDistance: Float
 
-    private var roundedMetres: Int { max(1, Int(distance.rounded())) }
+    init(direction: TurnDirection, distance: Float, nextNodeName: String, isFinal: Bool, placeDistance: Float? = nil) {
+        self.direction = direction
+        self.distance = distance
+        self.nextNodeName = nextNodeName
+        self.isFinal = isFinal
+        self.placeDistance = placeDistance ?? distance
+    }
+
+    private var roundedMetres: Int { max(1, Int(placeDistance.rounded())) }
     private var metresWord: String { roundedMetres == 1 ? "meter" : "meters" }
 
-    /// Full sentence for `AVSpeechSynthesizer`.
+    /// Full sentence for `AVSpeechSynthesizer`. The direction is the way to
+    /// face now (it is measured from the current heading), and the distance is
+    /// to the named place, so the two are said as separate facts.
     var spokenText: String {
-        if isFinal {
-            let capitalised = direction.spokenPhrase.prefix(1).uppercased() + direction.spokenPhrase.dropFirst()
-            return "\(capitalised). The \(nextNodeName) is \(roundedMetres) \(metresWord) ahead."
-        }
-        return "In \(roundedMetres) \(metresWord), \(direction.spokenPhrase) toward the \(nextNodeName)."
+        let capitalised = direction.spokenPhrase.prefix(1).uppercased() + direction.spokenPhrase.dropFirst()
+        return "\(capitalised). The \(nextNodeName) is \(roundedMetres) \(metresWord) ahead."
     }
 
     /// Short line for the on-screen banner.
@@ -63,5 +75,8 @@ struct NavigationInstruction: Hashable {
         return isFinal ? "\(verb) to \(nextNodeName)" : "\(verb) toward \(nextNodeName)"
     }
 
+    /// Distance to `nextNodeName`.
     var distanceText: String { "\(roundedMetres) m" }
+    /// Distance to the next node, where the next spoken cue falls.
+    var nextCueDistanceText: String { "\(max(1, Int(distance.rounded()))) m" }
 }

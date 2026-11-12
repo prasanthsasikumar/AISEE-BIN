@@ -24,7 +24,16 @@ final class BeaconSynth {
     private let offLeftBuffer: AVAudioPCMBuffer
     private let offRightBuffer: AVAudioPCMBuffer
     private let boundaryBuffer: AVAudioPCMBuffer
+    private let arrivalBuffer: AVAudioPCMBuffer
     private static let boundarySeconds: TimeInterval = 0.6
+    /// Length of the arrival chime; the spoken "You have arrived" waits this long.
+    static let arrivalSeconds: TimeInterval = 0.7
+    /// Peak level of each cue, of a full-scale 1. The low tones are the ones
+    /// that must not be missed and are the harder to hear at the same level
+    /// (the ear and small speakers both favour the 880 Hz tick), so they sit
+    /// just under full scale and the on-course tick a little below them.
+    private static let onCourseAmplitude: Float = 0.7
+    private static let offCourseAmplitude: Float = 0.95
 
     private var cue: BeaconCue = .silent
     private var paused = false
@@ -40,13 +49,17 @@ final class BeaconSynth {
     init() {
         let r = Renderer(format: format)
         // On course: one short high tick every 0.6 s.
-        onCourseBuffer = r.period(0.6, notes: [(0, 0.06, 880)])
+        onCourseBuffer = r.period(0.6, amplitude: Self.onCourseAmplitude, notes: [(0, 0.06, 880)])
         // Off course: a low pattern every 1.2 s. Left = two quick ticks, right = one long tone,
         // mirroring the turn haptics (two taps left, one long buzz right).
-        offLeftBuffer = r.period(1.2, notes: [(0, 0.06, 440), (0.16, 0.06, 440)])
-        offRightBuffer = r.period(1.2, notes: [(0, 0.30, 440)])
+        offLeftBuffer = r.period(1.2, amplitude: Self.offCourseAmplitude, notes: [(0, 0.06, 440), (0.16, 0.06, 440)])
+        offRightBuffer = r.period(1.2, amplitude: Self.offCourseAmplitude, notes: [(0, 0.30, 440)])
         // Boundary: three descending notes, once.
-        boundaryBuffer = r.period(Self.boundarySeconds, notes: [(0, 0.12, 330), (0.18, 0.12, 277), (0.36, 0.12, 220)])
+        boundaryBuffer = r.period(Self.boundarySeconds, amplitude: Self.offCourseAmplitude, notes: [(0, 0.12, 330), (0.18, 0.12, 277), (0.36, 0.12, 220)])
+        // Arrival: three rising notes (C, E, G), the last held. Rising and bright where
+        // the boundary falls and is low, so the two cannot be mistaken for each other.
+        arrivalBuffer = r.period(Self.arrivalSeconds, amplitude: Self.onCourseAmplitude,
+                                 notes: [(0, 0.12, 523.25), (0.14, 0.12, 659.25), (0.28, 0.36, 783.99)])
 
         engine.attach(loop)
         engine.attach(oneShot)
@@ -102,6 +115,22 @@ final class BeaconSynth {
         oneShot.play()
         holdUntil = Self.now + Self.boundarySeconds
         scheduleResume(after: Self.boundarySeconds)
+    }
+
+    /// The destination chime, once, centred. It ends the beacon: the loop stops
+    /// for good and the engine is released when the chime has played.
+    func playArrival() {
+        stop()
+        guard ensureRunning() else { return }
+        oneShot.pan = 0
+        oneShot.scheduleBuffer(arrivalBuffer, at: nil, options: [], completionHandler: nil)
+        oneShot.play()
+        holdUntil = Self.now + Self.arrivalSeconds   // a route started at once waits for the chime
+        resumeTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(Int(Self.arrivalSeconds * 1000) + 100))
+            guard !Task.isCancelled, let self, self.cue == .silent else { return }
+            self.stop()
+        }
     }
 
     /// Silence and release the engine (route ended, beacon switched off).
@@ -204,9 +233,8 @@ final class BeaconSynth {
     /// nothing clicks, then silence to the end of the period.
     private struct Renderer {
         let format: AVAudioFormat
-        let amplitude: Float = 0.3
 
-        func period(_ seconds: Double, notes: [(start: Double, duration: Double, hz: Double)]) -> AVAudioPCMBuffer {
+        func period(_ seconds: Double, amplitude: Float, notes: [(start: Double, duration: Double, hz: Double)]) -> AVAudioPCMBuffer {
             let rate = format.sampleRate
             let frames = AVAudioFrameCount(seconds * rate)
             let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)!

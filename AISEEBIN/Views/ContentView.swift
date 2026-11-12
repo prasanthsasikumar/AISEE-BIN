@@ -545,7 +545,7 @@ struct InstructionPanel: View {
             Divider().overlay(Color(dsHex: 0xE0DAF2))
 
             HStack(alignment: .top, spacing: 0) {
-                metric(instruction.distanceText, "to the turn", tint: DS.A.lavender)
+                metric(instruction.distanceText, "to next place", tint: DS.A.lavender)
                 Rectangle().fill(Color(dsHex: 0xE0DAF2)).frame(width: 2)
                 metric("\(Int(remainingDistance.rounded())) m", "total left", tint: DS.A.ink)
                     .padding(.leading, 20)
@@ -562,7 +562,7 @@ struct InstructionPanel: View {
                         }
                     }
                     .accessibilityHidden(true)
-                    Text("Leg \(leg) of \(legCount) · next cue in \(instruction.distanceText)")
+                    Text("Leg \(leg) of \(legCount) · next cue in \(instruction.nextCueDistanceText)")
                         .font(.dsSubhead).foregroundStyle(DS.A.inkTertiary)
                 }
             }
@@ -571,7 +571,7 @@ struct InstructionPanel: View {
         .padding(20)
         .background(DS.A.canvas, in: RoundedRectangle(cornerRadius: DS.R.card, style: .continuous))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(verb) \(instruction.isFinal ? "to the" : "toward the") \(instruction.nextNodeName). \(instruction.distanceText) to the turn, \(Int(remainingDistance.rounded())) metres total left.")
+        .accessibilityLabel("\(verb) \(instruction.isFinal ? "to the" : "toward the") \(instruction.nextNodeName). \(instruction.distanceText) to it, \(Int(remainingDistance.rounded())) metres total left.")
     }
 
     private func metric(_ value: String, _ caption: String, tint: Color) -> some View {

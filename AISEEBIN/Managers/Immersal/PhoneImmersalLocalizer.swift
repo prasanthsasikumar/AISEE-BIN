@@ -70,7 +70,15 @@ final class PhoneImmersalLocalizer {
             lock.withLock { if enabled { history.record(t, at: time) } }
         }
         func pose(at time: TimeInterval) -> simd_float4x4? { lock.withLock { history.pose(at: time) } }
+        func clear() { lock.withLock { history.reset() } }
     }
+
+    /// Times ARKit re-placed its session frame under a running session.
+    private(set) var sessionJumps = 0
+    @ObservationIgnored private var jumpDetector = SessionJumpDetector()
+    /// Timestamp of the first pose in ARKit's current frame. A fix shot
+    /// before it is paired with a pose from the old frame and is dropped.
+    @ObservationIgnored private var sessionFrameSince: TimeInterval = -.infinity
 
     /// Frames arrive on ARKit's queue; the claim decides, without hopping to
     /// the main actor, whether this one starts a request.
@@ -97,6 +105,24 @@ final class PhoneImmersalLocalizer {
 
     func toGraph(_ sessionPose: simd_float4x4) -> simd_float4x4? { anchor.toGraph(sessionPose) }
 
+    /// Every tracking-normal ARKit pose, in order, *before* it is mapped with
+    /// `toGraph`. When the pose cannot have got there by walking, ARKit has
+    /// moved its session frame: the anchor is dropped, so the position reads
+    /// as not trusted (no guidance, no beeps) until the next fix instead of
+    /// being announced from the wrong place.
+    func noteSessionPose(_ sessionPose: simd_float4x4, at time: TimeInterval) {
+        guard running, let metres = jumpDetector.jump(to: sessionPose, at: time) else { return }
+        sessionJumps += 1
+        sessionFrameSince = time
+        history.clear()
+        bootstrap.reset()
+        // A fix shot after the jump already describes the new frame; keep it.
+        let stale = anchor.isAnchored && (lastFixAt ?? -.infinity) < time
+        if stale { anchor.invalidate() }
+        Self.logger.notice("ARKit session frame jumped \(metres) m; anchor \(stale ? "dropped" : "kept")")
+        DiagnosticsLog.write(String(format: "phone-immersal session jump %.1f m: anchor %@", metres, stale ? "dropped, waiting for a fix" : "kept"))
+    }
+
     func start(alignment: ImmersalAlignment?, recordHistory: Bool = false) {
         stop()
         guard let alignment, !alignment.mapIDs.isEmpty else {
@@ -106,6 +132,9 @@ final class PhoneImmersalLocalizer {
         self.alignment = alignment
         anchor.reset()
         bootstrap.reset()
+        jumpDetector.reset()
+        sessionJumps = 0
+        sessionFrameSince = -.infinity
         glassesFixes = 0
         history.set(enabled: recordHistory)
         usageSource = recordHistory ? "lanyard" : "phone"
@@ -195,6 +224,10 @@ final class PhoneImmersalLocalizer {
         }
         let result = await localizer.localize(frame, intrinsics: intrinsics)
         guard generation == self.generation, running else { return }
+        guard capturedAt >= sessionFrameSince else {
+            DiagnosticsLog.write("phone-immersal localize: dropped, shot before the session jump")
+            return
+        }
         apply(result, sessionPose: sessionPose, capturedAt: capturedAt, alignment: alignment, token: token)
     }
 

@@ -35,9 +35,48 @@ final class RouteTrackerTests: XCTestCase {
         XCTAssertTrue(t.hasArrived)
     }
 
-    func testSingleNodePathIsAlreadyArrived() {
-        let t = tracker("orchid", "orchid")
+    /// The nearest node being the destination does not mean the user is there:
+    /// the route is one node long and still has to be walked.
+    func testSingleNodePathIsWalkedToNotAlreadyArrived() {
+        var t = tracker("orchid", "orchid")                    // orchid is at (-6, -14)
+        XCTAssertFalse(t.hasArrived)
+        XCTAssertEqual(t.targetNode.map(engine.name(of:)), "orchid")
+        XCTAssertTrue(t.isFinalLeg)
+        XCTAssertEqual(t.spokenTargetName, "Orchid Display")
+        let away = SIMD2<Float>(-6, -10)
+        XCTAssertEqual(t.remainingDistance(from: away), 4, accuracy: 0.001)
+        XCTAssertEqual(t.update(position: away), .none)
+        XCTAssertEqual(t.update(position: SIMD2<Float>(-6, -13)), .arrived("orchid"))
         XCTAssertTrue(t.hasArrived)
+    }
+
+    func testEmptyPathHasNowhereToGo() {
+        let t = RouteTracker(path: [], thresholds: thresholds)
+        XCTAssertTrue(t.hasArrived)
+        XCTAssertNil(t.targetNode)
+    }
+
+    /// Starting a few metres beside the graph is not straying from the route:
+    /// the line from where the route was planned to the first target counts.
+    func testNotOffRouteOnTheWayFromWherePlanningStarted() {
+        let start = SIMD2<Float>(4, -4)                        // 4 m beside the leg (0,0) -> (0,-8)
+        let path = engine.findPath(from: "entrance", to: "orchid")
+        XCTAssertTrue(RouteTracker(path: path, thresholds: thresholds).isOffRoute(position: start))
+        var t = RouteTracker(path: path, thresholds: thresholds, origin: start)
+        XCTAssertFalse(t.isOffRoute(position: start))
+        XCTAssertFalse(t.isOffRoute(position: SIMD2<Float>(2, -6)))    // half way to the junction
+        XCTAssertTrue(t.isOffRoute(position: SIMD2<Float>(8, -4)))     // walking away from both
+        // Past the first target the origin no longer excuses anything.
+        XCTAssertEqual(t.update(position: SIMD2<Float>(0, -8)), .reachedNode("junction"))
+        XCTAssertTrue(t.isOffRoute(position: start))
+    }
+
+    func testSingleNodeRouteIsNotOffRouteWhileWalkingToIt() {
+        let start = SIMD2<Float>(-6, -9)                       // 5 m from orchid
+        let t = RouteTracker(path: engine.findPath(from: "orchid", to: "orchid"), thresholds: thresholds, origin: start)
+        XCTAssertFalse(t.isOffRoute(position: start))
+        XCTAssertFalse(t.isOffRoute(position: SIMD2<Float>(-6, -11)))
+        XCTAssertTrue(t.isOffRoute(position: SIMD2<Float>(0, -9)))
     }
 
     func testOffRouteWhenFarFromCurrentSegment() {
@@ -84,8 +123,16 @@ final class RouteTrackerTests: XCTestCase {
     }
 
     func testAimPointIsNilOnceArrived() {
-        let t = tracker("orchid", "orchid")
+        var t = tracker("orchid", "orchid")
+        XCTAssertEqual(t.update(position: SIMD2<Float>(-6, -14)), .arrived("orchid"))
         XCTAssertNil(t.aimPoint(from: .zero, lookAhead: 3))
+    }
+
+    func testAimPointOfSingleNodeRouteIsThatNode() {
+        let t = tracker("orchid", "orchid")
+        let aim = t.aimPoint(from: SIMD2<Float>(-6, -9), lookAhead: 3)!
+        XCTAssertEqual(aim.x, -6, accuracy: 1e-5)
+        XCTAssertEqual(aim.y, -14, accuracy: 1e-5)
     }
 }
 
@@ -97,6 +144,14 @@ final class RouteTrackerNamedTargetTests: XCTestCase {
         let tracker = RouteTracker(path: engine.findPath(from: "entrance", to: "orchid"), thresholds: GuidanceThresholds())
         XCTAssertEqual(tracker.targetNode.map(engine.name(of:)), "junction")
         XCTAssertEqual(tracker.spokenTargetName, "Tropical House")
+    }
+
+    /// entrance -> junction (0,-8) -> tropical (-6,-8): from (0,-2) that is 6 m
+    /// to the junction and 6 m more to the Tropical House, the place named.
+    func testDistanceToSpokenTargetRunsAlongTheRouteToTheNamedPlace() {
+        let engine = PathfindingEngine(map: SampleGreenhouseMap.map)
+        let tracker = RouteTracker(path: engine.findPath(from: "entrance", to: "orchid"), thresholds: GuidanceThresholds())
+        XCTAssertEqual(tracker.distanceToSpokenTarget(from: SIMD2<Float>(0, -2)), 12, accuracy: 0.001)
     }
 
     func testSpokenTargetIsTheNodeItselfWhenNamed() {

@@ -109,6 +109,16 @@ struct ImmersalAnchor: Equatable {
         lastJump = 0
     }
 
+    /// Forgets the fit but keeps the counts: ARKit's session frame has moved
+    /// under it (`SessionJumpDetector`), so it no longer says where anything
+    /// is. Nothing maps until the next fix, which is taken as a first fix
+    /// rather than held to the jump gate against a position that is known wrong.
+    mutating func invalidate() {
+        fit = nil
+        consecutiveRejections = 0
+        lastJump = 0
+    }
+
     mutating func reset() {
         fit = nil
         fixes = 0
@@ -126,5 +136,47 @@ struct ImmersalAnchor: Equatable {
         let rx = c * sp.x - s * sp.z
         let rz = s * sp.x + c * sp.z
         return Fit(yaw: yaw, tx: gp.x - rx, ty: gp.y - sp.y, tz: gp.z - rz)
+    }
+}
+
+/// Notices ARKit moving its own session frame.
+///
+/// Guidance trusts ARKit to carry the position between fixes, and ARKit
+/// usually deserves it. Now and then, typically some seconds after the app
+/// returns from the background, it re-places its frame in one step while still
+/// reporting normal tracking: on 12 Nov 2026 at the Flower Dome one visitor's
+/// pose moved 45 m between two frames and the app announced a turn "in 54
+/// meters" until a fix arrived 13 s later. Nobody walks that, so a step
+/// between consecutive poses longer than walking allows is a frame change,
+/// and every fit made in the old frame is void.
+///
+/// Feed it tracking-normal poses only, in order. The allowance grows with the
+/// time since the last one, so a pause in tracking does not by itself count.
+struct SessionJumpDetector: Equatable {
+    /// Metres always allowed. ARKit's ordinary corrections (loop closures,
+    /// drift fixes) are well under this, and the anchor's fix gate
+    /// (`ImmersalAnchor.maxJump`) absorbs those; this is for what it cannot.
+    var slack: Float = 2
+    /// Metres per second allowed on top: a brisk walk plus an arm swing.
+    var maxSpeed: Float = 4
+
+    private var last: (position: SIMD3<Float>, time: TimeInterval)?
+
+    /// The metres jumped when this pose cannot follow the last one by
+    /// walking; `nil` otherwise. Either way it becomes the new last pose.
+    mutating func jump(to sessionPose: simd_float4x4, at time: TimeInterval) -> Float? {
+        let c = sessionPose.columns.3
+        let position = SIMD3<Float>(c.x, c.y, c.z)
+        defer { last = (position, time) }
+        guard let last, time >= last.time else { return nil }
+        let moved = simd_distance(position, last.position)
+        return moved > slack + maxSpeed * Float(time - last.time) ? moved : nil
+    }
+
+    mutating func reset() { last = nil }
+
+    static func == (a: Self, b: Self) -> Bool {
+        a.slack == b.slack && a.maxSpeed == b.maxSpeed
+            && a.last?.position == b.last?.position && a.last?.time == b.last?.time
     }
 }

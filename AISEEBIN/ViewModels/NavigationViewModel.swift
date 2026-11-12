@@ -945,7 +945,7 @@ final class NavigationViewModel {
         }
 
         let path = engine.findPath(from: engine.name(of: start), to: destination.id)
-        let newTracker = path.isEmpty ? nil : RouteTracker(path: path, thresholds: thresholds, heights: engine.levels.heights)
+        let newTracker = path.isEmpty ? nil : RouteTracker(path: path, thresholds: thresholds, heights: engine.levels.heights, origin: position)
         usage.log("nav.request", ["to_id": .string(destination.id), "to_name": .string(destination.name),
                                   "path_m": newTracker.map { .number(UsageRound.cm(Double($0.remainingDistance(from: position)))) } ?? .null])
         guard let newTracker else {
@@ -1233,6 +1233,7 @@ final class NavigationViewModel {
     /// phone; until the first fix the pose is meaningless, so it is unreliable.
     private func anchored(_ snapshot: PoseSnapshot) -> PoseSnapshot {
         guard positioningSource == .lanyard || (positioningSource == .phone && phoneAnchoredByImmersal) else { return snapshot }
+        if snapshot.trackingReliable { phoneLocalizer.noteSessionPose(snapshot.cameraTransform, at: snapshot.timestamp) }
         guard let transform = phoneLocalizer.toGraph(snapshot.cameraTransform) else {
             return PoseSnapshot(cameraTransform: snapshot.cameraTransform, timestamp: snapshot.timestamp,
                                 trackingReliable: false, featurePointCount: snapshot.featurePointCount)
@@ -1287,6 +1288,8 @@ final class NavigationViewModel {
 
         if quietGuidance && !speakCuesWhenQuiet {
             // Explore: act on the cue without saying it.
+        } else if case .arrived = cue, arrivalChimeEnabled {
+            // The chime first (`finishNavigation` plays it); the words follow it below.
         } else if case .offRoute = cue, beaconEnabled {
             // The corridor earcon first, in the beacon's own voice; the words follow it.
             beacon.playBoundary()
@@ -1302,7 +1305,16 @@ final class NavigationViewModel {
 
         switch cue {
         case .arrived(let id):
+            let chimed = arrivalChimeEnabled
             finishNavigation(at: selectedDestination?.name ?? id)
+            if chimed, !quietGuidance || speakCuesWhenQuiet {
+                // After `finishNavigation`, which cancels any held-back cue.
+                delayedCue = Task { [weak self] in
+                    try? await Task.sleep(for: .milliseconds(Int(BeaconSynth.arrivalSeconds * 1000)))
+                    guard !Task.isCancelled, let self, !self.recognizer.isListening else { return }
+                    self.guidance.deliver(cue)
+                }
+            }
             onArrived?(selectedDestination?.id ?? id)
         case .offRoute:
             usage.log("nav.off_route", ["distance_m": tracker.distanceFromLeg(position: position)
@@ -1352,7 +1364,7 @@ final class NavigationViewModel {
               let start = engine.nearestNode(to: position, height: currentTransform.columns.3.y) else { return }
         let path = engine.findPath(from: engine.name(of: start), to: destination.id)
         guard !path.isEmpty else { return }
-        let replanned = RouteTracker(path: path, thresholds: thresholds, heights: engine.levels.heights)
+        let replanned = RouteTracker(path: path, thresholds: thresholds, heights: engine.levels.heights, origin: position)
         tracker = replanned
         usage.log("nav.reroute", ["path_m": .number(UsageRound.cm(Double(replanned.remainingDistance(from: position))))])
         routeLeg = 1
@@ -1361,7 +1373,12 @@ final class NavigationViewModel {
         routePath = path.map(engine.name(of:))
     }
 
+    /// Beep guidance marks the destination with a chime, so arriving is heard
+    /// in the same voice as the beeps that led there. Never in Explore's quiet mode.
+    private var arrivalChimeEnabled: Bool { beaconEnabled && !quietGuidance }
+
     private func finishNavigation(at name: String) {
+        let chime = arrivalChimeEnabled
         usage.log("nav.arrived", routeSummary())
         isNavigating = false
         hasArrived = true
@@ -1375,7 +1392,7 @@ final class NavigationViewModel {
         debug.subGoal = "arrived"
         routePath = []
         delayedCue?.cancel()
-        beacon.stop()
+        if chime { beacon.playArrival() } else { beacon.stop() }
         beaconPolicy.reset()
     }
 
@@ -1441,7 +1458,8 @@ final class NavigationViewModel {
         return NavigationInstruction(direction: TurnDirection(relativeAngle: vector.relativeAngle),
                                      distance: vector.distance,
                                      nextNodeName: tracker.spokenTargetName ?? engine.displayName(of: target),
-                                     isFinal: tracker.isFinalLeg)
+                                     isFinal: tracker.isFinalLeg,
+                                     placeDistance: tracker.distanceToSpokenTarget(from: NavigationGeometry.planarPosition(of: cameraTransform)))
     }
 
     private func updateMapPose(with snapshot: PoseSnapshot) {

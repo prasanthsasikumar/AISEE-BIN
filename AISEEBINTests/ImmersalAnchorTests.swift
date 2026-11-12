@@ -87,6 +87,58 @@ final class ImmersalAnchorTests: XCTestCase {
         XCTAssertTrue(anchor.update(graphPose: far, sessionPose: still))                 // sixth: believe it
     }
 
+    // MARK: - ARKit moving its own frame
+
+    func testInvalidatedAnchorMapsNothingAndTakesTheNextFixOutright() {
+        var anchor = ImmersalAnchor()
+        anchor.update(graphPose: pose(x: 10, z: 20, heading: 0), sessionPose: pose(x: 0, z: 0, heading: 0))
+        anchor.invalidate()
+        XCTAssertFalse(anchor.isAnchored)
+        XCTAssertNil(anchor.toGraph(pose(x: 0, z: 0, heading: 0)))
+        XCTAssertEqual(anchor.fixes, 1)
+        // 45 m from where the old fit would put it: far beyond the gate, yet accepted,
+        // because there is no longer a position to disagree with.
+        XCTAssertTrue(anchor.update(graphPose: pose(x: 10, z: 20, heading: 0), sessionPose: pose(x: 45, z: 0, heading: 0)))
+        assertPlanar(anchor.toGraph(pose(x: 45, z: -2, heading: 0))!, x: 10, z: 18, heading: 0)
+        XCTAssertEqual(anchor.rejected, 0)
+    }
+
+    func testWalkingAndArmSwingAreNotASessionJump() {
+        var detector = SessionJumpDetector()
+        var t: TimeInterval = 100
+        XCTAssertNil(detector.jump(to: pose(x: 0, z: 0, heading: 0), at: t))
+        for step in 1...120 {                                   // 2 s at 60 fps, 3 m/s
+            t += 1.0 / 60
+            XCTAssertNil(detector.jump(to: pose(x: Float(step) * 0.05, z: 0, heading: 0), at: t))
+        }
+        // An ordinary ARKit correction of a metre in one frame is left to the fix gate.
+        XCTAssertNil(detector.jump(to: pose(x: 7, z: 0, heading: 0), at: t + 1.0 / 60))
+    }
+
+    /// The Flower Dome case: (34.3, 40.0) to (53.5, -1.1) between two frames.
+    func testTeleportBetweenFramesIsASessionJump() {
+        var detector = SessionJumpDetector()
+        XCTAssertNil(detector.jump(to: pose(x: 34.3, z: 40.0, heading: 0), at: 10))
+        let jumped = detector.jump(to: pose(x: 53.5, z: -1.1, heading: 0), at: 10.016)
+        XCTAssertEqual(jumped ?? 0, 45.4, accuracy: 0.1)
+        // The new frame is now the reference: walking on in it is not another jump.
+        XCTAssertNil(detector.jump(to: pose(x: 53.6, z: -1.2, heading: 0), at: 10.032))
+    }
+
+    func testAPauseInTrackingAllowsTheDistanceThatCouldBeWalked() {
+        var detector = SessionJumpDetector()
+        XCTAssertNil(detector.jump(to: pose(x: 0, z: 0, heading: 0), at: 0))
+        XCTAssertNil(detector.jump(to: pose(x: 12, z: 0, heading: 0), at: 5))      // 5 s: up to 22 m
+        XCTAssertNotNil(detector.jump(to: pose(x: 60, z: 0, heading: 0), at: 10))  // 48 m in 5 s
+    }
+
+    func testResetDetectorHasNothingToCompareWith() {
+        var detector = SessionJumpDetector()
+        XCTAssertNil(detector.jump(to: pose(x: 0, z: 0, heading: 0), at: 0))
+        detector.reset()
+        XCTAssertNil(detector.jump(to: pose(x: 500, z: 0, heading: 0), at: 0.016))
+    }
+
     func testResetForgetsEverything() {
         var anchor = ImmersalAnchor()
         anchor.update(graphPose: pose(x: 1, z: 1, heading: 1), sessionPose: pose(x: 0, z: 0, heading: 0))

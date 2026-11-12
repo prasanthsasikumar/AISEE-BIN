@@ -18,7 +18,20 @@ final class NavigationInstructionTests: XCTestCase {
                                                 distance: 3.2,
                                                 nextNodeName: "Palm Conservatory",
                                                 isFinal: false)
-        XCTAssertEqual(instruction.spokenText, "In 3 meters, turn slight right toward the Palm Conservatory.")
+        XCTAssertEqual(instruction.spokenText, "Turn slight right. The Palm Conservatory is 3 meters ahead.")
+    }
+
+    /// The number spoken and shown is the distance to the place that is named,
+    /// not to an unnamed waypoint on the way to it.
+    func testSpokenAndShownDistanceIsToTheNamedPlace() {
+        let instruction = NavigationInstruction(direction: .straight,
+                                                distance: 3.2,          // a waypoint
+                                                nextNodeName: "Palm Conservatory",
+                                                isFinal: false,
+                                                placeDistance: 22.6)
+        XCTAssertEqual(instruction.spokenText, "Continue straight. The Palm Conservatory is 23 meters ahead.")
+        XCTAssertEqual(instruction.distanceText, "23 m")
+        XCTAssertEqual(instruction.nextCueDistanceText, "3 m")
     }
 
     func testSpokenTextForDestination() {
