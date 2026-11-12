@@ -199,6 +199,10 @@ final class MetaGlassesLink {
     @ObservationIgnored private var watchers: [Task<Void, Never>] = []
     @ObservationIgnored private var deviceTokens = ListenerTokenBag()
     @ObservationIgnored private var watchedDevice: DeviceIdentifier?
+    /// Lives as long as the link: the selector learns about devices from the
+    /// SDK's device stream after it is created, so one made at the moment of
+    /// use has no device yet and `createSession` throws `noEligibleDevice`.
+    @ObservationIgnored private var selector: AutoDeviceSelector?
     @ObservationIgnored private var session: DeviceSession?
     @ObservationIgnored private var camera: Camera?
     @ObservationIgnored private var sessionTokens = ListenerTokenBag()
@@ -242,6 +246,7 @@ final class MetaGlassesLink {
             return
         }
         let wearables = Wearables.shared
+        selector = AutoDeviceSelector(wearables: wearables)
         apply { $0.registration = Self.map(wearables.registrationState) }
         watchers.append(Task { [weak self] in
             for await state in wearables.registrationStateStream() {
@@ -312,12 +317,16 @@ final class MetaGlassesLink {
         if chosen?.identifier != watchedDevice {
             deviceTokens.clear()
             watchedDevice = chosen?.identifier
+            if let chosen {
+                log?("meta: device \(chosen.deviceType().rawValue) link \(String(describing: chosen.linkState)) compatibility \(chosen.compatibility().displayString) don \(String(describing: chosen.donState)) hinge \(String(describing: chosen.hingeState))")
+            }
             chosen?.addDeviceStateListener { [weak self] state in
                 Task { @MainActor [weak self] in self?.deviceStateChanged(state) }
             }.store(in: deviceTokens)
         }
         apply {
-            $0.deviceName = chosen?.nameOrId()
+            // Glasses that report no name would otherwise show their long identifier.
+            $0.deviceName = chosen.map { $0.name.isEmpty ? "Ray-Ban Meta" : $0.name }
             $0.linked = chosen?.linkState == .connected
         }
         battery = chosen?.batteryLevel
@@ -386,7 +395,14 @@ final class MetaGlassesLink {
     private func openSession() async throws {
         await closeSession()
         let wearables = Wearables.shared
-        let session = try wearables.createSession(deviceSelector: AutoDeviceSelector(wearables: wearables))
+        let selector = self.selector ?? AutoDeviceSelector(wearables: wearables)
+        self.selector = selector
+        // Give the selector a moment to see the glasses (it follows the device stream).
+        for _ in 0..<50 where selector.activeDevice == nil {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        log?("meta: opening session, selector device \(selector.activeDevice ?? "none"), \(wearables.devices.count) known")
+        let session = try wearables.createSession(deviceSelector: selector)
         self.session = session
 
         session.statePublisher.listen { [weak self] state in
