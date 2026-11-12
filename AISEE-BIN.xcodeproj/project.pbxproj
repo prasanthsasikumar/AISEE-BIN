@@ -56,6 +56,7 @@
 		26DF2CE3714B8BCB7E63C0DD /* PositionPairBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04458240651BBE6647B1FE00 /* PositionPairBootstrap.swift */; };
 		271ABCA1C030BC0525F6DFC8 /* ExploreMapFieldsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 159A0DD7188F2D59AFF25CDB /* ExploreMapFieldsTests.swift */; };
 		295211E74C5CA3868568827B /* NUSStaffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FBC7903CA1B51A05A3C76B6 /* NUSStaffView.swift */; };
+		2A7004AC3565CCFE4089D3CE /* GlassesKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = 433354FAA16373C69B324B72 /* GlassesKind.swift */; };
 		2C13C6CDB6F77BB0FC7CD442 /* AiSeePhotoCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3391E515B1906330F464B3A /* AiSeePhotoCapture.swift */; };
 		2C210D2747750EBD2DC83DA3 /* AiSeePhotoCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3391E515B1906330F464B3A /* AiSeePhotoCapture.swift */; };
 		2C5ADCC772FA300F607AB824 /* FieldTestClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF7F1CF8254CD7AD2A426183 /* FieldTestClient.swift */; };
@@ -92,6 +93,7 @@
 		4E100144371E39AD64EC75B8 /* RouteTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A915C41DB6DAE48DA6B759A7 /* RouteTracker.swift */; };
 		4E9F75AF036A7DAACBFE921D /* VoiceCommandRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFD7F0E186803749AE191EF7 /* VoiceCommandRecognizer.swift */; };
 		4F135C3761D0B9B3A1FE9BAC /* RTKAudioStreaming.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F0189CC38F649B3DDBC7969A /* RTKAudioStreaming.framework */; };
+		50F2D9FC0431C347637A8AB0 /* RayBanStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EA34AA56B6E2A4E54D8266C /* RayBanStatus.swift */; };
 		52FC61C57C2EA5AE46BAB0EB /* GuidancePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EC5B2AE569FC940946C603A /* GuidancePolicy.swift */; };
 		532068E844128F772276EC61 /* GzipCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE1A9F99EB3F6021B96B52C /* GzipCodec.swift */; };
 		543503ED5029B68EAC774712 /* PointCloudCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30B39DE568843C3A29626009 /* PointCloudCodec.swift */; };
@@ -176,6 +178,7 @@
 		9690AF9CF20D2C2F02F70BC6 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8903140164287315C269215C /* DesignSystem.swift */; };
 		97CB9CD5F11B34C03D7EF1A8 /* UsageLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E361A2F569218646277589 /* UsageLogTests.swift */; };
 		984CE263A0B23B153F2214E4 /* SampleGreenhouseMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0D119DADF34A10A81131EF9 /* SampleGreenhouseMap.swift */; };
+		985E4ED13D43BCCDF91897CE /* GlassesKindTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B5103085DAB372B2E03FF1 /* GlassesKindTests.swift */; };
 		98EC5021D96AF1A010121E2E /* FocalCalibration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7D1BC5F4BC8FAF962ED5960 /* FocalCalibration.swift */; };
 		9A0958FDB6C7D9242EDC1AF0 /* ScanFramePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = D31583F5A28C61E85C8A70AB /* ScanFramePolicy.swift */; };
 		9A5151EF6CF2E67A6431BB5A /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FBFA6EDEE26F1834EECED5A /* WelcomeView.swift */; };
@@ -221,6 +224,7 @@
 		C1A562326D37DF49D7D69D0B /* UsageInstrumentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9066C58145B619F476AA147C /* UsageInstrumentation.swift */; };
 		C1D0ED8FCACAC01B0298C6F0 /* NavigationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CA2EE762C8F4CD5CCEC8FB0 /* NavigationViewModel.swift */; };
 		C2CFE54B7F0F373CD83ACA22 /* AiSeeTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E7E7FB52D5FD3D1DB85663 /* AiSeeTypes.swift */; };
+		C3C6FCF5A5C41917578C5AE0 /* RayBanStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC491E7B4B01949219AF81A /* RayBanStatusTests.swift */; };
 		C41FF763635A9E8C52E78A78 /* BeaconSynth.swift in Sources */ = {isa = PBXBuildFile; fileRef = C67D5122D64844F3C54AE6C6 /* BeaconSynth.swift */; };
 		C520E967DF7CBBC6FBFE032E /* AppCommandBus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395123273695F83CCD1FCC82 /* AppCommandBus.swift */; };
 		C59C906B1301D50A6634D952 /* ExploreClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47206E1A2799C8B650F4E05F /* ExploreClient.swift */; };
@@ -257,6 +261,7 @@
 		D64A1FEE0C07185422429CB2 /* OpenAIRealtimeAccess.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2252BB5498BDD59BE9B2B69B /* OpenAIRealtimeAccess.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		D6959C12451D185ADAC656DC /* PoseHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5F0F02FAB194FC6C970A56C /* PoseHistoryTests.swift */; };
 		D6D796012B2EA4C43E1F02B2 /* TestURLStub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 951CA1D1E422039CA70250F6 /* TestURLStub.swift */; };
+		D9C29E90722857DD9E676220 /* GlassesKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = 433354FAA16373C69B324B72 /* GlassesKind.swift */; };
 		DB90BEEE89E77B5C15CF479B /* GuidancePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EC5B2AE569FC940946C603A /* GuidancePolicy.swift */; };
 		DBB0C227D00E1341223DAB3C /* ScanLinkSolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D65966B319CDC6C9333AA58 /* ScanLinkSolver.swift */; };
 		DD6060895DD317F34DD93A8D /* PathSimplifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64642D7E9A3E3E5A94A74220 /* PathSimplifier.swift */; };
@@ -286,6 +291,7 @@
 		F4FBCD068C88F0C8144F19D6 /* MapAuthoringSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B82DC7FA8B4B13387732993 /* MapAuthoringSessionTests.swift */; };
 		F5134C1B1C2BC5661BCF1F88 /* ImmersalMapCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE5450BDEB27A6C3E6CE1565 /* ImmersalMapCache.swift */; };
 		F6D93808BF2426FC44E138DC /* AiSeeConnectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 707E0D0D36B544790F9C1DBC /* AiSeeConnectionService.swift */; };
+		F797492FFF014B336443BCF3 /* RayBanStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EA34AA56B6E2A4E54D8266C /* RayBanStatus.swift */; };
 		F7C260981D72F7D93000BC5C /* NavigationMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87B414D18FF00045961072BB /* NavigationMap.swift */; };
 		FA8F096296B0988225B06AC5 /* GzipCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE1A9F99EB3F6021B96B52C /* GzipCodec.swift */; };
 		FB1A8BEF56BBA54D8E67BA7F /* ImmersalMapCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE5450BDEB27A6C3E6CE1565 /* ImmersalMapCache.swift */; };
@@ -377,6 +383,7 @@
 		422D20AF3BC61E11863E9258 /* MapSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSyncService.swift; sourceTree = "<group>"; };
 		423DD5B925169E1FF0038AE2 /* PlaceAdderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceAdderTests.swift; sourceTree = "<group>"; };
 		428A5744E4DC3A40A1F0BF37 /* NearbyQueryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyQueryTests.swift; sourceTree = "<group>"; };
+		433354FAA16373C69B324B72 /* GlassesKind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesKind.swift; sourceTree = "<group>"; };
 		43F2546231C38CF2AC02B574 /* DiagnosticsLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsLog.swift; sourceTree = "<group>"; };
 		44488FCAC2B5F4FE7DDF9669 /* AiSeeMicrophone.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeMicrophone.swift; sourceTree = "<group>"; };
 		457562D5E3B33F131B5204FF /* FieldTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FieldTestView.swift; sourceTree = "<group>"; };
@@ -405,6 +412,7 @@
 		69E47423A845E1B5C869D6EC /* AiSeePCMAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeePCMAdapter.swift; sourceTree = "<group>"; };
 		69F9270FB6C2212DF57E62F5 /* RouteTidyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteTidyTests.swift; sourceTree = "<group>"; };
 		6B82DC7FA8B4B13387732993 /* MapAuthoringSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapAuthoringSessionTests.swift; sourceTree = "<group>"; };
+		6EA34AA56B6E2A4E54D8266C /* RayBanStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RayBanStatus.swift; sourceTree = "<group>"; };
 		6F0B7D19FAD5C3C4FF953A24 /* ImmersalClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalClient.swift; sourceTree = "<group>"; };
 		6FEA60DAC23822F2F832ED26 /* PathfindingEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathfindingEngineTests.swift; sourceTree = "<group>"; };
 		70152EF34D9E97DF4C741CE6 /* ProbeLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProbeLog.swift; sourceTree = "<group>"; };
@@ -424,6 +432,7 @@
 		8B46391B3825C7E8F7B89464 /* NUSGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NUSGuideView.swift; sourceTree = "<group>"; };
 		8B7802FB811E8964B8D37763 /* ImmersalScanRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalScanRecorder.swift; sourceTree = "<group>"; };
 		8CA2EE762C8F4CD5CCEC8FB0 /* NavigationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationViewModel.swift; sourceTree = "<group>"; };
+		8CC491E7B4B01949219AF81A /* RayBanStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RayBanStatusTests.swift; sourceTree = "<group>"; };
 		8D12BD48488E1A3FAE730620 /* ImmersalAlignment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalAlignment.swift; sourceTree = "<group>"; };
 		8D57E8988C3B58C97A2D8807 /* RTKAIDeviceConnection.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RTKAIDeviceConnection.framework; path = Vendor/RTK/RTKAIDeviceConnection.framework; sourceTree = "<group>"; };
 		9066C58145B619F476AA147C /* UsageInstrumentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageInstrumentation.swift; sourceTree = "<group>"; };
@@ -454,6 +463,7 @@
 		B16658E9F9DB9EA34F123137 /* GzipCodecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GzipCodecTests.swift; sourceTree = "<group>"; };
 		B170D7D1B7AA8E6E046364DF /* MapAuthoringSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapAuthoringSession.swift; sourceTree = "<group>"; };
 		B17CF5132281D5BC845C7C19 /* clips */ = {isa = PBXFileReference; lastKnownFileType = folder; name = clips; path = voice/clips; sourceTree = SOURCE_ROOT; };
+		B5B5103085DAB372B2E03FF1 /* GlassesKindTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesKindTests.swift; sourceTree = "<group>"; };
 		B5B9DCE8EC93EFD960A3F301 /* ImmersalMapCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalMapCacheTests.swift; sourceTree = "<group>"; };
 		B5CD47A0E9D56274EC4F805D /* RTKAudioConnectSDK.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RTKAudioConnectSDK.framework; path = Vendor/RTK/RTKAudioConnectSDK.framework; sourceTree = "<group>"; };
 		B8525B61C966C9BB4D71CBA2 /* ProbeMathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProbeMathTests.swift; sourceTree = "<group>"; };
@@ -559,6 +569,14 @@
 			path = FieldTest;
 			sourceTree = "<group>";
 		};
+		100B2485F3CF105F6EFB0A9F /* MetaGlassKit */ = {
+			isa = PBXGroup;
+			children = (
+				6EA34AA56B6E2A4E54D8266C /* RayBanStatus.swift */,
+			);
+			path = MetaGlassKit;
+			sourceTree = "<group>";
+		};
 		1023C3AF725989EEA7EB6707 /* ViewModels */ = {
 			isa = PBXGroup;
 			children = (
@@ -660,12 +678,14 @@
 				DD61D73D3FA8E3165ABFB6C5 /* GlassesCamera.swift */,
 				41C3FC86DF6322E4628A76A0 /* GlassesFixFeed.swift */,
 				4BAEB59842780F05E8CA516A /* GlassesFrameSelector.swift */,
+				433354FAA16373C69B324B72 /* GlassesKind.swift */,
 				6301136D1436F49F15A0FB19 /* GlassesMode.swift */,
 				97885123C8C5A05ACE0A19CD /* GlassesPositioning.swift */,
 				2C578835CC242A3C51D0FBB4 /* GlassesService.swift */,
 				F6FA8490E8C6B82408C82360 /* GlassesView.swift */,
 				DA0794BDCDE64D0B0863A88F /* PoseExtrapolator.swift */,
 				67800DA34D781B7C1AE7B8E9 /* AiSeeGlassKit */,
+				100B2485F3CF105F6EFB0A9F /* MetaGlassKit */,
 			);
 			path = Glasses;
 			sourceTree = "<group>";
@@ -749,6 +769,7 @@
 				159A0DD7188F2D59AFF25CDB /* ExploreMapFieldsTests.swift */,
 				C1E3F42C27B669F4C5C444F1 /* ExploreReviewFixTests.swift */,
 				2E98FCA412A74134E5CCC650 /* GlassesFrameSelectorTests.swift */,
+				B5B5103085DAB372B2E03FF1 /* GlassesKindTests.swift */,
 				1E623071865994A1A1FCB1F5 /* GlassesModeTests.swift */,
 				096480BB907702BBDE476ED1 /* GlassesPositioningLogicTests.swift */,
 				BB3484E049C64F8737394EF7 /* GuidancePolicyTests.swift */,
@@ -780,6 +801,7 @@
 				245C31047AF5BC459148277C /* PositionPairBootstrapTests.swift */,
 				B8525B61C966C9BB4D71CBA2 /* ProbeMathTests.swift */,
 				922A716A95F7EFF263EC528F /* ProximityAnnouncerTests.swift */,
+				8CC491E7B4B01949219AF81A /* RayBanStatusTests.swift */,
 				69F9270FB6C2212DF57E62F5 /* RouteTidyTests.swift */,
 				F60DE300013D590E27A22BD6 /* RouteTrackerTests.swift */,
 				EC925ED0DE3BBD173F125656 /* ScanLinkSolverTests.swift */,
@@ -1085,6 +1107,7 @@
 				952B1D570B10AC945E3944A7 /* GlassesCamera.swift in Sources */,
 				8FE4FA1BF9B2DA82B074CD10 /* GlassesFixFeed.swift in Sources */,
 				5932F8D9D7D1E1EA87889C6F /* GlassesFrameSelector.swift in Sources */,
+				2A7004AC3565CCFE4089D3CE /* GlassesKind.swift in Sources */,
 				C6EF39EAEEFCF8BE1B4624CD /* GlassesMode.swift in Sources */,
 				6D4A75A7A242B838B12CFEF6 /* GlassesPositioning.swift in Sources */,
 				43A05A683CC2ECAFEA4E77D9 /* GlassesService.swift in Sources */,
@@ -1138,6 +1161,7 @@
 				493CAA8C597C5B76955CC101 /* ProbeSession.swift in Sources */,
 				38222710F789DDA91C68757E /* ProbeView.swift in Sources */,
 				5502BB5DB7A26E7784AF488F /* ProximityAnnouncer.swift in Sources */,
+				50F2D9FC0431C347637A8AB0 /* RayBanStatus.swift in Sources */,
 				02BCDA5F5F5A470B2E891477 /* RouteTidy.swift in Sources */,
 				4E100144371E39AD64EC75B8 /* RouteTracker.swift in Sources */,
 				54824D0F19BAF16E611273D3 /* SampleGreenhouseMap.swift in Sources */,
@@ -1204,6 +1228,7 @@
 				63FA5192A7FF32147EF4368E /* GlassesCamera.swift in Sources */,
 				D53269B6C3B17A42E8A7B200 /* GlassesFixFeed.swift in Sources */,
 				1C2D1AFE586617A2F9F72D65 /* GlassesFrameSelector.swift in Sources */,
+				D9C29E90722857DD9E676220 /* GlassesKind.swift in Sources */,
 				56040B656C749A4E56F4AE7C /* GlassesMode.swift in Sources */,
 				37F09F70666F696E32B6F55B /* GlassesPositioning.swift in Sources */,
 				A8705F672C8B73C713E15F01 /* GlassesService.swift in Sources */,
@@ -1252,6 +1277,7 @@
 				D12B52E1385E154EE6DD18DC /* ProbeSession.swift in Sources */,
 				D27E4537E96FB437616B1812 /* ProbeView.swift in Sources */,
 				14460B305CD9256BE9B93E7C /* ProximityAnnouncer.swift in Sources */,
+				F797492FFF014B336443BCF3 /* RayBanStatus.swift in Sources */,
 				B1E8379677E207C50DE660F2 /* RouteTidy.swift in Sources */,
 				1F77CBD104CAE305B88D97B6 /* RouteTracker.swift in Sources */,
 				984CE263A0B23B153F2214E4 /* SampleGreenhouseMap.swift in Sources */,
@@ -1284,6 +1310,7 @@
 				271ABCA1C030BC0525F6DFC8 /* ExploreMapFieldsTests.swift in Sources */,
 				488F0A9064B9205F68CA09ED /* ExploreReviewFixTests.swift in Sources */,
 				D492E48823754B0317C9C220 /* GlassesFrameSelectorTests.swift in Sources */,
+				985E4ED13D43BCCDF91897CE /* GlassesKindTests.swift in Sources */,
 				46CF3317BF2FF1CF68BD5DAF /* GlassesModeTests.swift in Sources */,
 				1FFA070BD5723B4ED54F3D92 /* GlassesPositioningLogicTests.swift in Sources */,
 				A69A562480CA2B3D8A55B97D /* GuidancePolicyTests.swift in Sources */,
@@ -1315,6 +1342,7 @@
 				7C55E6090F79A7E353D711F8 /* PositionPairBootstrapTests.swift in Sources */,
 				8C48FD5D39EED67173AB08AC /* ProbeMathTests.swift in Sources */,
 				59E758BD870F8AFA836C4338 /* ProximityAnnouncerTests.swift in Sources */,
+				C3C6FCF5A5C41917578C5AE0 /* RayBanStatusTests.swift in Sources */,
 				94E7C1CCB42443753CF727F1 /* RouteTidyTests.swift in Sources */,
 				9594F1B7D5EEB79B56307DA5 /* RouteTrackerTests.swift in Sources */,
 				03ECB77ACC60FBB1829D546D /* ScanLinkSolverTests.swift in Sources */,
