@@ -145,6 +145,19 @@ final class GuidanceManager: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlaye
         startNext()
     }
 
+    /// Ray-Ban Meta glasses have no microphone API of their own: iOS offers
+    /// their microphone as a Bluetooth headset input, which needs the
+    /// phone-call profile. It is allowed only while the app listens, and taken
+    /// away again afterwards, so speech and beeps go back to A2DP and the
+    /// glasses do not announce a call around every sentence.
+    func setHeadsetMicrophoneAllowed(_ allowed: Bool) {
+        guard allowed != headsetMicrophoneAllowed else { return }
+        headsetMicrophoneAllowed = allowed
+        configureAudioSession()
+    }
+
+    private var headsetMicrophoneAllowed = false
+
     private func configureAudioSession() {
         let audioSession = AVAudioSession.sharedInstance()
         do {
@@ -157,7 +170,8 @@ final class GuidanceManager: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlaye
             // call link for every utterance, which audio glasses announce as
             // "call ended" after each sentence. A2DP output plus the built-in
             // (or the glasses' own SDK) microphone is what this app wants.
-            let options: AVAudioSession.CategoryOptions = [.duckOthers, .defaultToSpeaker, .allowBluetoothA2DP]
+            var options: AVAudioSession.CategoryOptions = [.duckOthers, .defaultToSpeaker, .allowBluetoothA2DP]
+            if headsetMicrophoneAllowed { options.insert(.allowBluetooth) }
             try audioSession.setCategory(.playAndRecord, mode: .default, options: options)
             try audioSession.setActive(true)
         } catch {

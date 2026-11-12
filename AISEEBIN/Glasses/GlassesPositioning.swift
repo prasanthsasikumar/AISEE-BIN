@@ -65,6 +65,15 @@ final class GlassesPositioning {
     /// the PNG against the native 1280, and the phone probe localized fine at
     /// 960 wide. Intrinsics are derived from the sent size, so this is safe to tune.
     nonisolated static let sentFrameWidth = 960
+
+    /// The width to send a `width`×`height` frame at: its long edge brought
+    /// down to `sentFrameWidth`, never enlarged. 1280×720 goes out 960 wide as
+    /// it always has; a portrait 720×1280 frame goes out 540 wide.
+    nonisolated static func sentWidth(width: Int, height: Int) -> Int {
+        let longEdge = max(width, height)
+        guard longEdge > sentFrameWidth else { return width }
+        return width * sentFrameWidth / longEdge
+    }
     /// Cadence of the snapshots between fixes. ARKit gives 60; guidance needs far fewer.
     static let tickInterval: TimeInterval = 0.2
 
@@ -263,7 +272,7 @@ final class GlassesPositioning {
         let turnAtCapture = turnSource.turn
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
-            let frame = ImmersalFrameEncoder.gray(from: image, targetWidth: Self.sentFrameWidth)
+            let frame = ImmersalFrameEncoder.gray(from: image, targetWidth: Self.sentWidth(width: image.width, height: image.height))
             let sharpness = frame.map(FrameSharpness.score) ?? 0
             guard self.selector.admits(sharpness: sharpness, now: now) else {
                 self.claim.releaseForRetry(minimumInterval: Self.minimumInterval)

@@ -41,7 +41,9 @@ final class ExploreClient {
     }
 
     func ask(question: String, jpeg: Data?, mapSlug: String, places: [AskPlace],
-             venueInfo: String?, history: [AskTurn]) -> AsyncThrowingStream<String, Error> {
+             venueInfo: String?, history: [AskTurn],
+             audience: String = "sighted", camera: String = "phone",
+             venue: String? = nil) -> AsyncThrowingStream<String, Error> {
         struct Body: Encodable {
             let question: String
             let imageJPEGBase64: String?
@@ -49,9 +51,15 @@ final class ExploreClient {
             let places: [AskPlace]
             let venueInfo: String?
             let history: [AskTurn]
+            /// Who is asking ("sighted" / "nonsighted"), through which camera
+            /// ("phone" / "glasses"), and the map's display name.
+            let audience: String
+            let camera: String
+            let venue: String?
         }
         let body = Body(question: question, imageJPEGBase64: jpeg?.base64EncodedString(), mapSlug: mapSlug,
-                        places: places, venueInfo: venueInfo, history: history)
+                        places: places, venueInfo: venueInfo, history: history,
+                        audience: audience, camera: camera, venue: venue)
         let request = makeRequest(path: "ask", body: body)
         let session = self.session
         let usage = self.usage
@@ -63,7 +71,8 @@ final class ExploreClient {
                 var answer = ""
                 func logAsk(_ error: Error?) {
                     usage.log("explore.ask", ["question": .string(question), "answer": .string(answer),
-                                              "had_image": .bool(hadImage), "ms": .number(UsageRound.ms(since: started)),
+                                              "had_image": .bool(hadImage), "audience": .string(audience),
+                                              "camera": .string(camera), "ms": .number(UsageRound.ms(since: started)),
                                               "ok": .bool(error == nil),
                                               "error": error.map { .string($0.localizedDescription) } ?? .null])
                 }

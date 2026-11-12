@@ -22,20 +22,36 @@ struct GlassesCamera: Codable, Equatable {
 
     /// Intrinsics for an image of `width`×`height` pixels.
     func intrinsics(width: Int, height: Int) -> (fx: Float, fy: Float, ox: Float, oy: Float) {
-        let f = focalPx * Float(width) / Float(Self.referenceWidth)
+        // The focal length is quoted against the frame's long edge, so a portrait
+        // stream (Ray-Ban Meta, 720x1280) and a landscape one (AiSee, 1280x720)
+        // share one definition.
+        let f = focalPx * Float(max(width, height)) / Float(Self.referenceWidth)
         return (fx: f, fy: f, ox: Float(width) / 2, oy: Float(height) / 2)
     }
 
     // MARK: - Persistence
 
-    private static let key = "glasses.camera.focalPx"
+    /// Each kind of glasses has its own lens, so its own calibrated value.
+    /// AiSee keeps the key it has always used.
+    static func key(for kind: GlassesKind) -> String {
+        kind == .aisee ? "glasses.camera.focalPx" : "glasses.camera.focalPx.\(kind.rawValue)"
+    }
 
+    /// The camera of the glasses currently chosen on the Glasses screen.
     static func load(from defaults: UserDefaults = .standard) -> GlassesCamera {
-        let stored = defaults.float(forKey: key)
+        load(kind: .load(from: defaults), from: defaults)
+    }
+
+    static func load(kind: GlassesKind, from defaults: UserDefaults = .standard) -> GlassesCamera {
+        let stored = defaults.float(forKey: key(for: kind))
         return GlassesCamera(focalPx: stored > 0 ? stored : defaultFocalPx)
     }
 
     func save(to defaults: UserDefaults = .standard) {
-        defaults.set(focalPx, forKey: Self.key)
+        save(kind: .load(from: defaults), to: defaults)
+    }
+
+    func save(kind: GlassesKind, to defaults: UserDefaults = .standard) {
+        defaults.set(focalPx, forKey: Self.key(for: kind))
     }
 }

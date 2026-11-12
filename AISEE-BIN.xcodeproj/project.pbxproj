@@ -10,6 +10,7 @@
 		014C3C7812EFDEBBCEEEF9F5 /* LocalizerReselectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E556DF97F5DF1F731E0006F7 /* LocalizerReselectionTests.swift */; };
 		015F9061FAF2DDCFA7F0E475 /* VoiceCommandRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFD7F0E186803749AE191EF7 /* VoiceCommandRecognizer.swift */; };
 		0246AAC65D540A1F0769FE4F /* RTKAIDeviceConnection.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8D57E8988C3B58C97A2D8807 /* RTKAIDeviceConnection.framework */; };
+		02BCDA5F5F5A470B2E891477 /* RouteTidy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6663ED1E98C8CE4517D4DF3E /* RouteTidy.swift */; };
 		02F440EB773D8D5B5B8D414C /* AskContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = F162832E061500E098FF2A66 /* AskContext.swift */; };
 		0350E3E61F21F3D1356A8F91 /* RTKAudioConnectSDK.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B5CD47A0E9D56274EC4F805D /* RTKAudioConnectSDK.framework */; };
 		03ECB77ACC60FBB1829D546D /* ScanLinkSolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC925ED0DE3BBD173F125656 /* ScanLinkSolverTests.swift */; };
@@ -40,6 +41,7 @@
 		178163C40046049C31D56B3C /* BuildingLevelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFCC206B37C8B8F8ED7FB17A /* BuildingLevelsTests.swift */; };
 		17B85566D22C4ABFE6717FBB /* BodyHeading.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96F27A83FB797B374089A5B5 /* BodyHeading.swift */; };
 		17C1D6340628BD3679D6FC9C /* PlaceAdder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE5F0D8300A265391C0C9A75 /* PlaceAdder.swift */; };
+		1957EA5470E915E5BA830186 /* MetaGlassesLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D8553FC2F17E644A870E5C4 /* MetaGlassesLink.swift */; };
 		1AB16387C633B6569529F61C /* NavigationGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF7B9346BA410D9FDF2F6EFD /* NavigationGeometryTests.swift */; };
 		1C2D1AFE586617A2F9F72D65 /* GlassesFrameSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BAEB59842780F05E8CA516A /* GlassesFrameSelector.swift */; };
 		1CF8BFC9D6C8E761D96C511A /* BeaconPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28008B811196FACD04FF216E /* BeaconPolicyTests.swift */; };
@@ -55,6 +57,7 @@
 		26DF2CE3714B8BCB7E63C0DD /* PositionPairBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04458240651BBE6647B1FE00 /* PositionPairBootstrap.swift */; };
 		271ABCA1C030BC0525F6DFC8 /* ExploreMapFieldsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 159A0DD7188F2D59AFF25CDB /* ExploreMapFieldsTests.swift */; };
 		295211E74C5CA3868568827B /* NUSStaffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FBC7903CA1B51A05A3C76B6 /* NUSStaffView.swift */; };
+		2A7004AC3565CCFE4089D3CE /* GlassesKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = 433354FAA16373C69B324B72 /* GlassesKind.swift */; };
 		2C13C6CDB6F77BB0FC7CD442 /* AiSeePhotoCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3391E515B1906330F464B3A /* AiSeePhotoCapture.swift */; };
 		2C210D2747750EBD2DC83DA3 /* AiSeePhotoCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3391E515B1906330F464B3A /* AiSeePhotoCapture.swift */; };
 		2C5ADCC772FA300F607AB824 /* FieldTestClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF7F1CF8254CD7AD2A426183 /* FieldTestClient.swift */; };
@@ -91,6 +94,7 @@
 		4E100144371E39AD64EC75B8 /* RouteTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A915C41DB6DAE48DA6B759A7 /* RouteTracker.swift */; };
 		4E9F75AF036A7DAACBFE921D /* VoiceCommandRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFD7F0E186803749AE191EF7 /* VoiceCommandRecognizer.swift */; };
 		4F135C3761D0B9B3A1FE9BAC /* RTKAudioStreaming.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F0189CC38F649B3DDBC7969A /* RTKAudioStreaming.framework */; };
+		50F2D9FC0431C347637A8AB0 /* RayBanStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EA34AA56B6E2A4E54D8266C /* RayBanStatus.swift */; };
 		52FC61C57C2EA5AE46BAB0EB /* GuidancePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EC5B2AE569FC940946C603A /* GuidancePolicy.swift */; };
 		532068E844128F772276EC61 /* GzipCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE1A9F99EB3F6021B96B52C /* GzipCodec.swift */; };
 		543503ED5029B68EAC774712 /* PointCloudCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30B39DE568843C3A29626009 /* PointCloudCodec.swift */; };
@@ -117,13 +121,16 @@
 		68F48E0322CDE7208DF74844 /* UsageValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF782C76346CFD4659655729 /* UsageValue.swift */; };
 		69BF5C6BEC21C979697A610A /* NavigationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CA2EE762C8F4CD5CCEC8FB0 /* NavigationViewModel.swift */; };
 		6A051B975FC3A1C88E319CE1 /* PositionPairBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04458240651BBE6647B1FE00 /* PositionPairBootstrap.swift */; };
+		6A3463348684ED12D10C4519 /* AskServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17CE7B2E32279F591EB98C4A /* AskServiceTests.swift */; };
 		6A8C8F12EAB499F68653C10C /* GlassesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6FA8490E8C6B82408C82360 /* GlassesView.swift */; };
 		6B34ACB6B3ED540AB2CDBA6B /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4728F78C5FD9C95147684CF /* HomeView.swift */; };
 		6BE13953C925A3128D63F967 /* SentenceSplitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D08B045688F759EBCF64E2F6 /* SentenceSplitTests.swift */; };
 		6D4A75A7A242B838B12CFEF6 /* GlassesPositioning.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97885123C8C5A05ACE0A19CD /* GlassesPositioning.swift */; };
 		709F21BE4B1149BA2766E549 /* PoseExtrapolator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0794BDCDE64D0B0863A88F /* PoseExtrapolator.swift */; };
 		72BA898CE03204AE0352C352 /* AiSeeDeviceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED0A9F795D184C9FCE140CBA /* AiSeeDeviceCoordinator.swift */; };
+		734A29BB5D372EA95DF2B199 /* MWDATCore in Frameworks */ = {isa = PBXBuildFile; productRef = 3FD06E92D2AF26D4FA7C0249 /* MWDATCore */; };
 		7354BCDE6D022AF2B1AE9ADE /* NavigationGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8521C6E6D026D6E48CF8B15 /* NavigationGeometry.swift */; };
+		750A6D62BCB5140D479200EE /* AskService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DC41A182842BB172566883 /* AskService.swift */; };
 		75E6270E54EA607EB000D594 /* AppCommandBus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395123273695F83CCD1FCC82 /* AppCommandBus.swift */; };
 		7717215AA55A6FC62AED6507 /* MapAuthoringViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9C1F47A1A2775B3E996161C /* MapAuthoringViewModel.swift */; };
 		778712C92539CC8225299BD6 /* NearbyQueryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 428A5744E4DC3A40A1F0BF37 /* NearbyQueryTests.swift */; };
@@ -166,6 +173,7 @@
 		91AECF7A8A92EB88CD108195 /* ImmersalPose.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EC5350A5C237B133D347EF3 /* ImmersalPose.swift */; };
 		923A593D3AB89BFE13453371 /* FieldTestSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 810316C170E8D5BADAA0282B /* FieldTestSession.swift */; };
 		937FD1E7EB993C8E3C5B1C0B /* AskContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = F162832E061500E098FF2A66 /* AskContext.swift */; };
+		94E7C1CCB42443753CF727F1 /* RouteTidyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F9270FB6C2212DF57E62F5 /* RouteTidyTests.swift */; };
 		952B1D570B10AC945E3944A7 /* GlassesCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD61D73D3FA8E3165ABFB6C5 /* GlassesCamera.swift */; };
 		957F0528D7F6286D57143C48 /* UsageQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4771FF98C893F119DC090DBE /* UsageQueue.swift */; };
 		9594F1B7D5EEB79B56307DA5 /* RouteTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60DE300013D590E27A22BD6 /* RouteTrackerTests.swift */; };
@@ -174,7 +182,9 @@
 		9690AF9CF20D2C2F02F70BC6 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8903140164287315C269215C /* DesignSystem.swift */; };
 		97CB9CD5F11B34C03D7EF1A8 /* UsageLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E361A2F569218646277589 /* UsageLogTests.swift */; };
 		984CE263A0B23B153F2214E4 /* SampleGreenhouseMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0D119DADF34A10A81131EF9 /* SampleGreenhouseMap.swift */; };
+		985E4ED13D43BCCDF91897CE /* GlassesKindTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B5103085DAB372B2E03FF1 /* GlassesKindTests.swift */; };
 		98EC5021D96AF1A010121E2E /* FocalCalibration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7D1BC5F4BC8FAF962ED5960 /* FocalCalibration.swift */; };
+		998937E4F7E3169831C4434C /* AskService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DC41A182842BB172566883 /* AskService.swift */; };
 		9A0958FDB6C7D9242EDC1AF0 /* ScanFramePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = D31583F5A28C61E85C8A70AB /* ScanFramePolicy.swift */; };
 		9A5151EF6CF2E67A6431BB5A /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FBFA6EDEE26F1834EECED5A /* WelcomeView.swift */; };
 		9A95185EBC1668803D1B17CA /* PoseHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCBEEE1EDDE5546252A5554A /* PoseHistory.swift */; };
@@ -202,6 +212,7 @@
 		ADB5F861F60804DA398207F0 /* DiagnosticsLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43F2546231C38CF2AC02B574 /* DiagnosticsLog.swift */; };
 		AFDA999BF180B9A35F8A8876 /* UsageUploader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33E45B83F06123DC2C52A5C0 /* UsageUploader.swift */; };
 		B0FE9A66912963DAC418682E /* FocalCalibrationRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AE3FDFB08E19B06A845F1D0 /* FocalCalibrationRunner.swift */; };
+		B1E8379677E207C50DE660F2 /* RouteTidy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6663ED1E98C8CE4517D4DF3E /* RouteTidy.swift */; };
 		B21D44B250BDA53420770296 /* FocalCalibration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7D1BC5F4BC8FAF962ED5960 /* FocalCalibration.swift */; };
 		B22EEF1B24B142802E7A531D /* NUSRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06953BC98316418BF38D5AA0 /* NUSRootView.swift */; };
 		B30C2C3F747BCBCA18FB9A29 /* ExploreViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 150740D5A4432A1AED0FA9E8 /* ExploreViewModel.swift */; };
@@ -221,6 +232,7 @@
 		C1A562326D37DF49D7D69D0B /* UsageInstrumentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9066C58145B619F476AA147C /* UsageInstrumentation.swift */; };
 		C1D0ED8FCACAC01B0298C6F0 /* NavigationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CA2EE762C8F4CD5CCEC8FB0 /* NavigationViewModel.swift */; };
 		C2CFE54B7F0F373CD83ACA22 /* AiSeeTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E7E7FB52D5FD3D1DB85663 /* AiSeeTypes.swift */; };
+		C3C6FCF5A5C41917578C5AE0 /* RayBanStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC491E7B4B01949219AF81A /* RayBanStatusTests.swift */; };
 		C41FF763635A9E8C52E78A78 /* BeaconSynth.swift in Sources */ = {isa = PBXBuildFile; fileRef = C67D5122D64844F3C54AE6C6 /* BeaconSynth.swift */; };
 		C520E967DF7CBBC6FBFE032E /* AppCommandBus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395123273695F83CCD1FCC82 /* AppCommandBus.swift */; };
 		C59C906B1301D50A6634D952 /* ExploreClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47206E1A2799C8B650F4E05F /* ExploreClient.swift */; };
@@ -247,6 +259,7 @@
 		D27E4537E96FB437616B1812 /* ProbeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6623A7D62AEA4A6BA847D15B /* ProbeView.swift */; };
 		D2B7B6610CF495BBE8256FA1 /* VoiceClips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4904BF566FFFC2584485B6 /* VoiceClips.swift */; };
 		D300C0182CC65DA51EC02D42 /* ImmersalMapDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F95ED4DD35644F26C28B1B /* ImmersalMapDownloader.swift */; };
+		D3A155110A81CEDF3C31DBA6 /* MetaGlassesLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D8553FC2F17E644A870E5C4 /* MetaGlassesLink.swift */; };
 		D3A15A9C7C690C29C72DF7F7 /* PoseSampler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5731C5B698375344B4FAE24E /* PoseSampler.swift */; };
 		D492E48823754B0317C9C220 /* GlassesFrameSelectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E98FCA412A74134E5CCC650 /* GlassesFrameSelectorTests.swift */; };
 		D4EB2189836632731980479D /* ImmersalCapturePose.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6483BAD8469DDD492F1D0E13 /* ImmersalCapturePose.swift */; };
@@ -257,6 +270,7 @@
 		D64A1FEE0C07185422429CB2 /* OpenAIRealtimeAccess.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2252BB5498BDD59BE9B2B69B /* OpenAIRealtimeAccess.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		D6959C12451D185ADAC656DC /* PoseHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5F0F02FAB194FC6C970A56C /* PoseHistoryTests.swift */; };
 		D6D796012B2EA4C43E1F02B2 /* TestURLStub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 951CA1D1E422039CA70250F6 /* TestURLStub.swift */; };
+		D9C29E90722857DD9E676220 /* GlassesKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = 433354FAA16373C69B324B72 /* GlassesKind.swift */; };
 		DB90BEEE89E77B5C15CF479B /* GuidancePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EC5B2AE569FC940946C603A /* GuidancePolicy.swift */; };
 		DBB0C227D00E1341223DAB3C /* ScanLinkSolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D65966B319CDC6C9333AA58 /* ScanLinkSolver.swift */; };
 		DD6060895DD317F34DD93A8D /* PathSimplifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64642D7E9A3E3E5A94A74220 /* PathSimplifier.swift */; };
@@ -286,10 +300,12 @@
 		F4FBCD068C88F0C8144F19D6 /* MapAuthoringSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B82DC7FA8B4B13387732993 /* MapAuthoringSessionTests.swift */; };
 		F5134C1B1C2BC5661BCF1F88 /* ImmersalMapCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE5450BDEB27A6C3E6CE1565 /* ImmersalMapCache.swift */; };
 		F6D93808BF2426FC44E138DC /* AiSeeConnectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 707E0D0D36B544790F9C1DBC /* AiSeeConnectionService.swift */; };
+		F797492FFF014B336443BCF3 /* RayBanStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EA34AA56B6E2A4E54D8266C /* RayBanStatus.swift */; };
 		F7C260981D72F7D93000BC5C /* NavigationMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87B414D18FF00045961072BB /* NavigationMap.swift */; };
 		FA8F096296B0988225B06AC5 /* GzipCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE1A9F99EB3F6021B96B52C /* GzipCodec.swift */; };
 		FB1A8BEF56BBA54D8E67BA7F /* ImmersalMapCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE5450BDEB27A6C3E6CE1565 /* ImmersalMapCache.swift */; };
 		FC4055BC7EFE45D1BA61F367 /* RTKLEFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9E461935A18A769445C62D21 /* RTKLEFoundation.framework */; };
+		FCA0429B61BEA3FEB8369FA2 /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = A7C7ACAF02431DD62BCAC1AE /* MWDATCamera */; };
 		FCA6A8F455A5054B0DCFE558 /* ImmersalAlignmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDB7C172F4E9C254E328B9A2 /* ImmersalAlignmentTests.swift */; };
 		FCB088425054F1D6655988BA /* ExploreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8C65E7C8774BCB11D8CDAC /* ExploreView.swift */; };
 		FD1C4E2115B44E7EAF202AA4 /* ExploreAskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D5062EAF6E9456593C0A79E /* ExploreAskView.swift */; };
@@ -343,6 +359,7 @@
 		152F81624E8A26CE2AAFE106 /* libswresample.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = libswresample.framework; path = Vendor/RTK/libswresample.framework; sourceTree = "<group>"; };
 		159A0DD7188F2D59AFF25CDB /* ExploreMapFieldsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreMapFieldsTests.swift; sourceTree = "<group>"; };
 		17C3430B4B93AF715FDBD767 /* ScanLinker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanLinker.swift; sourceTree = "<group>"; };
+		17CE7B2E32279F591EB98C4A /* AskServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskServiceTests.swift; sourceTree = "<group>"; };
 		1825B617B5E1FC4BF3C0E619 /* FrameGrabber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameGrabber.swift; sourceTree = "<group>"; };
 		1A415DE7CEF30A112BEE4C34 /* AISEEBIN.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AISEEBIN.entitlements; sourceTree = "<group>"; };
 		1BA66090B8FDFC07C32C2C04 /* NUSTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NUSTheme.swift; sourceTree = "<group>"; };
@@ -352,6 +369,7 @@
 		1EAD988B72E7456254EEF8B4 /* libavcodec.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = libavcodec.framework; path = Vendor/RTK/libavcodec.framework; sourceTree = "<group>"; };
 		1FA9EAC021CD5FAD1356FECF /* ImmersalCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalCaptureTests.swift; sourceTree = "<group>"; };
 		1FBC7903CA1B51A05A3C76B6 /* NUSStaffView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NUSStaffView.swift; sourceTree = "<group>"; };
+		20DC41A182842BB172566883 /* AskService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskService.swift; sourceTree = "<group>"; };
 		21ADD14C66E6316D0473D942 /* PathSimplifierTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathSimplifierTests.swift; sourceTree = "<group>"; };
 		21C552ED5A1C79AC279B5A9B /* AiSeeH264Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeH264Decoder.swift; sourceTree = "<group>"; };
 		2252BB5498BDD59BE9B2B69B /* OpenAIRealtimeAccess.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenAIRealtimeAccess.framework; path = Vendor/RTK/OpenAIRealtimeAccess.framework; sourceTree = "<group>"; };
@@ -377,6 +395,7 @@
 		422D20AF3BC61E11863E9258 /* MapSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSyncService.swift; sourceTree = "<group>"; };
 		423DD5B925169E1FF0038AE2 /* PlaceAdderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceAdderTests.swift; sourceTree = "<group>"; };
 		428A5744E4DC3A40A1F0BF37 /* NearbyQueryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyQueryTests.swift; sourceTree = "<group>"; };
+		433354FAA16373C69B324B72 /* GlassesKind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesKind.swift; sourceTree = "<group>"; };
 		43F2546231C38CF2AC02B574 /* DiagnosticsLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsLog.swift; sourceTree = "<group>"; };
 		44488FCAC2B5F4FE7DDF9669 /* AiSeeMicrophone.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeMicrophone.swift; sourceTree = "<group>"; };
 		457562D5E3B33F131B5204FF /* FieldTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FieldTestView.swift; sourceTree = "<group>"; };
@@ -401,8 +420,11 @@
 		64642D7E9A3E3E5A94A74220 /* PathSimplifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathSimplifier.swift; sourceTree = "<group>"; };
 		6483BAD8469DDD492F1D0E13 /* ImmersalCapturePose.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalCapturePose.swift; sourceTree = "<group>"; };
 		6623A7D62AEA4A6BA847D15B /* ProbeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProbeView.swift; sourceTree = "<group>"; };
+		6663ED1E98C8CE4517D4DF3E /* RouteTidy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteTidy.swift; sourceTree = "<group>"; };
 		69E47423A845E1B5C869D6EC /* AiSeePCMAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeePCMAdapter.swift; sourceTree = "<group>"; };
+		69F9270FB6C2212DF57E62F5 /* RouteTidyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteTidyTests.swift; sourceTree = "<group>"; };
 		6B82DC7FA8B4B13387732993 /* MapAuthoringSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapAuthoringSessionTests.swift; sourceTree = "<group>"; };
+		6EA34AA56B6E2A4E54D8266C /* RayBanStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RayBanStatus.swift; sourceTree = "<group>"; };
 		6F0B7D19FAD5C3C4FF953A24 /* ImmersalClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalClient.swift; sourceTree = "<group>"; };
 		6FEA60DAC23822F2F832ED26 /* PathfindingEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathfindingEngineTests.swift; sourceTree = "<group>"; };
 		70152EF34D9E97DF4C741CE6 /* ProbeLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProbeLog.swift; sourceTree = "<group>"; };
@@ -422,6 +444,7 @@
 		8B46391B3825C7E8F7B89464 /* NUSGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NUSGuideView.swift; sourceTree = "<group>"; };
 		8B7802FB811E8964B8D37763 /* ImmersalScanRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalScanRecorder.swift; sourceTree = "<group>"; };
 		8CA2EE762C8F4CD5CCEC8FB0 /* NavigationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationViewModel.swift; sourceTree = "<group>"; };
+		8CC491E7B4B01949219AF81A /* RayBanStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RayBanStatusTests.swift; sourceTree = "<group>"; };
 		8D12BD48488E1A3FAE730620 /* ImmersalAlignment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalAlignment.swift; sourceTree = "<group>"; };
 		8D57E8988C3B58C97A2D8807 /* RTKAIDeviceConnection.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RTKAIDeviceConnection.framework; path = Vendor/RTK/RTKAIDeviceConnection.framework; sourceTree = "<group>"; };
 		9066C58145B619F476AA147C /* UsageInstrumentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageInstrumentation.swift; sourceTree = "<group>"; };
@@ -435,6 +458,7 @@
 		9660A13D46A344C5212F2D9E /* ImmersalNativeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalNativeTests.swift; sourceTree = "<group>"; };
 		96F27A83FB797B374089A5B5 /* BodyHeading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyHeading.swift; sourceTree = "<group>"; };
 		97885123C8C5A05ACE0A19CD /* GlassesPositioning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesPositioning.swift; sourceTree = "<group>"; };
+		9D8553FC2F17E644A870E5C4 /* MetaGlassesLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetaGlassesLink.swift; sourceTree = "<group>"; };
 		9E461935A18A769445C62D21 /* RTKLEFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RTKLEFoundation.framework; path = Vendor/RTK/RTKLEFoundation.framework; sourceTree = "<group>"; };
 		A26AD48F3AE21178241BDF54 /* ImmersalLocalizerFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalLocalizerFactoryTests.swift; sourceTree = "<group>"; };
 		A3391E515B1906330F464B3A /* AiSeePhotoCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeePhotoCapture.swift; sourceTree = "<group>"; };
@@ -452,6 +476,7 @@
 		B16658E9F9DB9EA34F123137 /* GzipCodecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GzipCodecTests.swift; sourceTree = "<group>"; };
 		B170D7D1B7AA8E6E046364DF /* MapAuthoringSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapAuthoringSession.swift; sourceTree = "<group>"; };
 		B17CF5132281D5BC845C7C19 /* clips */ = {isa = PBXFileReference; lastKnownFileType = folder; name = clips; path = voice/clips; sourceTree = SOURCE_ROOT; };
+		B5B5103085DAB372B2E03FF1 /* GlassesKindTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesKindTests.swift; sourceTree = "<group>"; };
 		B5B9DCE8EC93EFD960A3F301 /* ImmersalMapCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalMapCacheTests.swift; sourceTree = "<group>"; };
 		B5CD47A0E9D56274EC4F805D /* RTKAudioConnectSDK.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RTKAudioConnectSDK.framework; path = Vendor/RTK/RTKAudioConnectSDK.framework; sourceTree = "<group>"; };
 		B8525B61C966C9BB4D71CBA2 /* ProbeMathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProbeMathTests.swift; sourceTree = "<group>"; };
@@ -515,6 +540,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				734A29BB5D372EA95DF2B199 /* MWDATCore in Frameworks */,
+				FCA0429B61BEA3FEB8369FA2 /* MWDATCamera in Frameworks */,
 				0246AAC65D540A1F0769FE4F /* RTKAIDeviceConnection.framework in Frameworks */,
 				0350E3E61F21F3D1356A8F91 /* RTKAudioConnectSDK.framework in Frameworks */,
 				4F135C3761D0B9B3A1FE9BAC /* RTKAudioStreaming.framework in Frameworks */,
@@ -557,6 +584,15 @@
 				1D65966B319CDC6C9333AA58 /* ScanLinkSolver.swift */,
 			);
 			path = FieldTest;
+			sourceTree = "<group>";
+		};
+		100B2485F3CF105F6EFB0A9F /* MetaGlassKit */ = {
+			isa = PBXGroup;
+			children = (
+				9D8553FC2F17E644A870E5C4 /* MetaGlassesLink.swift */,
+				6EA34AA56B6E2A4E54D8266C /* RayBanStatus.swift */,
+			);
+			path = MetaGlassKit;
 			sourceTree = "<group>";
 		};
 		1023C3AF725989EEA7EB6707 /* ViewModels */ = {
@@ -660,12 +696,14 @@
 				DD61D73D3FA8E3165ABFB6C5 /* GlassesCamera.swift */,
 				41C3FC86DF6322E4628A76A0 /* GlassesFixFeed.swift */,
 				4BAEB59842780F05E8CA516A /* GlassesFrameSelector.swift */,
+				433354FAA16373C69B324B72 /* GlassesKind.swift */,
 				6301136D1436F49F15A0FB19 /* GlassesMode.swift */,
 				97885123C8C5A05ACE0A19CD /* GlassesPositioning.swift */,
 				2C578835CC242A3C51D0FBB4 /* GlassesService.swift */,
 				F6FA8490E8C6B82408C82360 /* GlassesView.swift */,
 				DA0794BDCDE64D0B0863A88F /* PoseExtrapolator.swift */,
 				67800DA34D781B7C1AE7B8E9 /* AiSeeGlassKit */,
+				100B2485F3CF105F6EFB0A9F /* MetaGlassKit */,
 			);
 			path = Glasses;
 			sourceTree = "<group>";
@@ -744,6 +782,7 @@
 			children = (
 				D78D06F3A18EE1A7A43142B3 /* AriaServerTests.swift */,
 				E263A9D1D7FA6C4937BA493B /* AskContextTests.swift */,
+				17CE7B2E32279F591EB98C4A /* AskServiceTests.swift */,
 				28008B811196FACD04FF216E /* BeaconPolicyTests.swift */,
 				0938FA1C5C23CAF8F590F772 /* BodyHeadingTests.swift */,
 				AFCC206B37C8B8F8ED7FB17A /* BuildingLevelsTests.swift */,
@@ -751,6 +790,7 @@
 				159A0DD7188F2D59AFF25CDB /* ExploreMapFieldsTests.swift */,
 				C1E3F42C27B669F4C5C444F1 /* ExploreReviewFixTests.swift */,
 				2E98FCA412A74134E5CCC650 /* GlassesFrameSelectorTests.swift */,
+				B5B5103085DAB372B2E03FF1 /* GlassesKindTests.swift */,
 				1E623071865994A1A1FCB1F5 /* GlassesModeTests.swift */,
 				096480BB907702BBDE476ED1 /* GlassesPositioningLogicTests.swift */,
 				BB3484E049C64F8737394EF7 /* GuidancePolicyTests.swift */,
@@ -782,6 +822,8 @@
 				245C31047AF5BC459148277C /* PositionPairBootstrapTests.swift */,
 				B8525B61C966C9BB4D71CBA2 /* ProbeMathTests.swift */,
 				922A716A95F7EFF263EC528F /* ProximityAnnouncerTests.swift */,
+				8CC491E7B4B01949219AF81A /* RayBanStatusTests.swift */,
+				69F9270FB6C2212DF57E62F5 /* RouteTidyTests.swift */,
 				F60DE300013D590E27A22BD6 /* RouteTrackerTests.swift */,
 				EC925ED0DE3BBD173F125656 /* ScanLinkSolverTests.swift */,
 				D08B045688F759EBCF64E2F6 /* SentenceSplitTests.swift */,
@@ -821,6 +863,7 @@
 			isa = PBXGroup;
 			children = (
 				F162832E061500E098FF2A66 /* AskContext.swift */,
+				20DC41A182842BB172566883 /* AskService.swift */,
 				4D5062EAF6E9456593C0A79E /* ExploreAskView.swift */,
 				47206E1A2799C8B650F4E05F /* ExploreClient.swift */,
 				B9253ED28195630473FB4A65 /* ExploreStyle.swift */,
@@ -867,6 +910,7 @@
 				64642D7E9A3E3E5A94A74220 /* PathSimplifier.swift */,
 				30B39DE568843C3A29626009 /* PointCloudCodec.swift */,
 				265ECD08052BDF5803336C52 /* ProximityAnnouncer.swift */,
+				6663ED1E98C8CE4517D4DF3E /* RouteTidy.swift */,
 				A915C41DB6DAE48DA6B759A7 /* RouteTracker.swift */,
 				1C4904BF566FFFC2584485B6 /* VoiceClips.swift */,
 				BFD7F0E186803749AE191EF7 /* VoiceCommandRecognizer.swift */,
@@ -913,6 +957,8 @@
 			);
 			name = AISEEBIN;
 			packageProductDependencies = (
+				3FD06E92D2AF26D4FA7C0249 /* MWDATCore */,
+				A7C7ACAF02431DD62BCAC1AE /* MWDATCamera */,
 			);
 			productName = AISEEBIN;
 			productReference = D00974D280A3AF3C7A0E95D8 /* AISEEBIN.app */;
@@ -968,6 +1014,9 @@
 			);
 			mainGroup = C230BFD1691E88E33B0E1928;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				C03BDE5F07FDAF460D41DECE /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6D6A3BD991C32E9B0B178122 /* Products */;
 			projectDirPath = "";
@@ -1062,6 +1111,7 @@
 				BE3F9B5959995C468946BA8C /* AppHeader.swift in Sources */,
 				B9B0082DCE327FC2B95B040A /* AriaTestMap.swift in Sources */,
 				937FD1E7EB993C8E3C5B1C0B /* AskContext.swift in Sources */,
+				750A6D62BCB5140D479200EE /* AskService.swift in Sources */,
 				8768424160A14DC6D25CB4A6 /* AuthoringView.swift in Sources */,
 				554BAFD4DD74B8378DA86D34 /* BeaconPolicy.swift in Sources */,
 				4393807C6666BCCAA4F1631F /* BeaconSynth.swift in Sources */,
@@ -1086,6 +1136,7 @@
 				952B1D570B10AC945E3944A7 /* GlassesCamera.swift in Sources */,
 				8FE4FA1BF9B2DA82B074CD10 /* GlassesFixFeed.swift in Sources */,
 				5932F8D9D7D1E1EA87889C6F /* GlassesFrameSelector.swift in Sources */,
+				2A7004AC3565CCFE4089D3CE /* GlassesKind.swift in Sources */,
 				C6EF39EAEEFCF8BE1B4624CD /* GlassesMode.swift in Sources */,
 				6D4A75A7A242B838B12CFEF6 /* GlassesPositioning.swift in Sources */,
 				43A05A683CC2ECAFEA4E77D9 /* GlassesService.swift in Sources */,
@@ -1117,6 +1168,7 @@
 				36F3FC1CA903F3749D6A387F /* MapAuthoringViewModel.swift in Sources */,
 				F4266DC958222317ADCE5452 /* MapStore.swift in Sources */,
 				6345436691135F40E041C89D /* MapSyncService.swift in Sources */,
+				D3A155110A81CEDF3C31DBA6 /* MetaGlassesLink.swift in Sources */,
 				853884419A09BADEB8FCF23F /* NUSGuideView.swift in Sources */,
 				9D8C09C727921B00C7696318 /* NUSOpenHouseApp.swift in Sources */,
 				B22EEF1B24B142802E7A531D /* NUSRootView.swift in Sources */,
@@ -1139,6 +1191,8 @@
 				493CAA8C597C5B76955CC101 /* ProbeSession.swift in Sources */,
 				38222710F789DDA91C68757E /* ProbeView.swift in Sources */,
 				5502BB5DB7A26E7784AF488F /* ProximityAnnouncer.swift in Sources */,
+				50F2D9FC0431C347637A8AB0 /* RayBanStatus.swift in Sources */,
+				02BCDA5F5F5A470B2E891477 /* RouteTidy.swift in Sources */,
 				4E100144371E39AD64EC75B8 /* RouteTracker.swift in Sources */,
 				54824D0F19BAF16E611273D3 /* SampleGreenhouseMap.swift in Sources */,
 				781D1F5B3E772CF520625B29 /* ScanFramePolicy.swift in Sources */,
@@ -1181,6 +1235,7 @@
 				0B9E07F505EA559121594B68 /* AppHeader.swift in Sources */,
 				BFAEF59A0BFF250F4DD28E69 /* AriaTestMap.swift in Sources */,
 				02F440EB773D8D5B5B8D414C /* AskContext.swift in Sources */,
+				998937E4F7E3169831C4434C /* AskService.swift in Sources */,
 				C604EB7C644F26CCD766F0B8 /* AuthoringView.swift in Sources */,
 				2D26D88B155F63704D82FF27 /* BeaconPolicy.swift in Sources */,
 				C41FF763635A9E8C52E78A78 /* BeaconSynth.swift in Sources */,
@@ -1205,6 +1260,7 @@
 				63FA5192A7FF32147EF4368E /* GlassesCamera.swift in Sources */,
 				D53269B6C3B17A42E8A7B200 /* GlassesFixFeed.swift in Sources */,
 				1C2D1AFE586617A2F9F72D65 /* GlassesFrameSelector.swift in Sources */,
+				D9C29E90722857DD9E676220 /* GlassesKind.swift in Sources */,
 				56040B656C749A4E56F4AE7C /* GlassesMode.swift in Sources */,
 				37F09F70666F696E32B6F55B /* GlassesPositioning.swift in Sources */,
 				A8705F672C8B73C713E15F01 /* GlassesService.swift in Sources */,
@@ -1236,6 +1292,7 @@
 				7717215AA55A6FC62AED6507 /* MapAuthoringViewModel.swift in Sources */,
 				7835F79CA856090704E1D503 /* MapStore.swift in Sources */,
 				8E1258D21B4AD6A5EA3D6458 /* MapSyncService.swift in Sources */,
+				1957EA5470E915E5BA830186 /* MetaGlassesLink.swift in Sources */,
 				7354BCDE6D022AF2B1AE9ADE /* NavigationGeometry.swift in Sources */,
 				E2B6EF3561F19C4BCCC9D75F /* NavigationInstruction.swift in Sources */,
 				F7C260981D72F7D93000BC5C /* NavigationMap.swift in Sources */,
@@ -1253,6 +1310,8 @@
 				D12B52E1385E154EE6DD18DC /* ProbeSession.swift in Sources */,
 				D27E4537E96FB437616B1812 /* ProbeView.swift in Sources */,
 				14460B305CD9256BE9B93E7C /* ProximityAnnouncer.swift in Sources */,
+				F797492FFF014B336443BCF3 /* RayBanStatus.swift in Sources */,
+				B1E8379677E207C50DE660F2 /* RouteTidy.swift in Sources */,
 				1F77CBD104CAE305B88D97B6 /* RouteTracker.swift in Sources */,
 				984CE263A0B23B153F2214E4 /* SampleGreenhouseMap.swift in Sources */,
 				9A0958FDB6C7D9242EDC1AF0 /* ScanFramePolicy.swift in Sources */,
@@ -1278,6 +1337,7 @@
 			files = (
 				B9D8A4112E63D66C7AA32A0F /* AriaServerTests.swift in Sources */,
 				5DF4A00371659A8C0F1B9BB5 /* AskContextTests.swift in Sources */,
+				6A3463348684ED12D10C4519 /* AskServiceTests.swift in Sources */,
 				1CF8BFC9D6C8E761D96C511A /* BeaconPolicyTests.swift in Sources */,
 				0A05969DD5B3CD160C5B6C74 /* BodyHeadingTests.swift in Sources */,
 				178163C40046049C31D56B3C /* BuildingLevelsTests.swift in Sources */,
@@ -1285,6 +1345,7 @@
 				271ABCA1C030BC0525F6DFC8 /* ExploreMapFieldsTests.swift in Sources */,
 				488F0A9064B9205F68CA09ED /* ExploreReviewFixTests.swift in Sources */,
 				D492E48823754B0317C9C220 /* GlassesFrameSelectorTests.swift in Sources */,
+				985E4ED13D43BCCDF91897CE /* GlassesKindTests.swift in Sources */,
 				46CF3317BF2FF1CF68BD5DAF /* GlassesModeTests.swift in Sources */,
 				1FFA070BD5723B4ED54F3D92 /* GlassesPositioningLogicTests.swift in Sources */,
 				A69A562480CA2B3D8A55B97D /* GuidancePolicyTests.swift in Sources */,
@@ -1316,6 +1377,8 @@
 				7C55E6090F79A7E353D711F8 /* PositionPairBootstrapTests.swift in Sources */,
 				8C48FD5D39EED67173AB08AC /* ProbeMathTests.swift in Sources */,
 				59E758BD870F8AFA836C4338 /* ProximityAnnouncerTests.swift in Sources */,
+				C3C6FCF5A5C41917578C5AE0 /* RayBanStatusTests.swift in Sources */,
+				94E7C1CCB42443753CF727F1 /* RouteTidyTests.swift in Sources */,
 				9594F1B7D5EEB79B56307DA5 /* RouteTrackerTests.swift in Sources */,
 				03ECB77ACC60FBB1829D546D /* ScanLinkSolverTests.swift in Sources */,
 				6BE13953C925A3128D63F967 /* SentenceSplitTests.swift in Sources */,
@@ -1398,6 +1461,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				META_APP_ID = "";
+				META_CLIENT_TOKEN = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.flowsxr.aiseebin;
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = NO;
@@ -1510,7 +1575,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = "$(inherited) $(SRCROOT)/Vendor/Immersal";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -1588,7 +1653,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = "$(inherited) $(SRCROOT)/Vendor/Immersal";
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -1624,6 +1689,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				META_APP_ID = "";
+				META_CLIENT_TOKEN = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.flowsxr.aiseebin;
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = NO;
@@ -1671,6 +1738,30 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		C03BDE5F07FDAF460D41DECE /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/facebook/meta-wearables-dat-ios";
+			requirement = {
+				kind = exactVersion;
+				version = 1.0.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		3FD06E92D2AF26D4FA7C0249 /* MWDATCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C03BDE5F07FDAF460D41DECE /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATCore;
+		};
+		A7C7ACAF02431DD62BCAC1AE /* MWDATCamera */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C03BDE5F07FDAF460D41DECE /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATCamera;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B9116A451EBE57D477E6DB96 /* Project object */;
 }

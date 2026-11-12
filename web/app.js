@@ -680,6 +680,22 @@ function autoConnectIsolated() {
   setStatus(`Connected ${isolated.length} place(s) to the nearest place. Check the new connections, then publish.`);
 }
 
+/// Cleans a walked route (tidy.js): waypoints from two passes through one
+/// corner become one junction, and a link laid over ground already walked is
+/// routed through the points on it. One undo step.
+function tidyRoute() {
+  if (!state.graph) return;
+  const r = RouteTidy.tidy(state.graph);
+  if (!r.changed) { setStatus('The route is already tidy: no waypoints to merge and no links to re-route.'); return; }
+  beginChange();
+  const selectedId = state.selectedNode?.id;
+  state.graph = r.graph;
+  state.selectedNode = selectedId ? nodeById(selectedId) : null;
+  state.selectedEdge = null; state.connectFrom = null; state.pathFrom = null;
+  markDirty();
+  setStatus(`Tidied the route: ${RouteTidy.summary(r)}. Check it, then publish; Undo puts it back.`);
+}
+
 // ---------- left rail: Places and History ----------
 function setTab(tab) {
   const places = tab === 'places';
@@ -1219,6 +1235,7 @@ $('deleteEdge').onclick = deleteEdge;
 
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { closeMenus(); setMode(b.dataset.mode); }));
 $('fit').onclick = $('fitFloat').onclick = () => { fitView(); draw(); };
+$('tidy').onclick = $('mmTidy').onclick = () => { closeMenus(); tidyRoute(); };
 $('undo').onclick = $('mmUndo').onclick = () => { undo(); closeMenus(); };
 $('redo').onclick = $('mmRedo').onclick = () => { redo(); closeMenus(); };
 ['showPoints', 'showLabels', 'showDistances'].forEach(id => $(id).onchange = draw);

@@ -135,7 +135,7 @@ final class GlassesFixFeed {
         }
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
-            let gray = ImmersalFrameEncoder.gray(from: image, targetWidth: GlassesPositioning.sentFrameWidth)
+            let gray = ImmersalFrameEncoder.gray(from: image, targetWidth: GlassesPositioning.sentWidth(width: image.width, height: image.height))
             let sharpness = gray.map(FrameSharpness.score) ?? 0
             guard self.selector.admits(sharpness: sharpness, now: now) else {
                 self.claim.releaseForRetry(minimumInterval: GlassesPositioning.minimumInterval)

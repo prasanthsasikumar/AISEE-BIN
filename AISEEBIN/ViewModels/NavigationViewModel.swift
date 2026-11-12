@@ -105,6 +105,10 @@ final class NavigationViewModel {
     let mapStore: MapStore
     let glasses: GlassesService
     let glassesPositioning: GlassesPositioning
+    /// Free-form questions to the guide, for Explore and for Navigate.
+    @ObservationIgnored private(set) lazy var asker = AskService(client: ExploreClient(usage: usage)) { [weak self] text, interrupt in
+        self?.guidance.speak(text, interrupt: interrupt)
+    }
     /// Lanyard mode: the glasses camera as a second source of fixes.
     let glassesFeed = GlassesFixFeed()
     /// Positions the phone in a map that has an Immersal alignment but no
@@ -203,6 +207,9 @@ final class NavigationViewModel {
     @ObservationIgnored private var lastWalkSample: SIMD2<Float>?
     /// `speech.heard.via`: the microphone the current listen opened.
     @ObservationIgnored private var listeningVia = "phone"
+    @ObservationIgnored private var glassesLoss = GlassesLossPolicy()
+    @ObservationIgnored private var glassesWereConnected = false
+    @ObservationIgnored private var glassesLossTask: Task<Void, Never>?
     var mode: AppMode = .navigation {
         didSet { if mode != oldValue { didChange(mode: mode, from: oldValue) } }
     }
@@ -464,6 +471,7 @@ final class NavigationViewModel {
             self.handle(transcript: text)
         }
         recognizer.onDidStopListening = { [weak self] in self?.closeGlassesMicrophone() }
+        watchGlassesLoss()
         AppCommandBus.shared.handler = { [weak self] command in self?.handle(appCommand: command) }
 
         startPositioning()
@@ -556,16 +564,60 @@ final class NavigationViewModel {
     private func observeGlassesConnection() {
         withObservationTracking {
             _ = glasses.isConnected
+            _ = glasses.kind
         } onChange: { [weak self] in
             Task { @MainActor in
                 guard let self else { return }
-                if self.glasses.isConnected, self.positioningSource == .phone {
+                // Each kind of glasses has its own lens.
+                self.glassesPositioning.camera = GlassesCamera.load()
+                self.glassesFeed.camera = GlassesCamera.load()
+                let connected = self.glasses.isConnected
+                let justConnected = connected && !self.glassesWereConnected
+                self.glassesWereConnected = connected
+                // Only on connecting: a pause and resume must not undo a choice of Phone.
+                if justConnected, self.positioningSource == .phone {
                     self.positioningSource = GlassesMode.load().source
-                } else if !self.glasses.isConnected, self.positioningSource != .phone {
-                    self.guidance.speak("Glasses disconnected. Using the phone camera.", interrupt: true)
-                    self.positioningSource = .phone
+                } else if !self.glasses.isConnected, self.positioningSource != .phone, self.glasses.kind == .aisee {
+                    self.fallBackToPhoneCamera()
                 }
+                // Ray-Ban Meta get a grace period first: see `tickGlassesLoss`.
                 self.observeGlassesConnection()
+            }
+        }
+    }
+
+    private func fallBackToPhoneCamera() {
+        guidance.speak("Glasses disconnected. Using the phone camera.", interrupt: true)
+        positioningSource = .phone
+    }
+
+    /// Once a second while Ray-Ban Meta glasses position the visitor: rides
+    /// out short drops, says when the camera has paused (glasses taken off,
+    /// "Hey Meta"), and falls back to the phone only when the glasses are gone.
+    private func watchGlassesLoss() {
+        glassesLossTask?.cancel()
+        glassesLossTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                self?.tickGlassesLoss()
+            }
+        }
+    }
+
+    private func tickGlassesLoss() {
+        guard glasses.kind == .rayban, positioningSource != .phone else {
+            glassesLoss = GlassesLossPolicy()
+            return
+        }
+        let events = glassesLoss.update(linked: glasses.isConnected,
+                                        framesFlowing: glasses.meta.secondsSinceLastFrame < 3,
+                                        now: ProcessInfo.processInfo.systemUptime)
+        for event in events {
+            usage.log("glasses.loss", ["event": .string(String(describing: event))])
+            switch event {
+            case .fallBackToPhone: fallBackToPhoneCamera()
+            case .announcePaused: guidance.speak("Glasses camera paused.", interrupt: false)
+            case .announceBack: guidance.speak("Glasses camera back.", interrupt: false)
             }
         }
     }
@@ -1073,9 +1125,22 @@ final class NavigationViewModel {
                 guidance.speak("Microphone or speech recognition permission is off. Please enable it in Settings.", interrupt: true)
                 return
             }
+            asker.cancel()                    // an answer still arriving would talk over the listener
             guidance.stopSpeaking()           // never listen to ourselves
             guidance.play(.nodeReached)       // tactile "I'm listening"
-            if positioningSource != .phone, glasses.isConnected {
+            if positioningSource != .phone, glasses.isConnected, glasses.kind == .rayban {
+                // Ray-Ban Meta: their microphone is the phone's Bluetooth headset
+                // input, allowed for as long as the app listens.
+                listeningVia = "glasses"
+                guidance.setHeadsetMicrophoneAllowed(true)
+                recognizer.startListening()
+                if !recognizer.isListening {
+                    // It did not start, so nothing will tell us it stopped: give
+                    // speech back its normal route now.
+                    guidance.setHeadsetMicrophoneAllowed(false)
+                    guidance.speak("The microphone did not open.", interrupt: true)
+                }
+            } else if positioningSource != .phone, glasses.isConnected {
                 // The phone is in a pocket: listen through the glasses' microphone.
                 listeningVia = "glasses"
                 recognizer.startListening(input: .external)
@@ -1094,6 +1159,7 @@ final class NavigationViewModel {
     }
 
     private func closeGlassesMicrophone() {
+        guidance.setHeadsetMicrophoneAllowed(false)
         guard glasses.isMicOpen else { return }
         Task { await glasses.stopMicrophone() }
     }
@@ -1131,8 +1197,26 @@ final class NavigationViewModel {
         handle(command: .navigate(poiID: poiID))
     }
 
+    /// Asks the guide about what the visitor is facing. The picture comes from
+    /// the glasses when they position the visitor, otherwise from the phone;
+    /// the answer is spoken as it arrives, and never interrupts a cue.
+    func askGuide(question: String, audience: String, onUpdate: @escaping (AskService.Update) -> Void) {
+        let source = AskPicture.source(positioning: positioningSource, glassesConnected: glasses.isConnected)
+        let jpeg = AskPicture.jpeg(source: source, glassesFrame: glasses.latestFrame()?.pixelBuffer,
+                                   frameAge: glasses.latestFrameAge) { [arManager] in
+            arManager.session.currentFrame.flatMap { FrameGrabber.jpeg(from: $0) }
+        }
+        let map = engine.map
+        let places = AskContext.places(map: map, position: mapPose?.position, heading: mapPose?.heading ?? 0)
+        let context = AskService.Context(jpeg: jpeg, mapSlug: mapSlug, places: places, venueInfo: map.venueInfo,
+                                         audience: audience, camera: source.rawValue, venue: map.name)
+        asker.ask(question: question, context: context, onUpdate: onUpdate)
+    }
+
     private func handle(command: VoiceCommand) {
         if command != .unknown { unknownCommandCount = 0 }
+        // A new command replaces an answer that is still arriving.
+        asker.cancel()
         let position = NavigationGeometry.planarPosition(of: currentTransform)
         let heading = NavigationGeometry.heading(of: currentTransform)
 
@@ -1191,6 +1275,11 @@ final class NavigationViewModel {
         case .beacon(let on):
             beaconEnabled = on
             guidance.speak(on ? "Beeps on." : "Beeps off.", interrupt: true)
+
+        case .question(let text):
+            // Blind and low-vision visitors use Navigate: the guide describes rather than points.
+            statusMessage = "Asked: “\(text)”"
+            askGuide(question: text, audience: "nonsighted") { _ in }
 
         case .unknown:
             unknownCommandCount += 1
@@ -1448,6 +1537,7 @@ final class NavigationViewModel {
         case .beacon(let on):
             intent = "beacon"
             args["on"] = .bool(on)
+        case .question: intent = "question"
         case .unknown: intent = "unknown"
         }
         usage.log("speech.intent", ["text": .string(text), "intent": .string(intent), "args": .object(args)])

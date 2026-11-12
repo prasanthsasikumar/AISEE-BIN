@@ -25,7 +25,8 @@ struct GlassesView: View {
     var body: some View {
         NavigationStack {
             Form {
-                connectionSection
+                kindSection
+                if glasses.kind == .rayban { rayBanConnectionSection } else { connectionSection }
                 if glasses.isConnected {
                     streamSection
                     positioningSection
@@ -34,19 +35,98 @@ struct GlassesView: View {
                 immersalSection
                 if !glasses.log.isEmpty { logSection }
             }
-            .navigationTitle("AiSee Glasses")
+            .navigationTitle("Glasses")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) { Button("Done") { dismiss() } }
             }
             .onAppear {
-                if !glasses.isConnected { glasses.startScan() }
+                if glasses.kind == .aisee, !glasses.isConnected { glasses.startScan() }
+                if glasses.kind == .rayban { Task { await glasses.meta.refreshCameraPermission() } }
             }
             .onDisappear { glasses.stopScan() }
             // Saved as typed, so the calibration button and the positioning
             // status react without closing the sheet first.
             .onChange(of: token) { _, value in ImmersalConfig.token = value }
             .onChange(of: mapIDsText) { _, value in ImmersalConfig.mapIDsText = value }
+        }
+    }
+
+    // MARK: - Which glasses
+
+    private var kindSection: some View {
+        Section {
+            Picker("Glasses", selection: Binding(get: { glasses.kind }, set: { setKind($0) })) {
+                ForEach(GlassesKind.allCases) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.segmented)
+        }
+    }
+
+    private func setKind(_ kind: GlassesKind) {
+        guard kind != glasses.kind else { return }
+        glasses.stopScan()
+        glasses.kind = kind
+        streamError = nil
+        photoResult = nil
+        if kind == .aisee, !glasses.isConnected { glasses.startScan() }
+    }
+
+    // MARK: - Ray-Ban Meta connection
+
+    /// Shows the one step that is still missing. The two buttons open the
+    /// Meta AI app, which returns here when the wearer has answered.
+    private var rayBanConnectionSection: some View {
+        let meta = glasses.meta
+        return Section {
+            switch meta.status {
+            case .metaAppMissing:
+                Label("Meta AI app is not installed", systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.secondary)
+                Button("Try again") { Task { await meta.register() } }
+                    .disabled(meta.isBusy)
+            case .needsRegistration:
+                Button("Connect to Meta AI") { Task { await meta.register() } }
+                    .disabled(meta.isBusy)
+            case .registering:
+                HStack { ProgressView(); Text("Waiting for Meta AI…").padding(.leading, 8) }
+            case .needsCameraPermission:
+                Button("Allow camera") { Task { await meta.requestCamera() } }
+                    .disabled(meta.isBusy)
+            case .noDevice:
+                Label("Glasses not in reach", systemImage: "eyeglasses")
+                    .foregroundStyle(.secondary)
+            case .ready(let name):
+                LabeledContent("Connected", value: name)
+                if let battery = meta.battery { LabeledContent("Battery", value: "\(battery)%") }
+            case .paused(let name):
+                LabeledContent("Connected", value: name)
+                if let battery = meta.battery { LabeledContent("Battery", value: "\(battery)%") }
+                Label("Glasses camera paused", systemImage: "pause.circle")
+                    .foregroundStyle(.secondary)
+            }
+            if let error = meta.lastError {
+                Text(error).font(.footnote).foregroundStyle(.red)
+            }
+        } header: {
+            Text("Connection")
+        } footer: {
+            Text(rayBanConnectionFooter)
+        }
+    }
+
+    private var rayBanConnectionFooter: String {
+        switch glasses.meta.status {
+        case .metaAppMissing:
+            return "Ray-Ban Meta glasses are set up in the Meta AI app. Install it, pair the glasses there, then come back."
+        case .needsRegistration, .registering:
+            return "This opens the Meta AI app to approve AISEE-BIN, then returns here. While Meta’s toolkit is in preview, turn on Developer Mode for the glasses in Meta AI first."
+        case .needsCameraPermission:
+            return "This opens the Meta AI app to allow the glasses’ camera, then returns here."
+        case .noDevice:
+            return "Unfold the glasses and put them on. They connect through the Meta AI app; there is nothing to scan for."
+        case .ready, .paused:
+            return "The glasses pause their camera when taken off, folded, or when “Hey Meta” is used."
         }
     }
 
@@ -111,10 +191,10 @@ struct GlassesView: View {
                 LabeledContent("Live video", value: glasses.isStreaming ? "\(glasses.framesPerSecond) fps" : "off")
             }
             .disabled(streamBusy)
-            if glasses.isStreaming, let lag = glasses.lagBuildUpMs {
+            if glasses.isStreaming, glasses.kind == .aisee, let lag = glasses.lagBuildUpMs {
                 LabeledContent("Lag build-up", value: "\(lag) ms")
             }
-            if glasses.isStreaming, let kbps = glasses.receivedKbps {
+            if glasses.isStreaming, glasses.kind == .aisee, let kbps = glasses.receivedKbps {
                 LabeledContent("Received", value: "\(kbps) kbps · \(glasses.keyframesPerSecond ?? 0) keyframes/s")
             }
             if let error = streamError ?? glasses.lastStreamError {
@@ -123,8 +203,41 @@ struct GlassesView: View {
         } header: {
             Text("Camera")
         } footer: {
-            Text("Video arrives over the glasses’ own Wi-Fi hotspot; iOS asks to join it the first time. Internet goes over cellular while it runs.")
+            Text(glasses.kind == .rayban
+                 ? "Video arrives over Bluetooth, upright. The phone keeps its normal internet."
+                 : "Video arrives over the glasses’ own Wi-Fi hotspot; iOS asks to join it the first time. Internet goes over cellular while it runs.")
         }
+        if glasses.kind == .rayban { rayBanTuningSection } else { aiSeeTuningSection }
+    }
+
+    private var rayBanTuningSection: some View {
+        let meta = glasses.meta
+        return Section {
+            Picker("Resolution", selection: Binding(get: { meta.resolution }, set: { meta.resolution = $0; restartStream() })) {
+                ForEach(MetaStreamResolution.allCases) { Text($0.label).tag($0) }
+            }
+            Picker("Frame rate", selection: Binding(get: { meta.frameRate }, set: { meta.frameRate = $0; restartStream() })) {
+                ForEach(MetaStreamFrameRate.choices, id: \.self) { Text("\($0) fps").tag($0) }
+            }
+            Toggle("Smooth preview", isOn: Binding(get: { glasses.smoothPreview }, set: { glasses.smoothPreview = $0 }))
+        } header: {
+            Text("Stream tuning")
+        } footer: {
+            Text("A running stream restarts to apply a change. The Bluetooth link is shared between frames, so fewer frames a second makes each one sharper; fixes only use one or two a second. The glasses lower the quality on their own when the link is weak.")
+        }
+    }
+
+    private func restartStream() {
+        guard glasses.isStreaming, !streamBusy else { return }
+        streamBusy = true
+        streamError = nil
+        Task {
+            defer { streamBusy = false }
+            do { try await glasses.restartStreamForNewSettings() } catch { streamError = error.localizedDescription }
+        }
+    }
+
+    private var aiSeeTuningSection: some View {
         Section {
             Picker("Frame rate", selection: streamSetting(\.fps)) {
                 ForEach([5, 10, 15, 20, 30] as [UInt], id: \.self) { Text("\($0) fps").tag($0) }
@@ -293,7 +406,7 @@ struct GlassesView: View {
                     return
                 }
                 guard let frame = await Task.detached(operation: {
-                    ImmersalFrameEncoder.gray(from: image, targetWidth: GlassesPositioning.sentFrameWidth)
+                    ImmersalFrameEncoder.gray(from: image, targetWidth: GlassesPositioning.sentWidth(width: image.width, height: image.height))
                 }).value else {
                     photoResult = "Could not convert the still."
                     return

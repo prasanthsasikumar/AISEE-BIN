@@ -49,6 +49,8 @@ struct ContentView: View {
             // `-openSettings` / `-openMapPicker` open the shared header's sheets at launch.
             if ProcessInfo.processInfo.arguments.contains("-openSettings") { showingSettings = true }
             if ProcessInfo.processInfo.arguments.contains("-openMapPicker") { showingMapPicker = true }
+            // `-openGlasses` opens the Glasses screen at launch.
+            if ProcessInfo.processInfo.arguments.contains("-openGlasses") { showingGlasses = true }
             // `-fieldPostTest` checks the result upload end to end (a row and the log).
             if ProcessInfo.processInfo.arguments.contains("-fieldPostTest") {
                 Task {

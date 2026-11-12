@@ -160,9 +160,59 @@ final class MapAuthoringViewModel {
     func finishWalking() {
         scanner.stop()
         logScan("stop", photos: scanner.captured)
+        tidyRouteIfWanted()
         stage = .publish
     }
+
+    /// What the last tidy-up changed, for the publish checklist; nil when the
+    /// walk needed none or the mapper undid it.
+    private(set) var routeTidy: RouteTidy.Report?
+    /// The route before the tidy-up, for Undo.
+    @ObservationIgnored private var routeBeforeTidy: NavigationMap?
+    /// The mapper undid a tidy-up on this scan: leave their route alone.
+    @ObservationIgnored private var tidyDeclined = false
+
+    /// One line for the checklist: "Route tidied: 1 waypoint merged, 4 links re-routed".
+    var routeTidySummary: String? {
+        guard let report = routeTidy else { return nil }
+        var parts: [String] = []
+        if report.mergedWaypoints > 0 { parts.append("\(report.mergedWaypoints) waypoint\(report.mergedWaypoints == 1 ? "" : "s") merged") }
+        if report.reroutedLinks > 0 { parts.append("\(report.reroutedLinks) link\(report.reroutedLinks == 1 ? "" : "s") re-routed") }
+        return "Route tidied: " + parts.joined(separator: ", ")
+    }
+
+    /// A walk is one chain in walking order; this makes it the corridor graph
+    /// (see `RouteTidy`) before the mapper reviews and publishes it.
+    private func tidyRouteIfWanted() {
+        guard !tidyDeclined else { return }
+        let before = session.map
+        let report = session.tidyRoute()
+        guard report.changed else { return }
+        if routeBeforeTidy == nil { routeBeforeTidy = before }
+        routeTidy = RouteTidy.Report(mergedWaypoints: (routeTidy?.mergedWaypoints ?? 0) + report.mergedWaypoints,
+                                     reroutedLinks: (routeTidy?.reroutedLinks ?? 0) + report.reroutedLinks)
+        hasUnsavedChanges = true
+        usage.log("author.tidy", ["merged": .number(Double(report.mergedWaypoints)), "rerouted": .number(Double(report.reroutedLinks))])
+    }
+
+    /// Puts the route back as walked and stops tidying this scan.
+    func undoRouteTidy() {
+        guard let before = routeBeforeTidy else { return }
+        session.restoreRoute(from: before)
+        clearRouteTidy()
+        tidyDeclined = true
+        hasUnsavedChanges = true
+        usage.log("author.tidy_undo", [:])
+    }
+
+    private func clearRouteTidy() {
+        routeTidy = nil
+        routeBeforeTidy = nil
+    }
+
     func backToWalking() {
+        // Marks added from here extend the tidied route; Undo no longer applies.
+        clearRouteTidy()
         if immersalScanEnabled { scanner.resume() }
         logScan("start", photos: scanner.captured)
         stage = .walk
@@ -272,6 +322,8 @@ final class MapAuthoringViewModel {
         arManager.start(relocalize: false)
         hasUnsavedChanges = false
         resetTrail()
+        clearRouteTidy()
+        tidyDeclined = false
         session.setImmersalAlignment(nil)
         logScan("start", photos: 0)
         if immersalScanEnabled, !ImmersalConfig.token.isEmpty {

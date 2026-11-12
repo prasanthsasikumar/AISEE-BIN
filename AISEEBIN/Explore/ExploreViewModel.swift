@@ -21,7 +21,7 @@ final class ExploreViewModel {
         case failed(question: String)
     }
 
-    static let failureText = "Sorry, I couldn't answer that just now."
+    static let failureText = AskService.failureText
     static let unwalkableText = "This map's tour can't be walked yet. Please ask a member of staff."
     static let timeChoices: [Double] = [10, 20, 30, 45]
 
@@ -41,8 +41,6 @@ final class ExploreViewModel {
 
     private(set) var askState: AskState = .idle
     var isAskOpen = false
-    @ObservationIgnored private var history = AskHistory()
-    @ObservationIgnored private var askTask: Task<Void, Never>?
     private enum ListeningFor { case question, plan }
     @ObservationIgnored private var listeningFor: ListeningFor?
 
@@ -260,15 +258,14 @@ final class ExploreViewModel {
             nav.recognizer.stopListening(deliver: true)
             return
         }
-        askTask?.cancel()
+        nav.asker.cancel()
         nav.guidance.stopSpeaking()
         askState = .idle
         listen(for: .question)
     }
 
     func closeAsk() {
-        askTask?.cancel()
-        askTask = nil
+        nav.asker.cancel()
         if nav.isListening { nav.recognizer.stopListening(deliver: false) }
         nav.guidance.stopSpeaking()
         askState = .idle
@@ -295,35 +292,12 @@ final class ExploreViewModel {
 
     private func send(question: String) {
         askState = .thinking(question: question)
-        let jpeg = nav.arManager.session.currentFrame.flatMap { FrameGrabber.jpeg(from: $0) }
-        let pose = nav.mapPose
-        let places = AskContext.places(map: map, position: pose?.position, heading: pose?.heading ?? 0)
-        let stream = client.ask(question: question, jpeg: jpeg, mapSlug: nav.mapSlug, places: places,
-                                venueInfo: map.venueInfo, history: history.recent(now: Date()))
-        askTask = Task { [weak self] in
-            var answer = ""
-            var unspoken = ""
-            do {
-                for try await chunk in stream {
-                    guard let self, !Task.isCancelled else { return }
-                    answer += chunk
-                    unspoken += chunk
-                    self.askState = .answering(question: question, text: answer)
-                    let (ready, rest) = Self.splitSentences(unspoken)
-                    if !ready.isEmpty { self.nav.guidance.speak(ready, interrupt: false) }
-                    unspoken = rest
-                }
-                guard let self, !Task.isCancelled else { return }
-                let tail = unspoken.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !tail.isEmpty { self.nav.guidance.speak(tail, interrupt: false) }
-                if answer.isEmpty { throw ExploreClientError.timeout }
-                self.history.add(q: question, a: answer, at: Date())
-            } catch {
-                guard let self, !Task.isCancelled else { return }
-                if answer.isEmpty {
-                    self.askState = .failed(question: question)
-                    self.nav.guidance.speak(Self.failureText, interrupt: true)
-                }
+        nav.askGuide(question: question, audience: "sighted") { [weak self] update in
+            guard let self else { return }
+            switch update {
+            case .thinking: self.askState = .thinking(question: question)
+            case .answering(let text), .finished(let text): self.askState = .answering(question: question, text: text)
+            case .failed: self.askState = .failed(question: question)
             }
         }
     }
