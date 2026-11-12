@@ -99,6 +99,36 @@ struct MapAuthoringSession {
         map.name = name
     }
 
+    /// Cleans the walked chain into a corridor graph (`RouteTidy`): waypoints
+    /// from two passes through one corner become one junction, and a link laid
+    /// over ground already walked is routed through the points on it.
+    @discardableResult
+    mutating func tidyRoute() -> RouteTidy.Report {
+        let (tidy, report) = RouteTidy.tidy(map)
+        guard report.changed else { return report }
+        map = tidy
+        if let last = lastAddedID, !map.pois.contains(where: { $0.id == last }) {
+            lastAddedID = map.pois.last?.id
+        }
+        return report
+    }
+
+    /// Puts back the route as it was before `tidyRoute`: the points and links
+    /// of `earlier`, keeping any name, type or description edited since.
+    mutating func restoreRoute(from earlier: NavigationMap) {
+        let edited = Dictionary(map.pois.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        map.pois = earlier.pois.map { old in
+            guard let now = edited[old.id] else { return old }
+            var poi = old
+            poi.name = now.name
+            poi.category = now.category
+            poi.details = now.details
+            return poi
+        }
+        map.edges = earlier.edges
+        lastAddedID = map.pois.last?.id
+    }
+
     /// Chooses which node the next mark links from (e.g. after walking back to a junction).
     mutating func continueChain(from id: String) {
         guard map.pois.contains(where: { $0.id == id }) else { return }

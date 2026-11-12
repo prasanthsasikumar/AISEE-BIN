@@ -469,6 +469,10 @@ struct AuthoringView: View {
                                    : undescribed.isEmpty ? "Every exhibit has a description"
                                    : "No description: \(undescribed.map(\.name).joined(separator: ", "))",
                              fix: undescribed.first.map { first in ("Fix", { editingNode = first }) })
+                    if let tidied = viewModel.routeTidySummary {
+                        Divider().overlay(DS.A.hairline)
+                        checkRow(ok: true, text: tidied, fix: ("Undo", { viewModel.undoRouteTidy() }))
+                    }
                     ForEach(viewModel.unconnectedPlaces) { place in
                         Divider().overlay(DS.A.hairline)
                         checkRow(ok: false, text: "“\(place.name)” isn’t connected to the route",

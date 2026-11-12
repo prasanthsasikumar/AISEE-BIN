@@ -82,4 +82,36 @@ final class MapAuthoringTrailTests: XCTestCase {
         XCTAssertEqual(session.map.pois.count, 2)
         XCTAssertEqual(session.map.edges, [NavigationEdge(from: a.id, to: b.id)])
     }
+
+    // MARK: - Tidy-up
+
+    func testRestoreRouteKeepsEditsMadeSinceTheTidy() {
+        var session = MapAuthoringSession(mapName: "Test")
+        session.addNode(name: "A", category: .destination, details: nil, position: SIMD2<Float>(0, 0))
+        session.addNode(name: "W1", category: .junction, details: nil, position: SIMD2<Float>(6, 0))
+        session.addNode(name: "B", category: .exhibit, details: nil, position: SIMD2<Float>(3, 0.3))
+        let walked = session.map
+
+        let report = session.tidyRoute()
+        XCTAssertTrue(report.changed)
+        XCTAssertTrue(session.map.edges.contains { $0.matches(NavigationEdge(from: "a", to: "b")) })
+        session.updateNode("b", name: "Orchid", category: .exhibit, details: "Pink ones")
+
+        session.restoreRoute(from: walked)
+        XCTAssertEqual(session.map.edges, walked.edges)
+        XCTAssertEqual(session.map.pois.first { $0.id == "b" }?.name, "Orchid")
+        XCTAssertEqual(session.map.pois.first { $0.id == "b" }?.details, "Pink ones")
+    }
+
+    func testTidyRouteKeepsTheChainEndUsable() {
+        var session = MapAuthoringSession(mapName: "Test")
+        session.addNode(name: "A", category: .destination, details: nil, position: SIMD2<Float>(0, 0))
+        session.addNode(name: "W1", category: .junction, details: nil, position: SIMD2<Float>(5, 0))
+        session.addNode(name: "W2", category: .junction, details: nil, position: SIMD2<Float>(5.5, 1))
+        XCTAssertEqual(session.tidyRoute().mergedWaypoints, 1)
+        // The last waypoint was merged away; the next mark still links to something that exists.
+        let next = session.addNode(name: "C", category: .destination, details: nil, position: SIMD2<Float>(9, 3))
+        XCTAssertEqual(session.map.edges.filter { $0.from == next.id || $0.to == next.id }.count, 1)
+        XCTAssertTrue(session.map.edges.allSatisfy { e in session.map.pois.contains { $0.id == e.from } && session.map.pois.contains { $0.id == e.to } })
+    }
 }
