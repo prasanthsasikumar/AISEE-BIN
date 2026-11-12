@@ -120,7 +120,9 @@ final class NavigationViewModel {
 
     /// Rebuilt whenever the map or its anchors change.
     private(set) var engine: PathfindingEngine
-    @ObservationIgnored private var baseMap: NavigationMap
+    @ObservationIgnored private var baseMap: NavigationMap {
+        didSet { ImmersalConfig.currentMapAriaServer = baseMap.immersalAlignment?.ariaServer }
+    }
     @ObservationIgnored private var commandParser: CommandParser
     @ObservationIgnored private var proximityAnnouncer: ProximityAnnouncer
 
@@ -361,6 +363,7 @@ final class NavigationViewModel {
         let storedMap = map == nil ? mapStore.loadMap() : nil
         let initialMap = map ?? storedMap ?? SampleGreenhouseMap.map
         self.baseMap = initialMap
+        ImmersalConfig.currentMapAriaServer = initialMap.immersalAlignment?.ariaServer
         self.engine = PathfindingEngine(map: initialMap)
         self.commandParser = CommandParser(pois: initialMap.pois)
         self.proximityAnnouncer = ProximityAnnouncer(pois: initialMap.pois)
@@ -941,7 +944,6 @@ final class NavigationViewModel {
             usage.logError("aria.install", error)
             return
         }
-        ImmersalConfig.localizerMode = .ariaServer
         DiagnosticsLog.write("aria test map installed; localizer=aria server at \(ImmersalConfig.ariaLocalizeURL)")
         reloadMapAndRestart()
     }

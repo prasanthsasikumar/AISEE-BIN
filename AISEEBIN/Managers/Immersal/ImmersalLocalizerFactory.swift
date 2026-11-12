@@ -22,7 +22,7 @@ enum ImmersalLocalizerFactory {
     static func make(mapIDs: [Int], token: String, cache: ImmersalMapCache,
                      native: ImmersalNative = .shared,
                      nativeAvailable: Bool = ImmersalNative.isAvailable,
-                     mode: ImmersalLocalizerMode = ImmersalConfig.localizerMode) -> Choice {
+                     mode: ImmersalLocalizerMode = ImmersalConfig.effectiveLocalizerMode) -> Choice {
         let choice: Choice
         if mode == .ariaServer {
             choice = Choice(localizer: AriaServerLocalizer(mapIDs: mapIDs),

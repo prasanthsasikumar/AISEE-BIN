@@ -20,6 +20,27 @@ final class AriaServerTests: XCTestCase {
         XCTAssertEqual(ImmersalConfig.ariaLocalizeURL(typed: "http://10.0.0.5:8100").absoluteString, "http://10.0.0.5:8100/localizeb64")
     }
 
+    func testAMapThatNamesTheAriaServerOverridesSettings() {
+        for stored in ImmersalLocalizerMode.allCases {
+            XCTAssertEqual(ImmersalConfig.effectiveMode(stored: stored, mapAriaServer: ""), .ariaServer)
+            XCTAssertEqual(ImmersalConfig.effectiveMode(stored: stored, mapAriaServer: "https://x.example"), .ariaServer)
+            XCTAssertEqual(ImmersalConfig.effectiveMode(stored: stored, mapAriaServer: nil), stored,
+                           "maps without the field leave Settings in charge")
+        }
+    }
+
+    func testAlignmentWithoutTheFieldStillDecodesAndTheFieldRoundTrips() throws {
+        let old = #"{"mapIDs":[151658],"yaw":0.5,"tx":1,"tz":2,"pairCount":10,"rmsError":0.1}"#
+        let decoded = try JSONDecoder().decode(ImmersalAlignment.self, from: Data(old.utf8))
+        XCTAssertNil(decoded.ariaServer)
+        XCTAssertEqual(decoded.mapIDs, [151658])
+
+        let map = AriaTestMap.map
+        XCTAssertEqual(map.immersalAlignment?.ariaServer, "", "the test map uses the app's default server")
+        let again = try JSONDecoder().decode(NavigationMap.self, from: JSONEncoder().encode(map))
+        XCTAssertEqual(again.immersalAlignment?.ariaServer, "")
+    }
+
     func testTestMapIsInTheServerFrameAndFullyRoutable() throws {
         let map = AriaTestMap.map
         let alignment = try XCTUnwrap(map.immersalAlignment)

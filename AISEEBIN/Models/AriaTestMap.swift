@@ -53,7 +53,11 @@ enum AriaTestMap {
                 NavigationEdge(from: "wp02", to: "wp10"),
                 NavigationEdge(from: "wp04", to: "wp07"),
             ],
-            immersalAlignment: ImmersalAlignment.identity(mapID: mapID, origin: nil)
+            immersalAlignment: {
+                var a = ImmersalAlignment.identity(mapID: mapID, origin: nil)
+                a.ariaServer = ""
+                return a
+            }()
         )
     }()
 }

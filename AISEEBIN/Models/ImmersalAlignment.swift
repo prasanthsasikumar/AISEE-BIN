@@ -35,6 +35,10 @@ struct ImmersalAlignment: Codable, Equatable {
     /// placement is used instead of the top-level yaw/tx/tz, which keep the
     /// first map's placement for builds that predate this field.
     var maps: [MapPlacement]? = nil
+    /// Set on maps built from an Aria Gen 2 recording: fixes come from the Aria
+    /// map server, not Immersal. The address, or "" for the app's default
+    /// (`ImmersalConfig.defaultAriaServer`). The web editor keeps it as is.
+    var ariaServer: String? = nil
 
     struct MapPlacement: Codable, Equatable {
         var id: Int

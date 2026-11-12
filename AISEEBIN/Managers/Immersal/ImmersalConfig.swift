@@ -141,8 +141,27 @@ extension ImmersalConfig {
         set { UserDefaults.standard.set(newValue, forKey: ariaServerKey) }
     }
 
-    /// `<base>/localizeb64`, from what was typed when it parses, else the default.
-    static var ariaLocalizeURL: URL { ariaLocalizeURL(typed: ariaServerText) }
+    /// The loaded map's `ariaServer`, kept current by `NavigationViewModel`.
+    /// Non-nil means the map was built for the Aria server and positioning uses
+    /// it whatever Settings says; nil leaves the Settings choice in charge.
+    nonisolated(unsafe) static var currentMapAriaServer: String?
+
+    /// What positioning actually uses: the loaded map's server when it names
+    /// one, else the Settings choice.
+    static var effectiveLocalizerMode: ImmersalLocalizerMode {
+        effectiveMode(stored: localizerMode, mapAriaServer: currentMapAriaServer)
+    }
+
+    static func effectiveMode(stored: ImmersalLocalizerMode, mapAriaServer: String?) -> ImmersalLocalizerMode {
+        mapAriaServer != nil ? .ariaServer : stored
+    }
+
+    /// `<base>/localizeb64`: what was typed in Settings, else the map's own
+    /// address, else the default.
+    static var ariaLocalizeURL: URL {
+        let typed = ariaServerText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return ariaLocalizeURL(typed: typed.isEmpty ? (currentMapAriaServer ?? "") : typed)
+    }
 
     static func ariaLocalizeURL(typed: String) -> URL {
         let trimmed = typed.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -153,7 +172,7 @@ extension ImmersalConfig {
     }
 
     /// The Aria server answers for its own map: no Immersal map download, no token.
-    static var usesAriaServer: Bool { localizerMode == .ariaServer }
+    static var usesAriaServer: Bool { effectiveLocalizerMode == .ariaServer }
 }
 
 extension String {

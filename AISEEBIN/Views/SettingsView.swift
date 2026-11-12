@@ -178,7 +178,7 @@ struct SettingsView: View {
         } header: {
             Text("Aria map server")
         } footer: {
-            Text("Positions the phone or glasses against a map built from an Aria Gen 2 recording (MPS SLAM + HLoc). Choosing \"Aria map server\" under Immersal › Localization sends frames there instead of to Immersal. Loading the test map replaces the map on this phone; switch maps from Home to go back.")
+            Text("Maps built from an Aria Gen 2 recording (MPS SLAM + HLoc) name this server themselves, so they use it automatically whatever Immersal › Localization says. The address here overrides the map's. Loading the bundled test map replaces the map on this phone; switch maps from Home to go back.")
         }
     }
 
