@@ -205,6 +205,8 @@ final class NavigationViewModel {
     @ObservationIgnored private var lastWalkSample: SIMD2<Float>?
     /// `speech.heard.via`: the microphone the current listen opened.
     @ObservationIgnored private var listeningVia = "phone"
+    @ObservationIgnored private var glassesLoss = GlassesLossPolicy()
+    @ObservationIgnored private var glassesLossTask: Task<Void, Never>?
     var mode: AppMode = .navigation {
         didSet { if mode != oldValue { didChange(mode: mode, from: oldValue) } }
     }
@@ -463,6 +465,7 @@ final class NavigationViewModel {
             self.handle(transcript: text)
         }
         recognizer.onDidStopListening = { [weak self] in self?.closeGlassesMicrophone() }
+        watchGlassesLoss()
         AppCommandBus.shared.handler = { [weak self] command in self?.handle(appCommand: command) }
 
         startPositioning()
@@ -555,16 +558,55 @@ final class NavigationViewModel {
     private func observeGlassesConnection() {
         withObservationTracking {
             _ = glasses.isConnected
+            _ = glasses.kind
         } onChange: { [weak self] in
             Task { @MainActor in
                 guard let self else { return }
+                // Each kind of glasses has its own lens.
+                self.glassesPositioning.camera = GlassesCamera.load()
+                self.glassesFeed.camera = GlassesCamera.load()
                 if self.glasses.isConnected, self.positioningSource == .phone {
                     self.positioningSource = GlassesMode.load().source
-                } else if !self.glasses.isConnected, self.positioningSource != .phone {
-                    self.guidance.speak("Glasses disconnected. Using the phone camera.", interrupt: true)
-                    self.positioningSource = .phone
+                } else if !self.glasses.isConnected, self.positioningSource != .phone, self.glasses.kind == .aisee {
+                    self.fallBackToPhoneCamera()
                 }
+                // Ray-Ban Meta get a grace period first: see `tickGlassesLoss`.
                 self.observeGlassesConnection()
+            }
+        }
+    }
+
+    private func fallBackToPhoneCamera() {
+        guidance.speak("Glasses disconnected. Using the phone camera.", interrupt: true)
+        positioningSource = .phone
+    }
+
+    /// Once a second while Ray-Ban Meta glasses position the visitor: rides
+    /// out short drops, says when the camera has paused (glasses taken off,
+    /// "Hey Meta"), and falls back to the phone only when the glasses are gone.
+    private func watchGlassesLoss() {
+        glassesLossTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                self?.tickGlassesLoss()
+            }
+        }
+    }
+
+    private func tickGlassesLoss() {
+        guard glasses.kind == .rayban, positioningSource != .phone else {
+            glassesLoss = GlassesLossPolicy()
+            return
+        }
+        let events = glassesLoss.update(linked: glasses.isConnected,
+                                        framesFlowing: glasses.meta.secondsSinceLastFrame < 3,
+                                        now: ProcessInfo.processInfo.systemUptime)
+        for event in events {
+            usage.log("glasses.loss", ["event": .string(String(describing: event))])
+            switch event {
+            case .fallBackToPhone: fallBackToPhoneCamera()
+            case .announcePaused: guidance.speak("Glasses camera paused.", interrupt: false)
+            case .announceBack: guidance.speak("Glasses camera back.", interrupt: false)
             }
         }
     }
@@ -1050,7 +1092,13 @@ final class NavigationViewModel {
             asker.cancel()                    // an answer still arriving would talk over the listener
             guidance.stopSpeaking()           // never listen to ourselves
             guidance.play(.nodeReached)       // tactile "I'm listening"
-            if positioningSource != .phone, glasses.isConnected {
+            if positioningSource != .phone, glasses.isConnected, glasses.kind == .rayban {
+                // Ray-Ban Meta: their microphone is the phone's Bluetooth headset
+                // input, allowed for as long as the app listens.
+                listeningVia = "glasses"
+                guidance.setHeadsetMicrophoneAllowed(true)
+                recognizer.startListening()
+            } else if positioningSource != .phone, glasses.isConnected {
                 // The phone is in a pocket: listen through the glasses' microphone.
                 listeningVia = "glasses"
                 recognizer.startListening(input: .external)
@@ -1069,6 +1117,7 @@ final class NavigationViewModel {
     }
 
     private func closeGlassesMicrophone() {
+        guidance.setHeadsetMicrophoneAllowed(false)
         guard glasses.isMicOpen else { return }
         Task { await glasses.stopMicrophone() }
     }

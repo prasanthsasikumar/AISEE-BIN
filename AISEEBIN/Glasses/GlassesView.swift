@@ -293,7 +293,7 @@ struct GlassesView: View {
                     return
                 }
                 guard let frame = await Task.detached(operation: {
-                    ImmersalFrameEncoder.gray(from: image, targetWidth: GlassesPositioning.sentFrameWidth)
+                    ImmersalFrameEncoder.gray(from: image, targetWidth: GlassesPositioning.sentWidth(width: image.width, height: image.height))
                 }).value else {
                     photoResult = "Could not convert the still."
                     return

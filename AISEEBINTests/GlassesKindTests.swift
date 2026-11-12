@@ -52,4 +52,11 @@ final class GlassesKindTests: XCTestCase {
         GlassesKind.aisee.save(to: defaults)
         XCTAssertEqual(GlassesCamera.load(from: defaults).focalPx, 1100)
     }
+
+    func testFramesAreSentWithTheirLongEdgeAt960AndNeverEnlarged() {
+        XCTAssertEqual(GlassesPositioning.sentWidth(width: 1280, height: 720), 960)   // AiSee, as always
+        XCTAssertEqual(GlassesPositioning.sentWidth(width: 720, height: 1280), 540)   // Ray-Ban Meta, high
+        XCTAssertEqual(GlassesPositioning.sentWidth(width: 504, height: 896), 504)    // already small
+        XCTAssertEqual(GlassesPositioning.sentWidth(width: 4032, height: 3024), 960)  // a still
+    }
 }

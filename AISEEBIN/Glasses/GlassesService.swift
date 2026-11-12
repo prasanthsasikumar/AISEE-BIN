@@ -5,7 +5,9 @@ import Observation
 import OSLog
 import UIKit
 
-/// The app's one handle on the AiSee glasses.
+/// The app's one handle on the glasses: AiSee (the kit below) or Ray-Ban Meta
+/// (`MetaGlassesLink`), chosen by `kind`. Both deliver the same frames through
+/// `onFrame`, so positioning does not know which pair is worn.
 ///
 /// Wraps the kit's connection service and device coordinator, keeps the
 /// coordinator attached to whatever connection is live (the kit's one hard
@@ -47,6 +49,18 @@ final class GlassesService {
 
     let connection: AiSeeConnectionService
     @ObservationIgnored let coordinator: AiSeeDeviceCoordinator
+    /// Ray-Ban Meta glasses, through Meta's toolkit.
+    let meta = MetaGlassesLink()
+
+    /// Which glasses the app talks to. Switching stops the other pair's stream.
+    var kind = GlassesKind.load() {
+        didSet {
+            guard kind != oldValue else { return }
+            kind.save()
+            usage.logSetting("glasses_kind", old: oldValue.rawValue, new: kind.rawValue)
+            Task { await self.stopStream(of: oldValue) }
+        }
+    }
 
     private(set) var isStreaming = false
     private(set) var isMicOpen = false
@@ -96,14 +110,23 @@ final class GlassesService {
     /// Where `glasses.connect` / `glasses.disconnect` go; tests inject a fake.
     @ObservationIgnored var usage: UsageLogging = UsageLog.shared
     @ObservationIgnored private var loggedConnected = false
+    /// The kind the last `glasses.connect` was logged for, so its disconnect matches.
+    @ObservationIgnored private var loggedKind = GlassesKind.aisee
     @ObservationIgnored private var disconnectRequested = false
     /// Holds `glasses.connect` back until the battery reading lands (or 5 s pass).
     @ObservationIgnored private var connectLogTask: Task<Void, Never>?
 
-    var isConnected: Bool { connection.state.isConnected }
+    var isConnected: Bool {
+        kind == .rayban ? meta.status.isConnected : connection.state.isConnected
+    }
     var deviceName: String? {
+        if kind == .rayban { return meta.status.deviceName }
         if case .connected(let name) = connection.state { return name }
         return nil
+    }
+    /// Battery percentage of the connected glasses, when they report one.
+    var battery: Int? {
+        kind == .rayban ? meta.battery : connection.battery
     }
 
     /// The SDK-thread side of frame delivery. Lives outside the main actor so
@@ -208,6 +231,8 @@ final class GlassesService {
         connection = AiSeeConnectionService(log: sink)
         coordinator = AiSeeDeviceCoordinator(log: sink)
         Self.shared = self
+        meta.log = sink
+        meta.onFrame = { [weak self] frame in self?.receive(frame) }
         fanout.previewInterval = smoothPreview ? 0 : 0.25
         fanout.previewVisible = UIApplication.shared.applicationState != .background
         let center = NotificationCenter.default
@@ -228,7 +253,7 @@ final class GlassesService {
             }
             await coordinator.setStateObserver { [weak self] micOpen, streaming in
                 Task { @MainActor in
-                    guard let self else { return }
+                    guard let self, self.kind == .aisee else { return }
                     self.isMicOpen = micOpen
                     if self.isStreaming != streaming {
                         self.isStreaming = streaming
@@ -262,7 +287,8 @@ final class GlassesService {
     /// (the kit lists those with no signal reading, because they do not
     /// advertise). A blind visitor puts the glasses on and the app follows.
     func connectAutomatically() {
-        guard !isConnected else { return }
+        // Ray-Ban Meta glasses link through the Meta AI app; there is nothing to scan for.
+        guard kind == .aisee, !isConnected else { return }
         if UserDefaults.standard.string(forKey: AiSeeConnectionService.lastPeripheralKey) != nil {
             reconnectLastDevice()
         } else {
@@ -297,6 +323,9 @@ final class GlassesService {
         withObservationTracking {
             _ = connection.state
             _ = connection.battery
+            _ = kind
+            _ = meta.status
+            _ = meta.battery
         } onChange: { [weak self] in
             Task { @MainActor in
                 guard let self else { return }
@@ -309,7 +338,7 @@ final class GlassesService {
     private func logConnectionChange() {
         if isConnected {
             guard !loggedConnected else { return }
-            if connection.battery != nil {
+            if battery != nil {
                 logConnect()
             } else if connectLogTask == nil {
                 connectLogTask = Task { [weak self] in
@@ -323,7 +352,8 @@ final class GlassesService {
         if connectLogTask != nil { logConnect() }   // dropped before the battery came in
         guard loggedConnected else { disconnectRequested = false; return }
         loggedConnected = false
-        usage.log("glasses.disconnect", ["reason": .string(disconnectRequested ? "user" : "lost")])
+        usage.log("glasses.disconnect", ["reason": .string(disconnectRequested ? "user" : "lost"),
+                                         "kind": .string(loggedKind.rawValue)])
         disconnectRequested = false
     }
 
@@ -331,7 +361,9 @@ final class GlassesService {
         connectLogTask?.cancel()
         connectLogTask = nil
         loggedConnected = true
-        usage.log("glasses.connect", ["battery": connection.battery.map { .number(Double($0)) } ?? .null])
+        loggedKind = kind
+        usage.log("glasses.connect", ["battery": battery.map { .number(Double($0)) } ?? .null,
+                                      "kind": .string(kind.rawValue)])
     }
 
     /// The kit binds nothing itself: every connection change must be handed to
@@ -343,7 +375,7 @@ final class GlassesService {
         #else
         Task { await coordinator.detach() }
         #endif
-        if !isConnected {
+        if kind == .aisee, !isConnected {
             isStreaming = false
             isMicOpen = false
             previewImage = nil
@@ -361,6 +393,17 @@ final class GlassesService {
     func startStreaming() async throws {
         guard !isStreaming else { return }
         lastStreamError = nil
+        if kind == .rayban {
+            // No hotspot and no retries: the link rebuilds its own session.
+            do {
+                try await meta.startStreaming()
+                isStreaming = true
+            } catch {
+                lastStreamError = error.localizedDescription
+                throw error
+            }
+            return
+        }
         var lastError: Error?
         for attempt in 1...3 {
             await forgetHotspotConfigurations()
@@ -431,7 +474,15 @@ final class GlassesService {
 
     func stopStreaming() async {
         keepStreaming = false
-        await coordinator.stopLiveStream()
+        await stopStream(of: kind)
+    }
+
+    /// Stops one kind's stream and clears what the screen shows of it.
+    private func stopStream(of kind: GlassesKind) async {
+        switch kind {
+        case .aisee: await coordinator.stopLiveStream()
+        case .rayban: await meta.stopStreaming()
+        }
         fanout.latest = nil
         isStreaming = false
         previewImage = nil
@@ -443,6 +494,10 @@ final class GlassesService {
     /// glasses. Keeps `keepStreaming` as it was.
     func restartStreamForNewSettings() async throws {
         guard isStreaming else { return }
+        if kind == .rayban {
+            try await meta.restartStreamForNewSettings()
+            return
+        }
         let keep = keepStreaming
         await stopStreaming()
         keepStreaming = keep
@@ -453,6 +508,7 @@ final class GlassesService {
     /// running stream is stopped for the shot (the kit would otherwise serve
     /// the latest decoded frame) and started again afterwards.
     func captureStill() async throws -> Data {
+        if kind == .rayban { return try await captureRayBanStill() }
         let wasStreaming = isStreaming
         let keep = keepStreaming
         if wasStreaming { await stopStreaming() }
@@ -467,6 +523,24 @@ final class GlassesService {
         }
         let started = Date()
         let jpeg = try await coordinator.capturePhoto()
+        append("still: \(jpeg.count) bytes in \(Int(Date().timeIntervalSince(started) * 1000)) ms")
+        return jpeg
+    }
+
+    /// Ray-Ban Meta take stills while streaming, so a stopped stream is
+    /// started for the shot and stopped again afterwards.
+    private func captureRayBanStill() async throws -> Data {
+        let wasStreaming = isStreaming
+        if !wasStreaming {
+            try await startStreaming()
+            // The camera needs frames flowing before it accepts a capture.
+            for _ in 0..<50 where meta.secondsSinceLastFrame > 1 {
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+        }
+        defer { if !wasStreaming { Task { await self.stopStreaming() } } }
+        let started = Date()
+        let jpeg = try await meta.captureStill()
         append("still: \(jpeg.count) bytes in \(Int(Date().timeIntervalSince(started) * 1000)) ms")
         return jpeg
     }
@@ -493,7 +567,11 @@ final class GlassesService {
                 // actually arrived next to its fixes.
                 self.secondsLogged += 1
                 if self.secondsLogged % 10 == 0 {
+                    if self.kind == .rayban {
+                        DiagnosticsLog.write("glasses: ray-ban stream \(self.meta.resolution.rawValue) asked \(self.meta.frameRate) fps, got \(second.fps) fps")
+                    } else {
                     DiagnosticsLog.write("glasses: stream \(self.streamSettings.size.label) asked \(self.streamSettings.fps) fps \(self.streamSettings.kbps) kbps, got \(second.fps) fps \(second.kbps) kbps \(second.keyframes) keyframes")
+                    }
                 }
             }
             if let lagMs { self.lagBuildUpMs = lagMs }
@@ -503,6 +581,8 @@ final class GlassesService {
     // MARK: - Microphone
 
     func startMicrophone(onBuffer: @escaping @Sendable (AVAudioPCMBuffer) -> Void) async throws {
+        // Ray-Ban Meta microphones reach the app as the phone's Bluetooth audio input.
+        if kind == .rayban { throw MetaGlassesError.microphoneIsSystemRouted }
         try await coordinator.startMicrophone(onBuffer: onBuffer)
         isMicOpen = await coordinator.micOpen
     }
