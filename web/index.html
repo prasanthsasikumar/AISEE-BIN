@@ -143,6 +143,23 @@
       </div>
       <div id="coords" class="overlay coords">x — &nbsp; z —</div>
       <button id="fitFloat" class="overlay fitFloat narrowOnly" aria-label="Fit the view">Fit</button>
+      <div id="view3d" hidden>
+        <div class="v3bar">
+          <strong>3D</strong>
+          <div class="seg" role="group" aria-label="3D tool">
+            <button data-mode3d="select" class="active" title="Click a place to select it; drag it to move it along the floor; drag empty space to turn the view">Select</button>
+            <button data-mode3d="add" title="Click the floor to add a place there, at that height">Place</button>
+            <button data-mode3d="connect" title="Click two places to connect them, or remove their connection">Connect</button>
+            <button data-mode3d="path" title="Click a place to start, then click along the floor to lay waypoints; click a place to end there">Path</button>
+          </div>
+          <span class="grow"></span>
+          <button id="snapHeights" class="btn" title="Put every place with a height on the floor under it (fixes heights from older or imported maps)">Snap heights to floor</button>
+          <button id="reset3d" class="btn">Reset view</button>
+          <button id="close3d" class="btn">Close</button>
+        </div>
+        <canvas id="canvas3d"></canvas>
+        <div id="status3d" class="note"></div>
+      </div>
     </section>
 
     <aside id="right" class="rail right">
@@ -255,6 +272,7 @@
         <div class="row">
           <label class="coord"><span>x</span><input id="nodeX" type="number" step="0.05" aria-label="x (m)"></label>
           <label class="coord"><span>z</span><input id="nodeZ" type="number" step="0.05" aria-label="z (m)"></label>
+          <label class="coord" title="Floor height under this place, metres (the app stores floor + 1.35 m camera height). Empty: not set; it takes a connected place's."><span>floor</span><input id="nodeFloor" type="number" step="0.05" aria-label="floor height (m)" placeholder="—"></label>
         </div>
         <span class="grow"></span>
         <button id="deleteNode" class="btn danger block"><svg class="ic" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/></svg>Delete place</button>
@@ -428,17 +446,13 @@
 </dialog>
 
 <!-- ================= 3D ================= -->
-<div id="view3d" hidden>
-  <div class="v3bar"><strong>3D</strong><span class="note">drag to orbit · wheel or pinch to zoom · double-click to reset · height band from Scan view applies</span><span class="grow"></span><button id="reset3d" class="btn">Reset view</button><button id="close3d" class="btn">Close</button></div>
-  <canvas id="canvas3d"></canvas>
-  <div id="status3d" class="note"></div>
-</div>
 
 <script src="immersal.js"></script>
 <script src="explore.js"></script>
 <script src="align.js"></script>
 <script src="tidy.js"></script>
 <script src="sessions.js"></script>
+<script src="ground.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

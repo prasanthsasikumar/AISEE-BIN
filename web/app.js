@@ -9,6 +9,27 @@ const SUPABASE_KEY = 'sb_publishable_hEk_pFTUws4X_SL7QKiFUA_DeFU9-YL';
 const BUCKET = 'aiseebin-maps';
 // Same dots as the phone apps' place types.
 const CATEGORY_COLORS = { destination: '#5B7CFA', junction: '#8E8AA3', exhibit: '#1FA97A', hazard: '#E0524A' };
+
+// ---------- floor heights (ground.js) ----------
+// A place's `y` is the camera height the apps compare against (floor + 1.35 m).
+// These read the floor under a spot from the version's point cloud, so places
+// sit on ramps, gradual slopes and stacked floors at the right height.
+let groundIdx = null, groundIdxFor = null;
+function groundIndex() {
+  if (!state.points || !state.points.length || !window.Ground) return null;
+  if (groundIdxFor !== state.points) { groundIdx = Ground.buildIndex(state.points); groundIdxFor = state.points; }
+  return groundIdx;
+}
+/// Floor under (x, z) near `nearFloor` (a connected place, the place being
+/// moved, what was clicked); else under the Scan view band; else the lowest surface.
+function floorUnder(x, z, nearFloor = null) {
+  const idx = groundIndex(); if (!idx) return null;
+  const near = nearFloor !== null && nearFloor !== undefined ? nearFloor + 0.3 : (state.band ? state.band.hi : null);
+  return Ground.floorAt(idx, x, z, near === null ? {} : { near });
+}
+function setFloor(node, floor) { if (typeof floor === 'number' && isFinite(floor)) node.y = +Ground.placeHeight(floor).toFixed(3); }
+/// True when the map already stores heights: then places added in 2D get one too.
+function mapUsesHeights() { return (state.graph?.pois || []).some(p => typeof p.y === 'number'); }
 const colorOf = p => CATEGORY_COLORS[p.category] || CATEGORY_COLORS.destination;
 
 // ---------- state ----------
@@ -533,7 +554,10 @@ function resize() {
   draw();
 }
 
+// Set by the 3D view once it exists: redraws its places after a 2D redraw.
+var after2DDraw = null;
 function draw() {
+  if (after2DDraw) after2DDraw();
   const w = canvas.clientWidth, h = canvas.clientHeight;
   if (!w || !h) return;
   ctx.clearRect(0, 0, w, h);
@@ -852,6 +876,7 @@ function renderInspector() {
     if (document.activeElement !== $('nodeName')) $('nodeName').value = n.name;
     if (document.activeElement !== $('nodeDetails')) $('nodeDetails').value = n.details || '';
     $('nodeX').value = n.x.toFixed(2); $('nodeZ').value = n.z.toFixed(2);
+    const fl = Ground.floorOf(n); if (document.activeElement !== $('nodeFloor')) $('nodeFloor').value = fl === null ? '' : fl.toFixed(2);
     renderType(n); renderAliases(n); renderNodeEdges(n);
     for (const [id, key] of NODE_EXPLORE_FIELDS) if (document.activeElement !== $(id)) $(id).value = ExploreFields.fieldValue(n, key);
   }
@@ -973,10 +998,14 @@ function setModeHint() {
     : HINTS[state.mode];
 }
 
-function addWaypointAt(x, z) {
+/// `floor`: the floor height to give it (3D clicks); undefined works it out
+/// from the point cloud near the previous waypoint, when the map uses heights.
+function addWaypointAt(x, z, floor) {
   beginChange();
   const n = state.graph.pois.filter(p => p.category === 'junction').length + 1;
   const node = { id: uniqueId(`wp-${n}`), name: `Waypoint ${n}`, x: +x.toFixed(2), z: +z.toFixed(2), category: 'junction', details: null, aliases: [] };
+  if (floor === undefined && mapUsesHeights()) floor = floorUnder(x, z, state.pathFrom ? Ground.floorOf(state.pathFrom) : null);
+  setFloor(node, floor);
   state.graph.pois.push(node);
   return node;
 }
@@ -986,10 +1015,12 @@ function uniqueId(base) {
   let id = slug, n = 2; while (nodeById(id)) id = `${slug}-${n++}`; return id;
 }
 
-function addNodeAt(x, z) {
+function addNodeAt(x, z, floor) {
   beginChange();
   const count = state.graph.pois.filter(p => p.category !== 'junction').length + 1;
   const node = { id: uniqueId('node'), name: `Place ${count}`, x: +x.toFixed(2), z: +z.toFixed(2), category: 'destination', details: null, aliases: [] };
+  if (floor === undefined && mapUsesHeights()) floor = floorUnder(x, z);
+  setFloor(node, floor);
   state.graph.pois.push(node); selectNode(node); markDirty(); setMode('select');
   if (isNarrow()) openSheet('right');
   // After this pointerdown the canvas's mousedown would take focus back; focus after it.
@@ -1104,7 +1135,9 @@ canvas.addEventListener('pointermove', ev => {
   else {
     // A few pixels of slop so a tap that wobbles does not move the place.
     if (!d.moved && Math.hypot(sx - d.x, sy - d.y) < (ev.pointerType === 'touch' ? 8 : 3)) return;
-    d.node.x = +wx.toFixed(2); d.node.z = +wz.toFixed(2); d.moved = true; renderInspector(); renderMobileBar(); draw();
+    d.node.x = +wx.toFixed(2); d.node.z = +wz.toFixed(2); d.moved = true;
+    if (typeof d.node.y === 'number') setFloor(d.node, floorUnder(d.node.x, d.node.z, Ground.floorOf(d.node)));
+    renderInspector(); renderMobileBar(); draw();
   }
 });
 
@@ -1163,7 +1196,7 @@ function deleteNode() {
 function deleteEdge() { if (state.selectedEdge === null) return; beginChange(); state.graph.edges.splice(state.selectedEdge, 1); state.selectedEdge = null; closeSheets(); markDirty(); }
 
 // ---------- inspector bindings ----------
-['nodeName', 'nodeDetails', 'nodeX', 'nodeZ', 'nodeRadius', 'nodeRadiusRange', 'mapName'].forEach(id => $(id).addEventListener('focus', beginChange));
+['nodeName', 'nodeDetails', 'nodeX', 'nodeZ', 'nodeFloor', 'nodeRadius', 'nodeRadiusRange', 'mapName'].forEach(id => $(id).addEventListener('focus', beginChange));
 const bindNode = (id, apply) => $(id).addEventListener('input', () => {
   const n = state.selectedNode; if (!n) return;
   apply(n, $(id).value); state.dirty = true; updateSaveButton(); renderPlaces(); renderMobileBar(); draw();
@@ -1181,6 +1214,7 @@ $('nodeRadiusReset').onclick = () => {
 bindNode('nodeDetails', (n, v) => n.details = v || null);
 bindNode('nodeX', (n, v) => { if (!isNaN(parseFloat(v))) n.x = parseFloat(v); });
 bindNode('nodeZ', (n, v) => { if (!isNaN(parseFloat(v))) n.z = parseFloat(v); });
+bindNode('nodeFloor', (n, v) => { if (String(v).trim() === '') delete n.y; else if (!isNaN(parseFloat(v))) setFloor(n, parseFloat(v)); });
 document.querySelectorAll('#typeGrid [data-cat]').forEach(b => b.onclick = () => {
   const n = state.selectedNode; if (!n || n.category === b.dataset.cat) return;
   beginChange(); n.category = b.dataset.cat; markDirty();
@@ -1665,7 +1699,7 @@ function loadThree() {
 function open3D() {
   if (!state.points || !state.points.length) { setStatus('No point cloud loaded for this version.', true); return; }
   $('view3d').hidden = false; $('status3d').textContent = 'Loading…';
-  loadThree().then(() => { init3D(); rebuild3D(true); $('status3d').textContent = `${fmtInt(state.points.length / 3)} points · places shown as dots at floor height`; })
+  loadThree().then(() => { init3D(); rebuild3D(true); setMode3D(v3.mode); })
     .catch(e => { $('status3d').textContent = e.message; });
 }
 function close3D() { $('view3d').hidden = true; }
@@ -1676,20 +1710,177 @@ function init3D() {
   const cv3 = $('canvas3d');
   v3.renderer = new THREE.WebGLRenderer({ canvas: cv3, antialias: true }); v3.renderer.setClearColor(0x0c0e14);
   v3.scene = new THREE.Scene(); v3.cam = new THREE.PerspectiveCamera(50, 1, 0.05, 1000);
-  let drag = null; const touches = new Map(); let pinch = null;
-  cv3.addEventListener('pointerdown', e => { cv3.setPointerCapture(e.pointerId); touches.set(e.pointerId, e); cv3.classList.add('drag');
-    if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), dist: v3.orbit.dist }; drag = null; }
-    else drag = { x: e.clientX, y: e.clientY, yaw: v3.orbit.yaw, pitch: v3.orbit.pitch }; });
+  v3.ray = new THREE.Raycaster();
+  // One pointer: drag a place (Select tool) or turn the view; a click without
+  // movement runs the tool. Two pointers: pinch-zoom.
+  let drag = null, down = null; const touches = new Map(); let pinch = null;
+  cv3.addEventListener('pointerdown', e => { cv3.setPointerCapture(e.pointerId); touches.set(e.pointerId, e);
+    if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), dist: v3.orbit.dist }; drag = null; v3.nodeDrag = null; return; }
+    down = { x: e.clientX, y: e.clientY };
+    const hit = v3.mode === 'select' && e.button === 0 ? pickNode3D(e) : null;
+    if (hit) { selectNode(hit); v3.nodeDrag = { node: hit, snap: snapshot(), moved: false }; return; }
+    drag = { x: e.clientX, y: e.clientY, yaw: v3.orbit.yaw, pitch: v3.orbit.pitch }; cv3.classList.add('drag'); });
   cv3.addEventListener('pointermove', e => { if (touches.has(e.pointerId)) touches.set(e.pointerId, e);
     if (pinch && touches.size === 2) { const [a, b] = [...touches.values()]; v3.orbit.dist = Math.max(0.5, Math.min(v3.dist0 * 5, pinch.dist * pinch.d / Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY))); render3D(); return; }
+    if (v3.nodeDrag) { dragNode3D(e); return; }
     if (!drag) return; v3.orbit.yaw = drag.yaw - (e.clientX - drag.x) * 0.008; v3.orbit.pitch = Math.max(-1.4, Math.min(1.5, drag.pitch + (e.clientY - drag.y) * 0.006)); render3D(); });
-  const end = e => { touches.delete(e.pointerId); if (touches.size < 2) pinch = null; if (!touches.size) { drag = null; cv3.classList.remove('drag'); } };
+  const end = e => {
+    const tap = down && touches.size === 1 && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 5;
+    touches.delete(e.pointerId); if (touches.size < 2) pinch = null;
+    if (v3.nodeDrag) {
+      if (v3.nodeDrag.moved) { state.history.push(v3.nodeDrag.snap); if (state.history.length > 200) state.history.shift(); state.future = []; updateUndoButtons(); markDirty(); }
+      v3.nodeDrag = null;
+    } else if (tap && e.type === 'pointerup') click3D(e);
+    if (!touches.size) { drag = null; down = null; cv3.classList.remove('drag'); } };
   cv3.addEventListener('pointerup', end); cv3.addEventListener('pointercancel', end);
   cv3.addEventListener('wheel', e => { e.preventDefault(); v3.orbit.dist = Math.max(0.5, Math.min(v3.dist0 * 5, v3.orbit.dist * Math.exp(e.deltaY * 0.0015))); render3D(); }, { passive: false });
   const reset = () => { v3.orbit.yaw = 0.6; v3.orbit.pitch = 0.5; v3.orbit.dist = v3.dist0; render3D(); };
   cv3.addEventListener('dblclick', reset); $('reset3d').onclick = reset;
   window.addEventListener('resize', () => { if (!$('view3d').hidden) render3D(); });
 }
+
+// ---------- 3D editing ----------
+// Places are drawn standing on the floor at their own height (y − camera
+// height), so a ramp climbs through the cloud. Clicks land on the cloud and
+// take the floor under the clicked spot; drags keep a place on the floor.
+v3.mode = 'select'; v3.connectFrom = null; v3.pathFrom = null; v3.nodeDrag = null;
+let nodes3DQueued = false;
+after2DDraw = () => { if (!nodes3DQueued && v3.renderer && !$('view3d').hidden) { nodes3DQueued = true; requestAnimationFrame(() => { nodes3DQueued = false; rebuildNodes3D(); }); } };
+document.querySelectorAll('[data-mode3d]').forEach(b => b.addEventListener('click', () => setMode3D(b.dataset.mode3d)));
+const HINTS3D = {
+  select: 'click a place to select it · drag it to move it along the floor · drag empty space to turn · ⌦ delete · ⌘Z undo',
+  add: 'click the floor to add a place at that height (through a ceiling is fine; Scan view’s height band hides it) · drag to turn',
+  connect: 'click a place, then another, to connect them (or remove their connection)',
+  path: 'click a place to start, then click along the floor to lay waypoints · click a place to end there',
+};
+function setMode3D(mode) {
+  v3.mode = mode; v3.connectFrom = null; v3.pathFrom = mode === 'path' ? state.selectedNode : null;
+  document.querySelectorAll('[data-mode3d]').forEach(b => { b.classList.toggle('active', b.dataset.mode3d === mode); b.setAttribute('aria-pressed', b.dataset.mode3d === mode); });
+  $('canvas3d').className = mode === 'select' ? '' : mode;
+  rebuildNodes3D(); status3D();
+}
+function status3D(extra) {
+  if (extra) v3.flash = { text: extra, until: Date.now() + 4000 };
+  else if (v3.flash && Date.now() < v3.flash.until) extra = v3.flash.text;
+  const n = state.selectedNode, fl = n ? Ground.floorOf(n) : null;
+  const sel = n ? `${n.name} · ${fl === null ? 'no height (takes a connected place’s)' : `floor ${fl.toFixed(2)} m`} · ` : '';
+  $('status3d').textContent = extra || `${sel}${HINTS3D[v3.mode]}`;
+}
+/// Where a place is drawn: on its floor, else on the map's median floor.
+function nodeBase3D(p) { const fl = Ground.floorOf(p); return fl !== null ? fl : (state.heights ? state.heights.med : 0); }
+function label3D(text) {
+  const c = document.createElement('canvas'), g = c.getContext('2d'); g.font = '600 40px system-ui, sans-serif';
+  c.width = Math.ceil(g.measureText(text).width) + 24; c.height = 56;
+  g.font = '600 40px system-ui, sans-serif'; g.fillStyle = 'rgba(12,14,20,.75)'; g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = '#F7F5FD'; g.textBaseline = 'middle'; g.fillText(text, 12, 30);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false }));
+  sp.scale.set(0.35 * c.width / c.height, 0.35, 1); sp.renderOrder = 2; return sp;
+}
+function rebuildNodes3D() {
+  if (!v3.renderer || $('view3d').hidden) return;
+  if (v3.nodes) { v3.scene.remove(v3.nodes); v3.nodes.traverse(o => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose(); }); }
+  v3.nodes = new THREE.Group();
+  const pois = state.graph?.pois || [], at = new Map();
+  for (const p of pois) {
+    const base = nodeBase3D(p), hot = p === state.selectedNode || p === v3.connectFrom || p === v3.pathFrom;
+    at.set(p.id, [p.x, base + 0.06, p.z]);
+    const r = p.category === 'junction' ? 0.09 : 0.15;
+    const m = new THREE.Mesh(new THREE.SphereGeometry(hot ? r * 1.6 : r, 14, 14),
+      new THREE.MeshBasicMaterial({ color: p === v3.connectFrom || p === v3.pathFrom ? '#F5C542' : hot ? '#FFFFFF' : (CATEGORY_COLORS[p.category] || '#9aa0a6') }));
+    m.position.set(p.x, base + r, p.z); m.userData.poi = p; v3.nodes.add(m);
+    if (typeof p.y !== 'number') { const ring = new THREE.Mesh(new THREE.RingGeometry(r * 1.4, r * 1.7, 20), new THREE.MeshBasicMaterial({ color: '#E0524A', side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.set(p.x, base + 0.01, p.z); v3.nodes.add(ring); }
+    if (p.category !== 'junction' || hot) { const l = label3D(p.name); l.position.set(p.x, base + r * 2 + 0.3, p.z); v3.nodes.add(l); }
+  }
+  const segs = [];
+  for (const e of state.graph?.edges || []) { const a = at.get(e.from), b = at.get(e.to); if (a && b) segs.push(...a, ...b); }
+  if (segs.length) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(segs, 3)); v3.nodes.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: '#F7D774' }))); }
+  v3.scene.add(v3.nodes); render3D(); status3D();
+}
+function ray3D(e) {
+  const r = $('canvas3d').getBoundingClientRect();
+  v3.ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), v3.cam);
+  return v3.ray;
+}
+function pickNode3D(e) {
+  const hits = ray3D(e).intersectObjects((v3.nodes?.children || []).filter(o => o.userData.poi), false);
+  return hits.length ? hits[0].object.userData.poi : null;
+}
+/// Where a click lands on the floor: {x, z, floor}, or null if the ray meets no
+/// points. Looking down into a room the ray passes ceiling, ducts and furniture
+/// first, so the hits are walked nearest first and the first one that *is* a
+/// horizontal surface (the floor found under it is at its own height) wins; if
+/// that surface is a ceiling (a floor 1.8–3.2 m below it), the floor under it. If none is (a
+/// wall was clicked), the floor under the furthest hit.
+function pickFloor3D(e) {
+  if (!v3.cloud) return null;
+  const ray = ray3D(e); ray.params.Points.threshold = Math.max(0.04, (v3.orbit.dist || v3.dist0) * 0.004);
+  const hits = ray.intersectObject(v3.cloud, false);
+  if (!hits.length) return null;
+  for (const h of hits.slice(0, 400)) {
+    const f = floorUnder(h.point.x, h.point.z, h.point.y - 0.3);
+    if (f === null || Math.abs(h.point.y - f) >= 0.12) continue;   // not a horizontal surface
+    const under = Ground.floorUnderCeiling(groundIndex(), h.point.x, h.point.z, f);
+    if (under === null) return { x: h.point.x, z: h.point.z, floor: f };
+    // A ceiling: follow the same ray on down to the floor under it, so the place
+    // lands where the pointer is, not under the ceiling point (they differ a
+    // lot when looking at an angle). Then read that spot's floor again.
+    const p = new THREE.Vector3();
+    if (!ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -under), p)) return { x: h.point.x, z: h.point.z, floor: under };
+    const g = floorUnder(p.x, p.z, under);
+    return { x: p.x, z: p.z, floor: g !== null && Math.abs(g - under) < 0.5 ? g : under };
+  }
+  const last = hits[Math.min(hits.length, 400) - 1].point, f = floorUnder(last.x, last.z, last.y - 0.3);
+  return { x: last.x, z: last.z, floor: f !== null ? f : last.y };
+}
+function click3D(e) {
+  const node = pickNode3D(e);
+  if (v3.mode === 'select') { selectNode(node); return; }
+  if (v3.mode === 'connect') {
+    if (!node) return;
+    if (!v3.connectFrom) { v3.connectFrom = node; selectNode(node); } else { toggleEdge(v3.connectFrom, node); v3.connectFrom = null; rebuildNodes3D(); }
+    return;
+  }
+  if (node) {
+    if (v3.mode === 'path') { if (v3.pathFrom && v3.pathFrom !== node) toggleEdgeEnsure(v3.pathFrom, node); v3.pathFrom = node; }
+    selectNode(node); return;
+  }
+  const hit = pickFloor3D(e);
+  if (!hit) { status3D('No point there: click on the floor or a surface in the cloud.'); return; }
+  if (v3.mode === 'add') { addNodeAt(hit.x, hit.z, hit.floor); setMode3D('select'); return; }
+  if (v3.mode === 'path') {
+    const prev = v3.pathFrom, wp = addWaypointAt(hit.x, hit.z, hit.floor);
+    if (prev) toggleEdgeEnsure(prev, wp);
+    v3.pathFrom = wp; selectNode(wp); markDirty();
+  }
+}
+/// Moves the dragged place across the floor: the pointer ray meets the plane of
+/// its current floor, then the floor there is looked up again, so the place
+/// rises and falls with a ramp.
+function dragNode3D(e) {
+  const d = v3.nodeDrag, n = d.node, base = nodeBase3D(n);
+  const p = new THREE.Vector3();
+  if (!ray3D(e).ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -base), p)) return;
+  n.x = +p.x.toFixed(2); n.z = +p.z.toFixed(2);
+  const fl = floorUnder(n.x, n.z, base); setFloor(n, fl !== null ? fl : base);
+  d.moved = true; rebuildNodes3D(); renderInspector(); draw();
+}
+$('snapHeights').addEventListener('click', () => {
+  if (!state.graph || !groundIndex()) return;
+  beginChange(); let moved = 0, missing = 0;
+  for (const p of state.graph.pois) {
+    if (typeof p.y !== 'number') { missing++; continue; }
+    const fl = floorUnder(p.x, p.z, Ground.floorOf(p));
+    if (fl !== null && Math.abs(Ground.placeHeight(fl) - p.y) > 0.01) { setFloor(p, fl); moved++; }
+  }
+  markDirty();
+  status3D(`Snapped ${moved} place${moved === 1 ? '' : 's'} to the floor under them${missing ? ` · ${missing} without a height left as they are` : ''}.`);
+});
+document.addEventListener('keydown', e => {
+  if ($('view3d').hidden || ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+  const mod = e.metaKey || e.ctrlKey;
+  if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if (e.key === 'Delete' || e.key === 'Backspace') { if (state.selectedNode) deleteNode(); }
+});
 function rebuild3D(recentre = false) {
   if (!v3.renderer || $('view3d').hidden || !state.points) return;
   const pts = state.points, h = state.heights || { lo: -1, hi: 1, med: 0 };
@@ -1710,12 +1901,7 @@ function rebuild3D(recentre = false) {
   if (v3.cloud) { v3.scene.remove(v3.cloud); v3.cloud.geometry.dispose(); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   v3.cloud = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.08, vertexColors: true })); v3.scene.add(v3.cloud);
-  // the route graph, as dots on the floor plane so markers can be judged against the room
-  if (v3.nodes) { v3.scene.remove(v3.nodes); }
-  v3.nodes = new THREE.Group();
-  (state.graph?.pois || []).forEach(p => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), new THREE.MeshBasicMaterial({ color: CATEGORY_COLORS[p.category] || '#9aa0a6' })); m.position.set(p.x, h.med + 0.12, p.z); v3.nodes.add(m); });
-  v3.scene.add(v3.nodes);
-  render3D();
+  rebuildNodes3D();
 }
 function render3D() {
   if (!v3.renderer || $('view3d').hidden) return;
