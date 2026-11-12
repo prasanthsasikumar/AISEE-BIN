@@ -1162,6 +1162,9 @@ final class NavigationViewModel {
             beaconEnabled = on
             guidance.speak(on ? "Beeps on." : "Beeps off.", interrupt: true)
 
+        case .question:
+            guidance.speak("I didn't catch that. Please try again.", interrupt: true)
+
         case .unknown:
             unknownCommandCount += 1
             if unknownCommandCount >= 2 {
@@ -1418,6 +1421,7 @@ final class NavigationViewModel {
         case .beacon(let on):
             intent = "beacon"
             args["on"] = .bool(on)
+        case .question: intent = "question"
         case .unknown: intent = "unknown"
         }
         usage.log("speech.intent", ["text": .string(text), "intent": .string(intent), "args": .object(args)])

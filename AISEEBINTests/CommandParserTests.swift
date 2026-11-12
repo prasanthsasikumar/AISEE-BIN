@@ -57,4 +57,61 @@ final class CommandParserTests: XCTestCase {
         XCTAssertEqual(parser.parse("make me a sandwich"), .unknown)
         XCTAssertEqual(parser.parse(""), .unknown)
     }
+
+    // MARK: - Questions
+
+    private let venue = CommandParser(pois: [
+        NavigationPOI(id: "orchid", name: "Orchid Display", x: 0, z: 0),
+        NavigationPOI(id: "cafe", name: "Cafe", x: 1, z: 0),
+    ])
+
+    func testWhatIsThisIsAQuestion() {
+        XCTAssertEqual(venue.parse("What is this?"), .question(text: "What is this?"))
+    }
+
+    func testAQuestionNamingAPlaceIsAnsweredNotRouted() {
+        XCTAssertEqual(venue.parse("what is the orchid display"), .question(text: "what is the orchid display"))
+        XCTAssertEqual(venue.parse("tell me about the cafe"), .question(text: "tell me about the cafe"))
+        XCTAssertEqual(venue.parse("is the cafe open"), .question(text: "is the cafe open"))
+    }
+
+    func testQuestionKeepsTheTranscriptTrimmed() {
+        XCTAssertEqual(venue.parse("  Why is it so cold in here  "), .question(text: "Why is it so cold in here"))
+    }
+
+    func testAgainInsideAQuestionIsNotRepeat() {
+        XCTAssertEqual(venue.parse("can you describe that again"), .question(text: "can you describe that again"))
+        XCTAssertEqual(venue.parse("again"), .repeatInstruction)
+        XCTAssertEqual(venue.parse("can you repeat that"), .repeatInstruction)
+    }
+
+    func testNearbyInsideAQuestionIsNotWhatsNearby() {
+        XCTAssertEqual(venue.parse("is there a toilet nearby"), .question(text: "is there a toilet nearby"))
+        XCTAssertEqual(venue.parse("what's nearby"), .whatsNearby)
+        XCTAssertEqual(venue.parse("what is near me"), .whatsNearby)
+        XCTAssertEqual(venue.parse("nearby"), .whatsNearby)
+    }
+
+    func testGoThereRequestsStillNavigate() {
+        XCTAssertEqual(venue.parse("where is the cafe"), .navigate(poiID: "cafe"))
+        XCTAssertEqual(venue.parse("take me to the orchids"), .navigate(poiID: "orchid"))
+        XCTAssertEqual(venue.parse("can you take me to the cafe"), .navigate(poiID: "cafe"))
+        XCTAssertEqual(venue.parse("how do I get to the cafe"), .navigate(poiID: "cafe"))
+        XCTAssertEqual(venue.parse("orchids"), .navigate(poiID: "orchid"))
+    }
+
+    func testWhereIsAnUnknownPlaceBecomesAQuestion() {
+        XCTAssertEqual(venue.parse("where is the exit"), .question(text: "where is the exit"))
+    }
+
+    func testCommandsStillWinOverQuestions() {
+        XCTAssertEqual(venue.parse("where am I"), .whereAmI)
+        XCTAssertEqual(venue.parse("can you stop"), .stop)
+        XCTAssertEqual(venue.parse("stop"), .stop)
+    }
+
+    func testNonQuestionGibberishIsStillUnknown() {
+        XCTAssertEqual(venue.parse("banana"), .unknown)
+        XCTAssertEqual(venue.parse("find my keys"), .unknown)
+    }
 }

@@ -9,6 +9,8 @@ enum VoiceCommand: Equatable {
     case stop
     /// Beep guidance on or off.
     case beacon(on: Bool)
+    /// A free-form question for the guide ("what is this?"), with the transcript as heard.
+    case question(text: String)
     case unknown
 }
 
@@ -46,10 +48,15 @@ struct CommandParser {
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return .unknown }
 
         if Self.contains(text, any: ["where am i", "my location", "current location"]) { return .whereAmI }
-        if Self.contains(text, any: ["whats around", "what is around", "whats near", "what is near", "nearby", "around me"]) {
-            return .whatsNearby
+        let words = Self.tokens(text)
+        // "Is there a toilet nearby?" is a question for the guide; "what's nearby" is the command.
+        let asksWhatsNear = Self.contains(text, any: ["whats around", "what is around", "whats near", "what is near", "around me"])
+        let opensLikeQuestion = words.first.map(Self.questionOpeners.contains) ?? false
+        if asksWhatsNear || (text.contains("nearby") && !opensLikeQuestion) { return .whatsNearby }
+        // A bare "again" repeats; "can you describe that again" does not.
+        if Self.contains(text, any: ["repeat", "say that again", "say again"]) || words == ["again"] {
+            return .repeatInstruction
         }
-        if Self.contains(text, any: ["repeat", "say that again", "say again", "again"]) { return .repeatInstruction }
         if Self.contains(text, any: ["beep", "beacon"]) {
             // Before "stop", so "stop beeps" is not "stop".
             let offWords: Set<String> = ["off", "stop", "no", "disable", "mute", "quiet", "silence", "silent"]
@@ -58,9 +65,13 @@ struct CommandParser {
         }
         if Self.contains(text, any: ["stop", "cancel", "end navigation", "never mind"]) { return .stop }
 
-        let queryTokens = Self.tokens(text).filter { !Self.stopWords.contains($0) }
-        guard !queryTokens.isEmpty else { return .unknown }
+        // A question is answered even when it names a place ("what is the Orchid Display?");
+        // only an explicit go-there request, or a bare place name, starts a route.
+        let question = VoiceCommand.question(text: transcript.trimmingCharacters(in: .whitespacesAndNewlines))
+        let asksToGo = Self.contains(text, any: Self.goTherePhrases)
+        if opensLikeQuestion && !asksToGo { return question }
 
+        let queryTokens = words.filter { !Self.stopWords.contains($0) }
         var best: (id: String, score: Int)?
         for candidate in candidates {
             for set in candidate.tokenSets {
@@ -73,8 +84,23 @@ struct CommandParser {
                 }
             }
         }
-        return best.map { .navigate(poiID: $0.id) } ?? .unknown
+        if let best { return .navigate(poiID: best.id) }
+        // "Where is the exit?" about a place the map does not have: let the guide answer.
+        if let first = words.first, ["where", "wheres"].contains(first) { return question }
+        return .unknown
     }
+
+    /// First words that make an utterance a question for the guide.
+    private static let questionOpeners: Set<String> = [
+        "what", "whats", "who", "whos", "which", "why", "how", "when", "is", "are", "does", "do",
+        "can", "could", "tell", "describe", "explain",
+    ]
+
+    /// Phrases that ask to be taken somewhere, however the sentence opens.
+    private static let goTherePhrases = [
+        "take me to", "go to", "navigate to", "bring me to", "guide me to", "walk me to", "head to",
+        "get to", "i want to go", "where is", "where are", "wheres",
+    ]
 
     // MARK: - Helpers
 
