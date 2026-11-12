@@ -97,15 +97,19 @@ final class BeaconSynth {
         restartLoop()
     }
 
-    /// Pauses while the app speaks or listens; the cue is kept and resumes.
-    func setPaused(_ paused: Bool) {
-        guard paused != self.paused else { return }
-        self.paused = paused
+    /// Shares the speaker with the voice (`BeaconMix`): the looped beeps play
+    /// on under speech at a lower level and pause while the app listens. The
+    /// cue is kept and resumes. The earcons (boundary, arrival) are one-shots
+    /// on their own node and keep their full level.
+    func setMix(_ mix: BeaconMix) {
+        loop.volume = mix.volume
+        guard mix.paused != paused else { return }
+        paused = mix.paused
         restartLoop()
     }
 
     /// The corridor earcon, once, centred. The loop stops for it and resumes
-    /// after it, unless speech has paused the beacon by then.
+    /// after it, unless listening has paused the beacon by then.
     func playBoundary() {
         guard ensureRunning() else { return }
         loop.stop()
@@ -137,6 +141,7 @@ final class BeaconSynth {
     func stop() {
         cue = .silent
         paused = false
+        loop.volume = 1
         holdUntil = 0
         resumeTask?.cancel()
         resumeTask = nil

@@ -32,6 +32,25 @@ enum BeaconCue: Equatable {
     }
 }
 
+/// How the beacon shares the speaker with the voice and the microphone.
+///
+/// Spoken directions and the beeps run together: the voice has priority, so
+/// the beeps drop to `duckedVolume` under it rather than stopping, and the
+/// walker keeps the heading cue through a long sentence. Listening still
+/// pauses them outright, because the recogniser would hear them.
+struct BeaconMix: Equatable {
+    var paused: Bool
+    /// Level of the looped beeps, of their normal 1.
+    var volume: Float
+
+    /// About 10 dB down: clearly behind the voice, still easy to follow.
+    static let duckedVolume: Float = 0.3
+
+    static func resolve(speaking: Bool, listening: Bool) -> BeaconMix {
+        BeaconMix(paused: listening, volume: speaking ? duckedVolume : 1)
+    }
+}
+
 /// Decides the beacon cue from the bearing to the aim point. Pure; the only
 /// state is the hysteresis, so the cue cannot flicker at the boundary.
 ///

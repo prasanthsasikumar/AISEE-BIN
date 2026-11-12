@@ -1326,8 +1326,8 @@ final class NavigationViewModel {
     }
 
     /// One beacon decision per pose: bearing to the look-ahead point on the
-    /// route, silent whenever the pose is not trusted, paused while the app
-    /// speaks or listens.
+    /// route, silent whenever the pose is not trusted, quieter under the
+    /// app's voice and paused while it listens.
     private func updateBeacon(position: SIMD2<Float>, heading: Float, tracker: RouteTracker, reliable: Bool) {
         guard beaconEnabled else { return }
         let bearing = tracker.aimPoint(from: position, lookAhead: Self.beaconLookAhead).map {
@@ -1335,7 +1335,7 @@ final class NavigationViewModel {
         }
         let cue = beaconPolicy.evaluate(bearing: bearing, trackingReliable: reliable, navigating: isNavigating)
         beacon.apply(cue)
-        beacon.setPaused(guidance.isSpeaking || recognizer.isListening)
+        beacon.setMix(.resolve(speaking: guidance.isSpeaking, listening: recognizer.isListening))
     }
 
     private func startPendingNavigationIfNeeded() {

@@ -151,4 +151,22 @@ final class BeaconWatchdogTests: XCTestCase {
         w.reset()
         XCTAssertFalse(w.isStarved(at: 50))
     }
+
+    // MARK: - Sharing the speaker with the voice
+
+    func testBeepsKeepPlayingQuieterWhileTheVoiceSpeaks() {
+        let mix = BeaconMix.resolve(speaking: true, listening: false)
+        XCTAssertFalse(mix.paused)
+        XCTAssertEqual(mix.volume, BeaconMix.duckedVolume)
+        XCTAssertLessThan(mix.volume, 1)
+    }
+
+    func testBeepsAtFullLevelWhenNothingElseSounds() {
+        XCTAssertEqual(BeaconMix.resolve(speaking: false, listening: false), BeaconMix(paused: false, volume: 1))
+    }
+
+    func testBeepsPauseWhileListening() {
+        XCTAssertTrue(BeaconMix.resolve(speaking: false, listening: true).paused)
+        XCTAssertTrue(BeaconMix.resolve(speaking: true, listening: true).paused)
+    }
 }
