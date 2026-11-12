@@ -24,6 +24,29 @@ struct NativeImmersalLocalizer: ImmersalLocalizer {
     }
 }
 
+/// The Aria map server: the same `/localizeb64` request and answer as
+/// Immersal's cloud, posted to our own HLoc server instead. The pose comes back
+/// in the server's map frame, which the Aria map's identity alignment makes the
+/// graph frame.
+struct AriaServerLocalizer: ImmersalLocalizer {
+    var endpoint: URL = ImmersalConfig.ariaLocalizeURL
+    var mapIDs: [Int]
+    var session: URLSession = .shared
+    var name: String { "aria server" }
+
+    func localize(_ frame: GrayFrame, intrinsics: CameraIntrinsics) async -> ImmersalLocalizeResult {
+        guard let png = ImmersalFrameEncoder.png(from: frame) else {
+            return ImmersalLocalizeResult(success: false, error: "encode", mapID: nil, pose: nil,
+                                          latency: 0, requestBytes: 0)
+        }
+        var client = ImmersalClient(token: "", mapIDs: mapIDs)
+        client.session = session
+        client.endpoint = endpoint
+        return await client.localize(pngData: png, fx: intrinsics.fx, fy: intrinsics.fy,
+                                     ox: intrinsics.ox, oy: intrinsics.oy)
+    }
+}
+
 /// `/localizeb64`: the frame is PNG-encoded and posted. Behaviour as before
 /// this protocol existed.
 struct CloudImmersalLocalizer: ImmersalLocalizer {

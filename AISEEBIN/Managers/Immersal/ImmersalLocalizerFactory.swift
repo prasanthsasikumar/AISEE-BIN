@@ -24,7 +24,10 @@ enum ImmersalLocalizerFactory {
                      nativeAvailable: Bool = ImmersalNative.isAvailable,
                      mode: ImmersalLocalizerMode = ImmersalConfig.localizerMode) -> Choice {
         let choice: Choice
-        if mode == .server {
+        if mode == .ariaServer {
+            choice = Choice(localizer: AriaServerLocalizer(mapIDs: mapIDs),
+                            reason: "Aria map server chosen in Settings")
+        } else if mode == .server {
             choice = Choice(localizer: CloudImmersalLocalizer(token: token, mapIDs: mapIDs),
                             reason: "Immersal server chosen in Settings")
         } else {

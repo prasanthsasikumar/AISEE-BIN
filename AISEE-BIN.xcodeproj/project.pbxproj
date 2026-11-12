@@ -208,11 +208,14 @@
 		B586253726E734A41550952D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDB9021F1A22A773A3BA02C8 /* SettingsView.swift */; };
 		B8784E336D2FDE3D574D423E /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FBFA6EDEE26F1834EECED5A /* WelcomeView.swift */; };
 		B97680F8F385CA825C60F265 /* AiSeeTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E7E7FB52D5FD3D1DB85663 /* AiSeeTypes.swift */; };
+		B9B0082DCE327FC2B95B040A /* AriaTestMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4563F01284AED21D43B3A5 /* AriaTestMap.swift */; };
+		B9D8A4112E63D66C7AA32A0F /* AriaServerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D78D06F3A18EE1A7A43142B3 /* AriaServerTests.swift */; };
 		BABEE47E06E08A62F8213D4F /* UsageInstrumentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9066C58145B619F476AA147C /* UsageInstrumentation.swift */; };
 		BBC4DC3C7CED48086DEA623C /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77E1B72F4F53B64E77838144 /* ContentView.swift */; };
 		BCE83BC6B0EBCEFE957FBF7E /* libavformat.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 08DB9C4286DCFDD3203120D0 /* libavformat.framework */; };
 		BD813AE5EC6A02D8FF50CFC4 /* ImmersalNative.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDADC1F553BEA6EB01677E44 /* ImmersalNative.swift */; };
 		BE3F9B5959995C468946BA8C /* AppHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7063B67071AB0A5EFF26981B /* AppHeader.swift */; };
+		BFAEF59A0BFF250F4DD28E69 /* AriaTestMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4563F01284AED21D43B3A5 /* AriaTestMap.swift */; };
 		C05D71A9828B85D6DAFF33EA /* TourPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8BFC53B94011206782552ED /* TourPlannerTests.swift */; };
 		C18CB2093CD5C3553CB38BCB /* GuidePlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = A97ADA5B112F7A9706A4DBA8 /* GuidePlacement.swift */; };
 		C1A562326D37DF49D7D69D0B /* UsageInstrumentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9066C58145B619F476AA147C /* UsageInstrumentation.swift */; };
@@ -476,6 +479,7 @@
 		D47C816636CE30EE16B56808 /* NavigationMapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationMapTests.swift; sourceTree = "<group>"; };
 		D5F0F02FAB194FC6C970A56C /* PoseHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoseHistoryTests.swift; sourceTree = "<group>"; };
 		D7700AECDC1CD6FBBF36B051 /* ImmersalClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalClientTests.swift; sourceTree = "<group>"; };
+		D78D06F3A18EE1A7A43142B3 /* AriaServerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaServerTests.swift; sourceTree = "<group>"; };
 		D7D1BC5F4BC8FAF962ED5960 /* FocalCalibration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocalCalibration.swift; sourceTree = "<group>"; };
 		DA0794BDCDE64D0B0863A88F /* PoseExtrapolator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoseExtrapolator.swift; sourceTree = "<group>"; };
 		DC897795AEE21F090FAF5F8B /* ImmersalLocalizerFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalLocalizerFactory.swift; sourceTree = "<group>"; };
@@ -502,6 +506,7 @@
 		FD198E5A42D14743DC97F29A /* AiSeeSequencing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiSeeSequencing.swift; sourceTree = "<group>"; };
 		FDF8AD56E8AF2A1B9AB92C5E /* GuidanceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidanceManager.swift; sourceTree = "<group>"; };
 		FE5450BDEB27A6C3E6CE1565 /* ImmersalMapCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalMapCache.swift; sourceTree = "<group>"; };
+		FF4563F01284AED21D43B3A5 /* AriaTestMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaTestMap.swift; sourceTree = "<group>"; };
 		FF782C76346CFD4659655729 /* UsageValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageValue.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -715,6 +720,7 @@
 		9AFD83C06ED485C41C7F0018 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				FF4563F01284AED21D43B3A5 /* AriaTestMap.swift */,
 				EAC526C4159D736C5DE739AB /* BuildingLevels.swift */,
 				A97ADA5B112F7A9706A4DBA8 /* GuidePlacement.swift */,
 				8D12BD48488E1A3FAE730620 /* ImmersalAlignment.swift */,
@@ -736,6 +742,7 @@
 		C1D49FBDB1DDE281D9B774A3 /* AISEEBINTests */ = {
 			isa = PBXGroup;
 			children = (
+				D78D06F3A18EE1A7A43142B3 /* AriaServerTests.swift */,
 				E263A9D1D7FA6C4937BA493B /* AskContextTests.swift */,
 				28008B811196FACD04FF216E /* BeaconPolicyTests.swift */,
 				0938FA1C5C23CAF8F590F772 /* BodyHeadingTests.swift */,
@@ -1053,6 +1060,7 @@
 				B97680F8F385CA825C60F265 /* AiSeeTypes.swift in Sources */,
 				75E6270E54EA607EB000D594 /* AppCommandBus.swift in Sources */,
 				BE3F9B5959995C468946BA8C /* AppHeader.swift in Sources */,
+				B9B0082DCE327FC2B95B040A /* AriaTestMap.swift in Sources */,
 				937FD1E7EB993C8E3C5B1C0B /* AskContext.swift in Sources */,
 				8768424160A14DC6D25CB4A6 /* AuthoringView.swift in Sources */,
 				554BAFD4DD74B8378DA86D34 /* BeaconPolicy.swift in Sources */,
@@ -1171,6 +1179,7 @@
 				C2CFE54B7F0F373CD83ACA22 /* AiSeeTypes.swift in Sources */,
 				C520E967DF7CBBC6FBFE032E /* AppCommandBus.swift in Sources */,
 				0B9E07F505EA559121594B68 /* AppHeader.swift in Sources */,
+				BFAEF59A0BFF250F4DD28E69 /* AriaTestMap.swift in Sources */,
 				02F440EB773D8D5B5B8D414C /* AskContext.swift in Sources */,
 				C604EB7C644F26CCD766F0B8 /* AuthoringView.swift in Sources */,
 				2D26D88B155F63704D82FF27 /* BeaconPolicy.swift in Sources */,
@@ -1267,6 +1276,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B9D8A4112E63D66C7AA32A0F /* AriaServerTests.swift in Sources */,
 				5DF4A00371659A8C0F1B9BB5 /* AskContextTests.swift in Sources */,
 				1CF8BFC9D6C8E761D96C511A /* BeaconPolicyTests.swift in Sources */,
 				0A05969DD5B3CD160C5B6C74 /* BodyHeadingTests.swift in Sources */,

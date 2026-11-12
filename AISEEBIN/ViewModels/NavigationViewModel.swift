@@ -287,11 +287,12 @@ final class NavigationViewModel {
     var phoneImmersalSummary: String? {
         guard positioningSource == .lanyard || (positioningSource == .phone && phoneAnchoredByImmersal) else { return nil }
         let ids = (baseMap.immersalAlignment?.mapIDs ?? []).map(String.init).joined(separator: ",")
-        if ImmersalConfig.token.isEmpty { return "Immersal: no token set (Settings) · map \(ids)" }
+        if ImmersalConfig.token.isEmpty && !ImmersalConfig.usesAriaServer { return "Immersal: no token set (Settings) · map \(ids)" }
         let loc = phoneLocalizer
         if !loc.running { return "Immersal: not running · map \(ids)" }
         let last = loc.lastError ?? (loc.fixes > 0 ? "fix" : (loc.attempts == 0 ? "waiting for ARKit tracking" : "no answer"))
-        return "Immersal map \(ids) · \(loc.fixes) fixes / \(loc.attempts) tries · last: \(last) · \(loc.lastLatencyMS) ms"
+        let service = ImmersalConfig.usesAriaServer ? "Aria server" : "Immersal"
+        return "\(service) map \(ids) · \(loc.fixes) fixes / \(loc.attempts) tries · last: \(last) · \(loc.lastLatencyMS) ms"
     }
 
     /// The phone cannot relocalize into a map that has no ARKit world map; when
@@ -306,6 +307,7 @@ final class NavigationViewModel {
     var glassesBlockedReason: String? {
         if !glasses.isConnected { return "Connect the glasses first." }
         if mapAlignment == nil { return "The glasses show their view but cannot position you until this map has an Immersal alignment: run a probe walk with the phone and save one." }
+        if ImmersalConfig.usesAriaServer { return nil }
         if ImmersalConfig.token.isEmpty || ImmersalConfig.mapIDs(for: mapAlignment).isEmpty { return ImmersalConfig.missingCredentialsHint }
         return nil
     }
@@ -866,6 +868,8 @@ final class NavigationViewModel {
     /// ARKit session, the anchor or the spoken prompt — and only if the app
     /// is still navigating the same map from the same camera.
     private func fetchImmersalMapsIfMissing(restart: Bool) {
+        // The Aria server holds its own map; there is nothing to fetch from Immersal.
+        guard !ImmersalConfig.usesAriaServer else { return }
         guard let ids = baseMap.immersalAlignment?.mapIDs, !ids.isEmpty else { return }
         guard !immersalMaps.cache.missing(from: ids).isEmpty else { return }
         let source = positioningSource
@@ -887,6 +891,7 @@ final class NavigationViewModel {
     /// path and `immersalMaps.state` says why.
     @discardableResult
     func ensureImmersalMaps(for map: NavigationMap) async -> Bool {
+        guard !ImmersalConfig.usesAriaServer else { return false }
         guard let ids = map.immersalAlignment?.mapIDs, !ids.isEmpty else { return false }
         return await immersalMaps.ensure(ids: ids, token: ImmersalConfig.token)
     }
@@ -917,6 +922,29 @@ final class NavigationViewModel {
     /// Re-reads the saved map after the authoring screen closes and restarts
     /// tracking against the (possibly new) world map.
     func reloadMapAndRestart() { reloadMapAndRestart(source: nil) }
+
+    /// Replaces the map on this phone with the bundled Aria test map (built
+    /// from an Aria Gen 2 recording) and sends frames to the Aria map server.
+    /// Its alignment is editor-drawn, so `startPositioning` drops any leftover
+    /// ARKit world map and positions from server fixes alone.
+    func installAriaTestMap() {
+        for url in [mapStore.versionURL, mapStore.pointCloudURL] where FileManager.default.fileExists(atPath: url.path) {
+            try? FileManager.default.removeItem(at: url)
+        }
+        do {
+            try mapStore.saveMap(AriaTestMap.map)
+            // A version record under its own slug: the map is installed, not a
+            // draft (Home offers Navigate), and the update check finds nothing on
+            // the server to replace it with.
+            try mapStore.saveVersion(LocalMapVersion(version: 1, source: .ios, updatedAt: Date(), slug: AriaTestMap.slug))
+        } catch {
+            usage.logError("aria.install", error)
+            return
+        }
+        ImmersalConfig.localizerMode = .ariaServer
+        DiagnosticsLog.write("aria test map installed; localizer=aria server at \(ImmersalConfig.ariaLocalizeURL)")
+        reloadMapAndRestart()
+    }
 
     /// `source` is "network" right after an install; otherwise the map comes
     /// from the on-device copy ("cache") or the app bundle's sample.

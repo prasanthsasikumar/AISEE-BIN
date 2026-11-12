@@ -17,6 +17,8 @@ struct SettingsView: View {
     @State private var mapDownloadState: String?
     @State private var mapDownloadError: String?
     @State private var localizerMode = ImmersalConfig.localizerMode
+    @State private var ariaServerText = ImmersalConfig.ariaServerText
+    @State private var ariaHealth: String?
     @State private var tokenOnOpen = ""
     @State private var mapIDsOnOpen = ""
     @AppStorage(SpeakingRate.key) private var speakingRate = SpeakingRate.normal.rawValue
@@ -120,6 +122,7 @@ struct SettingsView: View {
 
     private var developerPage: some View {
         Form {
+            ariaSection
             immersalSection
             exploreSection
             measurementSection
@@ -147,6 +150,49 @@ struct SettingsView: View {
                 .foregroundStyle(ExploreConfig.token.isEmpty ? .red : .primary)
         } header: {
             Text("Explore (public visitors)")
+        }
+    }
+
+    // MARK: - Aria map server
+
+    private var ariaSection: some View {
+        Section {
+            LabeledContent("Server") {
+                TextField(ImmersalConfig.defaultAriaServer, text: $ariaServerText)
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .multilineTextAlignment(.trailing)
+                    .onChange(of: ariaServerText) { _, value in ImmersalConfig.ariaServerText = value }
+            }
+            Button(ariaHealth == "checking" ? "Checking…" : "Check server") { checkAriaServer() }
+                .disabled(ariaHealth == "checking")
+            if let ariaHealth, ariaHealth != "checking" {
+                Text(ariaHealth).font(.footnote.monospaced()).foregroundStyle(.secondary)
+            }
+            Button("Load Aria test map and use this server") {
+                viewModel.installAriaTestMap()
+                localizerMode = ImmersalConfig.localizerMode
+                dismiss()
+            }
+        } header: {
+            Text("Aria map server")
+        } footer: {
+            Text("Positions the phone or glasses against a map built from an Aria Gen 2 recording (MPS SLAM + HLoc). Choosing \"Aria map server\" under Immersal › Localization sends frames there instead of to Immersal. Loading the test map replaces the map on this phone; switch maps from Home to go back.")
+        }
+    }
+
+    private func checkAriaServer() {
+        ariaHealth = "checking"
+        let health = ImmersalConfig.ariaLocalizeURL.deletingLastPathComponent().appendingPathComponent("health")
+        Task {
+            do {
+                let (data, response) = try await URLSession.shared.data(from: health)
+                let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                ariaHealth = "HTTP \(status) · " + (String(data: data, encoding: .utf8) ?? "")
+            } catch {
+                ariaHealth = "Not reachable: \(error.localizedDescription)"
+            }
         }
     }
 

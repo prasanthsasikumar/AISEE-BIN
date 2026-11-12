@@ -29,6 +29,9 @@ struct ImmersalClient {
     let token: String
     let mapIDs: [Int]
     var session: URLSession = .shared
+    /// Immersal's `/localizeb64` unless a server that speaks the same request
+    /// and response (the Aria map server) is named instead.
+    var endpoint: URL = ImmersalClient.endpoint
 
     /// `/localizeb64` caps a request at 8 maps.
     static let maxMaps = 8
@@ -67,7 +70,7 @@ struct ImmersalClient {
                                           pose: nil, latency: 0, requestBytes: 0)
         }
 
-        var request = URLRequest(url: Self.endpoint)
+        var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = payload

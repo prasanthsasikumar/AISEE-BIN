@@ -108,6 +108,9 @@ enum ImmersalLocalizerMode: String, CaseIterable, Identifiable {
     case onPhone
     /// Always Immersal's REST API, even with the map cached.
     case server
+    /// Our own HLoc server, built from an Aria Gen 2 recording + MPS SLAM.
+    /// Same request and answer as `/localizeb64`; Immersal is never called.
+    case ariaServer
 
     var id: String { rawValue }
 
@@ -116,6 +119,7 @@ enum ImmersalLocalizerMode: String, CaseIterable, Identifiable {
         case .auto:    return "Auto"
         case .onPhone: return "On phone"
         case .server:  return "Immersal server"
+        case .ariaServer: return "Aria map server"
         }
     }
 }
@@ -127,6 +131,29 @@ extension ImmersalConfig {
         get { UserDefaults.standard.string(forKey: localizerModeKey).flatMap(ImmersalLocalizerMode.init) ?? .auto }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: localizerModeKey) }
     }
+
+    private static let ariaServerKey = "aria.serverURL"
+    static let defaultAriaServer = "https://loc.flowsxr.com"
+
+    /// Base address of the Aria map server, typed in Settings or the default.
+    static var ariaServerText: String {
+        get { UserDefaults.standard.string(forKey: ariaServerKey) ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: ariaServerKey) }
+    }
+
+    /// `<base>/localizeb64`, from what was typed when it parses, else the default.
+    static var ariaLocalizeURL: URL { ariaLocalizeURL(typed: ariaServerText) }
+
+    static func ariaLocalizeURL(typed: String) -> URL {
+        let trimmed = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+        var base = trimmed.isEmpty ? defaultAriaServer : trimmed
+        if !base.contains("://") { base = "https://" + base }
+        while base.hasSuffix("/") { base.removeLast() }
+        return URL(string: base + "/localizeb64") ?? URL(string: defaultAriaServer + "/localizeb64")!
+    }
+
+    /// The Aria server answers for its own map: no Immersal map download, no token.
+    static var usesAriaServer: Bool { localizerMode == .ariaServer }
 }
 
 extension String {
