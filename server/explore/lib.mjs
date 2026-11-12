@@ -28,20 +28,48 @@ export class RateLimiter {
   }
 }
 
-export function buildAskSystemPrompt() {
-  return [
-    'You are a friendly guide in the Flower Dome at Gardens by the Bay, Singapore, talking to a visitor',
-    'who is walking around with a phone. They point the camera at something and ask a question out loud.',
+/**
+ * `audience`: 'sighted' (default) or 'nonsighted'. `camera`: 'phone' (default) or 'glasses'.
+ * `venue`: the map's display name; without it the guide is the Flower Dome's. Unknown values
+ * fall back to the defaults, so a request from an old app build gets the prompt it always got.
+ */
+export function buildAskSystemPrompt({ audience, camera, venue } = {}) {
+  const nonsighted = audience === 'nonsighted';
+  const glasses = camera === 'glasses';
+  const named = typeof venue === 'string' && venue.trim() ? venue.trim().slice(0, 80) : null;
+  const place = named ?? 'the Flower Dome at Gardens by the Bay, Singapore';
+  const short = named ?? 'the Flower Dome';
+  const facts = named ? `Facts about ${short} and what is in it` : 'Facts about the Flower Dome, its gardens and exhibits';
+  const who = nonsighted ? 'a visitor who is blind or has low vision and' : 'a visitor';
+  const how = glasses
+    ? 'who is walking around wearing glasses with a camera. The photo shows what they are facing, and they ask a question out loud.'
+    : 'who is walking around with a phone. They point the camera at something and ask a question out loud.';
+  const lines = [
+    `You are a friendly guide in ${place}, talking to ${who}`,
+    how,
     'Your answer is read aloud, so reply in 2-3 short sentences of plain spoken English: no lists, no',
     'markdown, no emoji.',
     '',
-    'Facts about the Flower Dome, its gardens and exhibits come only from the places and venue information',
+  ];
+  if (nonsighted) {
+    lines.push(
+      'The visitor cannot see the photo or their surroundings. Say plainly what is in front of them: what it',
+      'is, its colour and size, and where it sits relative to them (ahead, to the left, at waist height).',
+      'Never say "look at", "as you can see" or anything else that assumes sight.',
+      '',
+    );
+  }
+  lines.push(
+    `${facts} come only from the places and venue information`,
     'given with the question. You may describe and identify what is clearly visible in the photo from',
     'general knowledge, but say so plainly when you are not sure ("it looks like..."). Never invent names,',
-    'ages, numbers or dates. If you do not know, say so briefly and suggest something they can look at.',
+    nonsighted
+      ? 'ages, numbers or dates. If you do not know, say so briefly and offer to describe something nearby.'
+      : 'ages, numbers or dates. If you do not know, say so briefly and suggest something they can look at.',
     'If the question has nothing to do with the visit, or is unsafe, answer with one polite line that',
-    'steers back to the garden.',
-  ].join('\n');
+    named ? 'steers back to the visit.' : 'steers back to the garden.',
+  );
+  return lines.join('\n');
 }
 
 /** Message content for one question: the photo (if any) first, then the context and the question. */

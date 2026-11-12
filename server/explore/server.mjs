@@ -56,7 +56,7 @@ async function ask(req, res, installId) {
       model: MODEL,
       max_tokens: 400,
       output_config: { effort: EFFORT },
-      system: buildAskSystemPrompt(),
+      system: buildAskSystemPrompt({ audience: body.audience, camera: body.camera, venue: body.venue }),
       messages: [{ role: 'user', content: buildAskContent(body) }],
       ...FALLBACK,
     });
@@ -78,6 +78,7 @@ async function ask(req, res, installId) {
   appendLog(LOG_DIR, {
     route: 'ask', status, installId, mapSlug: body.mapSlug, question: body.question, answer,
     places: (body.places ?? []).map(p => p.id), image: Boolean(body.imageJPEGBase64),
+    audience: body.audience, camera: body.camera, venue: body.venue,
     totalMS: Date.now() - started,
   });
 }
