@@ -114,4 +114,18 @@ final class CommandParserTests: XCTestCase {
         XCTAssertEqual(venue.parse("banana"), .unknown)
         XCTAssertEqual(venue.parse("find my keys"), .unknown)
     }
+
+    func testAFillerWordBeforeAQuestionDoesNotStartARoute() {
+        XCTAssertEqual(venue.parse("So what is the orchid display"), .question(text: "So what is the orchid display"))
+        XCTAssertEqual(venue.parse("Excuse me, what is the orchid display"),
+                       .question(text: "Excuse me, what is the orchid display"))
+        XCTAssertEqual(venue.parse("Please tell me about the cafe"), .question(text: "Please tell me about the cafe"))
+        XCTAssertEqual(venue.parse("um okay is the cafe open"), .question(text: "um okay is the cafe open"))
+    }
+
+    func testAskingToFindAPlaceStillNavigates() {
+        XCTAssertEqual(venue.parse("can you find the cafe"), .navigate(poiID: "cafe"))
+        XCTAssertEqual(venue.parse("could you help me find the orchids"), .navigate(poiID: "orchid"))
+        XCTAssertEqual(venue.parse("please take me to the cafe"), .navigate(poiID: "cafe"))
+    }
 }

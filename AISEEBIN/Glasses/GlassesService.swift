@@ -155,6 +155,8 @@ final class GlassesService {
         private var lagRecentMins: [Double] = []
 
         private var _latest: AiSeeFrame?
+        private var _latestAt: TimeInterval = 0
+        var latestAt: TimeInterval { lock.withLock { _latestAt } }
 
         var onFrame: (@Sendable (AiSeeFrame) -> Void)? {
             get { lock.withLock { _onFrame } }
@@ -163,7 +165,12 @@ final class GlassesService {
 
         var latest: AiSeeFrame? {
             get { lock.withLock { _latest } }
-            set { lock.withLock { _latest = newValue } }
+            set {
+                lock.withLock {
+                    _latest = newValue
+                    _latestAt = newValue == nil ? 0 : ProcessInfo.processInfo.systemUptime
+                }
+            }
         }
 
         var previewInterval: TimeInterval {
@@ -399,6 +406,8 @@ final class GlassesService {
                 try await meta.startStreaming()
                 isStreaming = true
             } catch {
+                // The link keeps trying on its own while frames are wanted.
+                isStreaming = meta.isStreaming
                 lastStreamError = error.localizedDescription
                 throw error
             }
@@ -549,6 +558,12 @@ final class GlassesService {
     /// renders it for the preview.
     /// The most recent decoded frame, for one-off uses such as calibration.
     nonisolated func latestFrame() -> AiSeeFrame? { fanout.latest }
+
+    /// Seconds since that frame arrived; `.infinity` when there is none.
+    nonisolated var latestFrameAge: TimeInterval {
+        let at = fanout.latestAt
+        return at > 0 ? ProcessInfo.processInfo.systemUptime - at : .infinity
+    }
 
     private nonisolated func receive(_ frame: AiSeeFrame) {
         fanout.latest = frame

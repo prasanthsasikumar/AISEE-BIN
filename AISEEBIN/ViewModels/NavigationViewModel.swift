@@ -206,6 +206,7 @@ final class NavigationViewModel {
     /// `speech.heard.via`: the microphone the current listen opened.
     @ObservationIgnored private var listeningVia = "phone"
     @ObservationIgnored private var glassesLoss = GlassesLossPolicy()
+    @ObservationIgnored private var glassesWereConnected = false
     @ObservationIgnored private var glassesLossTask: Task<Void, Never>?
     var mode: AppMode = .navigation {
         didSet { if mode != oldValue { didChange(mode: mode, from: oldValue) } }
@@ -565,7 +566,11 @@ final class NavigationViewModel {
                 // Each kind of glasses has its own lens.
                 self.glassesPositioning.camera = GlassesCamera.load()
                 self.glassesFeed.camera = GlassesCamera.load()
-                if self.glasses.isConnected, self.positioningSource == .phone {
+                let connected = self.glasses.isConnected
+                let justConnected = connected && !self.glassesWereConnected
+                self.glassesWereConnected = connected
+                // Only on connecting: a pause and resume must not undo a choice of Phone.
+                if justConnected, self.positioningSource == .phone {
                     self.positioningSource = GlassesMode.load().source
                 } else if !self.glasses.isConnected, self.positioningSource != .phone, self.glasses.kind == .aisee {
                     self.fallBackToPhoneCamera()
@@ -585,6 +590,7 @@ final class NavigationViewModel {
     /// out short drops, says when the camera has paused (glasses taken off,
     /// "Hey Meta"), and falls back to the phone only when the glasses are gone.
     private func watchGlassesLoss() {
+        glassesLossTask?.cancel()
         glassesLossTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
@@ -1098,6 +1104,12 @@ final class NavigationViewModel {
                 listeningVia = "glasses"
                 guidance.setHeadsetMicrophoneAllowed(true)
                 recognizer.startListening()
+                if !recognizer.isListening {
+                    // It did not start, so nothing will tell us it stopped: give
+                    // speech back its normal route now.
+                    guidance.setHeadsetMicrophoneAllowed(false)
+                    guidance.speak("The microphone did not open.", interrupt: true)
+                }
             } else if positioningSource != .phone, glasses.isConnected {
                 // The phone is in a pocket: listen through the glasses' microphone.
                 listeningVia = "glasses"
@@ -1160,7 +1172,8 @@ final class NavigationViewModel {
     /// the answer is spoken as it arrives, and never interrupts a cue.
     func askGuide(question: String, audience: String, onUpdate: @escaping (AskService.Update) -> Void) {
         let source = AskPicture.source(positioning: positioningSource, glassesConnected: glasses.isConnected)
-        let jpeg = AskPicture.jpeg(source: source, glassesFrame: glasses.latestFrame()?.pixelBuffer) { [arManager] in
+        let jpeg = AskPicture.jpeg(source: source, glassesFrame: glasses.latestFrame()?.pixelBuffer,
+                                   frameAge: glasses.latestFrameAge) { [arManager] in
             arManager.session.currentFrame.flatMap { FrameGrabber.jpeg(from: $0) }
         }
         let map = engine.map

@@ -83,6 +83,8 @@ struct GlassesView: View {
             case .metaAppMissing:
                 Label("Meta AI app is not installed", systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.secondary)
+                Button("Try again") { Task { await meta.register() } }
+                    .disabled(meta.isBusy)
             case .needsRegistration:
                 Button("Connect to Meta AI") { Task { await meta.register() } }
                     .disabled(meta.isBusy)

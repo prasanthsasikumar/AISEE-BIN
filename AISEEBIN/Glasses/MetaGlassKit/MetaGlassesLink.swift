@@ -204,6 +204,8 @@ final class MetaGlassesLink {
     @ObservationIgnored private var sessionTokens = ListenerTokenBag()
     @ObservationIgnored private var rebuildTask: Task<Void, Never>?
     @ObservationIgnored private var photoWaiter: CheckedContinuation<Data, Error>?
+    /// The start in flight, so a second caller waits for it instead of tearing it down.
+    @ObservationIgnored private var startTask: Task<Void, Error>?
 
     private static var configured = false
 
@@ -263,6 +265,8 @@ final class MetaGlassesLink {
         isBusy = true
         defer { isBusy = false }
         lastError = nil
+        // Asked again: the Meta AI app may have been installed since.
+        apply { $0.metaAppMissing = false }
         do {
             try await Wearables.shared.startRegistration()
         } catch {
@@ -331,23 +335,35 @@ final class MetaGlassesLink {
 
     // MARK: - Streaming
 
+    /// Frames stay wanted even when this throws: glasses that are linked but
+    /// not worn yet refuse a session, and the rebuild loop keeps trying until
+    /// `stopStreaming()`.
     func startStreaming() async throws {
         guard Self.configured else { throw MetaGlassesError.unavailable }
         guard status.isConnected else { throw MetaGlassesError.notReady(status) }
+        if let startTask { return try await startTask.value }
+        if isStreaming, session != nil { return }
         isStreaming = true
         lastError = nil
-        do {
-            try await openSession()
-        } catch {
-            isStreaming = false
-            await closeSession()
-            lastError = error.localizedDescription
-            throw error
+        let task = Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await self.openSession()
+            } catch {
+                await self.closeSession()
+                self.lastError = error.localizedDescription
+                if self.isStreaming { self.scheduleRebuild() }
+                throw error
+            }
         }
+        startTask = task
+        defer { startTask = nil }
+        try await task.value
     }
 
     func stopStreaming() async {
         isStreaming = false
+        startTask?.cancel()
         rebuildTask?.cancel()
         rebuildTask = nil
         await closeSession()
@@ -357,7 +373,14 @@ final class MetaGlassesLink {
     func restartStreamForNewSettings() async throws {
         guard isStreaming else { return }
         await closeSession()
-        try await openSession()
+        do {
+            try await openSession()
+        } catch {
+            await closeSession()
+            lastError = error.localizedDescription
+            scheduleRebuild()
+            throw error
+        }
     }
 
     private func openSession() async throws {
@@ -463,6 +486,8 @@ final class MetaGlassesLink {
         case .stopped:
             // Terminal: the glasses ended it. Build a new one while frames are wanted.
             Task {
+                // Only if it is still the current one: a newer session may have opened meanwhile.
+                guard changed === session else { return }
                 await closeSession()
                 if isStreaming { scheduleRebuild() }
             }

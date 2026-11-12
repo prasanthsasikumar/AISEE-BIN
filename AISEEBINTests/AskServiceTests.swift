@@ -29,7 +29,7 @@ final class AskServiceTests: XCTestCase {
 
     func testGlassesPictureIsShrunkToTheQuestionSize() throws {
         let data = try XCTUnwrap(AskPicture.jpeg(source: .glasses, glassesFrame: pixelBuffer(width: 720, height: 1280),
-                                                 phone: { nil }))
+                                                 frameAge: 0, phone: { nil }))
         let image = try XCTUnwrap(UIImage(data: data))
         XCTAssertEqual(max(image.size.width, image.size.height) * image.scale, 768, accuracy: 1)
         XCTAssertLessThan(image.size.width, image.size.height, "a portrait frame stays portrait")
@@ -37,8 +37,15 @@ final class AskServiceTests: XCTestCase {
 
     func testNoGlassesFrameYetMeansNoPictureRatherThanThePocket() {
         let phone = Data([1, 2, 3])
-        XCTAssertNil(AskPicture.jpeg(source: .glasses, glassesFrame: nil, phone: { phone }))
-        XCTAssertEqual(AskPicture.jpeg(source: .phone, glassesFrame: nil, phone: { phone }), phone)
+        XCTAssertNil(AskPicture.jpeg(source: .glasses, glassesFrame: nil, frameAge: 0, phone: { phone }))
+        XCTAssertEqual(AskPicture.jpeg(source: .phone, glassesFrame: nil, frameAge: 0, phone: { phone }), phone)
+    }
+
+    func testAStaleGlassesFrameIsNotSentAsWhatTheVisitorIsFacing() {
+        let frame = pixelBuffer(width: 720, height: 1280)
+        XCTAssertNotNil(AskPicture.jpeg(source: .glasses, glassesFrame: frame, frameAge: 2.9, phone: { nil }))
+        XCTAssertNil(AskPicture.jpeg(source: .glasses, glassesFrame: frame, frameAge: 3.1, phone: { nil }))
+        XCTAssertNil(AskPicture.jpeg(source: .glasses, glassesFrame: frame, frameAge: .infinity, phone: { nil }))
     }
 
     // MARK: - Asking
@@ -84,7 +91,7 @@ final class AskServiceTests: XCTestCase {
         service.ask(question: "what is this", context: context()) { if $0 == .failed { done.fulfill() } }
         await fulfillment(of: [done], timeout: 2)
         XCTAssertEqual(spoken.map(\.0), [AskService.failureText])
-        XCTAssertEqual(spoken.map(\.1), [true])
+        XCTAssertEqual(spoken.map(\.1), [false], "an apology must not cut off a turn instruction")
     }
 
     func testAFollowUpCarriesTheEarlierTurn() async {

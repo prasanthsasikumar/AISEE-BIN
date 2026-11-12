@@ -76,20 +76,31 @@ final class RayBanStatusTests: XCTestCase {
 
     func testFramesReturningAfterAnAnnouncedPauseAreAnnounced() {
         var policy = GlassesLossPolicy()
-        _ = run(&policy, from: 0, through: 10, linked: true, frames: false)
-        XCTAssertEqual(run(&policy, from: 11, through: 11, linked: true, frames: true), [.announceBack])
-        XCTAssertEqual(run(&policy, from: 12, through: 20, linked: true, frames: true), [])
+        _ = run(&policy, from: 0, through: 0, linked: true, frames: true)
+        _ = run(&policy, from: 1, through: 11, linked: true, frames: false)
+        XCTAssertEqual(run(&policy, from: 12, through: 12, linked: true, frames: true), [.announceBack])
+        XCTAssertEqual(run(&policy, from: 13, through: 20, linked: true, frames: true), [])
     }
 
     func testFramesReturningBeforeTheGraceSayNothing() {
         var policy = GlassesLossPolicy()
-        XCTAssertEqual(run(&policy, from: 0, through: 8, linked: true, frames: false), [])
-        XCTAssertEqual(run(&policy, from: 9, through: 30, linked: true, frames: true), [])
+        _ = run(&policy, from: 0, through: 0, linked: true, frames: true)
+        XCTAssertEqual(run(&policy, from: 1, through: 9, linked: true, frames: false), [])
+        XCTAssertEqual(run(&policy, from: 10, through: 30, linked: true, frames: true), [])
+    }
+
+    func testACameraThatHasNotStartedYetIsNotAnnouncedAsPaused() {
+        var policy = GlassesLossPolicy()
+        XCTAssertEqual(run(&policy, from: 0, through: 60, linked: true, frames: false), [])
+        XCTAssertEqual(run(&policy, from: 61, through: 70, linked: true, frames: true), [])
+        // Once it has run, a real pause is announced.
+        XCTAssertEqual(run(&policy, from: 71, through: 81, linked: true, frames: false), [.announcePaused])
     }
 
     func testAPauseThatTurnsIntoALostLinkStillFallsBack() {
         var policy = GlassesLossPolicy()
-        _ = run(&policy, from: 0, through: 10, linked: true, frames: false)      // announced pause
+        _ = run(&policy, from: 0, through: 0, linked: true, frames: true)
+        _ = run(&policy, from: 1, through: 10, linked: true, frames: false)
         XCTAssertEqual(run(&policy, from: 11, through: 20, linked: false, frames: false), [])
         XCTAssertEqual(run(&policy, from: 21, through: 21, linked: false, frames: false), [.fallBackToPhone])
     }

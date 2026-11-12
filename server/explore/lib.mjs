@@ -36,7 +36,8 @@ export class RateLimiter {
 export function buildAskSystemPrompt({ audience, camera, venue } = {}) {
   const nonsighted = audience === 'nonsighted';
   const glasses = camera === 'glasses';
-  const named = typeof venue === 'string' && venue.trim() ? venue.trim().slice(0, 80) : null;
+  const tidy = typeof venue === 'string' ? venue.replace(/\s+/g, ' ').trim() : '';
+  const named = tidy ? tidy.slice(0, 80) : null;
   const place = named ?? 'the Flower Dome at Gardens by the Bay, Singapore';
   const short = named ?? 'the Flower Dome';
   const facts = named ? `Facts about ${short} and what is in it` : 'Facts about the Flower Dome, its gardens and exhibits';
@@ -91,6 +92,9 @@ export function buildAskContent({ question, imageJPEGBase64, places = [], venueI
   if (recent.length) {
     lines.push('', 'Earlier in this visit:');
     for (const h of recent) lines.push(`Visitor: ${h.q}`, `Guide: ${h.a}`);
+  }
+  if (!imageJPEGBase64) {
+    lines.push('', 'No photo came with this question. Do not describe what the visitor is facing; answer from the places above, or say you cannot see it right now.');
   }
   lines.push('', `The visitor asks: ${question}`);
 

@@ -51,7 +51,9 @@ struct CommandParser {
         let words = Self.tokens(text)
         // "Is there a toilet nearby?" is a question for the guide; "what's nearby" is the command.
         let asksWhatsNear = Self.contains(text, any: ["whats around", "what is around", "whats near", "what is near", "around me"])
-        let opensLikeQuestion = words.first.map(Self.questionOpeners.contains) ?? false
+        // "So, what is this?" and "Please tell me about the cafe" open with a filler.
+        let firstRealWord = words.first { !Self.fillers.contains($0) }
+        let opensLikeQuestion = firstRealWord.map(Self.questionOpeners.contains) ?? false
         if asksWhatsNear || (text.contains("nearby") && !opensLikeQuestion) { return .whatsNearby }
         // A bare "again" repeats; "can you describe that again" does not.
         if Self.contains(text, any: ["repeat", "say that again", "say again"]) || words == ["again"] {
@@ -68,7 +70,7 @@ struct CommandParser {
         // A question is answered even when it names a place ("what is the Orchid Display?");
         // only an explicit go-there request, or a bare place name, starts a route.
         let question = VoiceCommand.question(text: transcript.trimmingCharacters(in: .whitespacesAndNewlines))
-        let asksToGo = Self.contains(text, any: Self.goTherePhrases)
+        let asksToGo = Self.contains(text, any: Self.goTherePhrases) || words.contains("find")
         if opensLikeQuestion && !asksToGo { return question }
 
         let queryTokens = words.filter { !Self.stopWords.contains($0) }
@@ -86,7 +88,7 @@ struct CommandParser {
         }
         if let best { return .navigate(poiID: best.id) }
         // "Where is the exit?" about a place the map does not have: let the guide answer.
-        if let first = words.first, ["where", "wheres"].contains(first) { return question }
+        if let firstRealWord, ["where", "wheres"].contains(firstRealWord) { return question }
         return .unknown
     }
 
@@ -94,6 +96,11 @@ struct CommandParser {
     private static let questionOpeners: Set<String> = [
         "what", "whats", "who", "whos", "which", "why", "how", "when", "is", "are", "does", "do",
         "can", "could", "tell", "describe", "explain",
+    ]
+
+    /// Words people put in front of what they mean.
+    private static let fillers: Set<String> = [
+        "so", "and", "ok", "okay", "hey", "hi", "hello", "please", "sorry", "excuse", "me", "um", "uh", "well", "now",
     ]
 
     /// Phrases that ask to be taken somewhere, however the sentence opens.

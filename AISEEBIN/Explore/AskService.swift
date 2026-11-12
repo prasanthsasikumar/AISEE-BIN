@@ -11,11 +11,18 @@ enum AskPicture {
         positioning != .phone && glassesConnected ? .glasses : .phone
     }
 
-    /// The JPEG to send. With the glasses as the source and no frame yet, the
-    /// question goes without a picture: a pocketed phone would show nothing.
-    static func jpeg(source: Source, glassesFrame: CVPixelBuffer?, phone: () -> Data?) -> Data? {
+    /// A glasses frame older than this is not what the visitor is facing any more.
+    static let maxFrameAge: TimeInterval = 3
+
+    /// The JPEG to send. With the glasses as the source and no recent frame
+    /// (none yet, or the camera has paused), the question goes without a
+    /// picture: a pocketed phone would show nothing, and an old frame would be
+    /// described as if it were in front of the visitor now.
+    static func jpeg(source: Source, glassesFrame: CVPixelBuffer?, frameAge: TimeInterval, phone: () -> Data?) -> Data? {
         switch source {
-        case .glasses: return glassesFrame.flatMap { FrameGrabber.jpeg(from: $0) }
+        case .glasses:
+            guard frameAge <= maxFrameAge else { return nil }
+            return glassesFrame.flatMap { FrameGrabber.jpeg(from: $0) }
         case .phone: return phone()
         }
     }
@@ -106,7 +113,8 @@ final class AskService {
                 guard let self, !Task.isCancelled else { return }
                 self.task = nil
                 if answer.isEmpty {
-                    self.speak(Self.failureText, true)
+                    // By now the visitor has walked on: never cut off a cue to apologise.
+                    self.speak(Self.failureText, false)
                     onUpdate(.failed)
                 } else {
                     // Cut off part-way: what was said stands.

@@ -83,6 +83,8 @@ struct GlassesLossPolicy {
     private var framelessSince: TimeInterval?
     private var fellBack = false
     private var announcedPause = false
+    /// A camera that has not delivered yet is starting, not paused.
+    private var hasDelivered = false
 
     mutating func update(linked: Bool, framesFlowing: Bool, now: TimeInterval) -> [Event] {
         guard linked else {
@@ -100,6 +102,7 @@ struct GlassesLossPolicy {
         fellBack = false
 
         if framesFlowing {
+            hasDelivered = true
             framelessSince = nil
             if announcedPause {
                 announcedPause = false
@@ -107,6 +110,7 @@ struct GlassesLossPolicy {
             }
             return []
         }
+        guard hasDelivered else { return [] }
         let since = framelessSince ?? now
         framelessSince = since
         if !announcedPause, now - since >= Self.grace {
