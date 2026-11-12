@@ -13,12 +13,16 @@ struct AISEEBINApp: App {
                                                object: nil, queue: nil) { _ in
             UsageLog.shared.appWillTerminate()
         }
+        // Before the view model: its glasses service asks Meta's toolkit for its state.
+        MetaGlassesLink.configure()
         _viewModel = State(initialValue: NavigationViewModel())
     }
 
     var body: some Scene {
         WindowGroup {
             ContentView(viewModel: viewModel)
+                // The Meta AI app returns here after approving the app or the camera.
+                .onOpenURL { MetaGlassesLink.handle(url: $0) }
         }
     }
 }

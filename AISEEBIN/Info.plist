@@ -18,6 +18,19 @@
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
 	<string>0.1.0</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>aiseebin</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>19</string>
 	<key>ExploreToken</key>
@@ -26,14 +39,29 @@
 	<false/>
 	<key>ImmersalDefaultToken</key>
 	<string>$(IMMERSAL_DEFAULT_TOKEN)</string>
+	<key>MWDAT</key>
+	<dict>
+		<key>AppLinkURLScheme</key>
+		<string>aiseebin://</string>
+		<key>ClientToken</key>
+		<string>$(META_CLIENT_TOKEN)</string>
+		<key>MetaAppID</key>
+		<string>$(META_APP_ID)</string>
+		<key>TeamID</key>
+		<string>$(DEVELOPMENT_TEAM)</string>
+	</dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>AISEE-BIN connects to your AiSee glasses over Bluetooth so their camera and button can guide you.</string>
+	<string>AISEE-BIN connects to your AiSee or Ray-Ban Meta glasses over Bluetooth so their camera can guide you.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_bonjour._tcp</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>AISEE-BIN uses the camera to track your position inside the greenhouse and guide you between exhibits.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>AISEE-BIN does not read your contacts. This permission text is required because the AiSee glasses’ audio library can announce caller names; the app never asks for it.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>AISEE-BIN receives the glasses’ live video over their local Wi-Fi hotspot.</string>
+	<string>AISEE-BIN receives the glasses’ live video over a local Wi-Fi link.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>AISEE-BIN does not use your location. This permission text is required because the AiSee glasses’ audio library can use location; the app never asks for it.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
@@ -53,12 +81,18 @@
 	<array>
 		<string>bluetooth-central</string>
 		<string>audio</string>
+		<string>bluetooth-peripheral</string>
+		<string>external-accessory</string>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>arkit</string>
+	</array>
+	<key>UISupportedExternalAccessoryProtocols</key>
+	<array>
+		<string>com.meta.ar.wearable</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
