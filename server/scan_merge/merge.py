@@ -14,6 +14,7 @@ for group in same:
     for g in group[1:]: alias[g] = group[0]
 pois, edges, seen = [], set(), {}
 placements = []
+scan_heights = {}   # scan -> ({local id: graph y of a marked place}, [(local a, local b)])
 for s in rows:
     if s not in pose or s in drop_maps: continue
     m = pose[s]
@@ -27,11 +28,13 @@ for s in rows:
         placements.append({"id": al["mapIDs"][0], "yaw": ys + imm["yaw"],
                            "tx": float(m[0, 3]) + c * ti[0] - sn * ti[2], "ty": float(m[1, 3]) + ti[1],
                            "tz": float(m[2, 3]) + sn * ti[0] + c * ti[2], "name": s})
+    known = {}
     for q in rows[s]["graph"]["pois"]:
         gid = f"{s}/{q['id']}"
-        if gid in alias: continue
         a = anch[s].get(q["id"])
         w = apply(m, np.array([[q["x"], a[1] if a else 0.0, q["z"]]]))[0]
+        if a: known[q["id"]] = float(w[1])
+        if gid in alias: continue
         p = dict(q); p["id"] = gid; p["x"] = round(float(w[0]), 3); p["z"] = round(float(w[2]), 3)
         if a: p["y"] = round(float(w[1]), 3)
         else: p.pop("y", None)
@@ -42,9 +45,27 @@ for s in rows:
     for e in rows[s]["graph"]["edges"]:
         a, b = alias.get(f"{s}/{e['from']}", f"{s}/{e['from']}"), alias.get(f"{s}/{e['to']}", f"{s}/{e['to']}")
         if a != b: edges.add(tuple(sorted((a, b))))
+    scan_heights[s] = (known, [(e["from"], e["to"]) for e in rows[s]["graph"]["edges"]])
 for n in spec.get("extra_nodes", []): pois.append(dict(n, aliases=[], details=None))
 for a, b in spec.get("extra_edges", []): edges.add(tuple(sorted((a, b))))
 hy = {p["id"]: p["y"] for p in pois if "y" in p}
+# Waypoints carry no height. Within each scan, a waypoint takes the height of the nearest
+# marked place by hops along that scan's own route (as the app does). Doing it per scan
+# keeps a scan that climbs stairs upstairs at its far end: nus2 walks Water -> stairs ->
+# MPH 2, and filling across the merged graph (12 Nov) put its upper corridor on the ground
+# floor, so the join below linked it flat to the ground-floor Junction (v8 bug).
+for s, (known, ledges) in scan_heights.items():
+    nbl = {}
+    for a, b in ledges: nbl.setdefault(a, []).append(b); nbl.setdefault(b, []).append(a)
+    fill, frontier = dict(known), list(known)
+    while frontier:
+        nxt = []
+        for i in frontier:
+            for o in nbl.get(i, []):
+                if o not in fill: fill[o] = fill[i]; nxt.append(o)
+        frontier = nxt
+    for lid, y in fill.items(): hy.setdefault(alias.get(f"{s}/{lid}", f"{s}/{lid}"), y)
+# Scans with no marked place at all: average of neighbours across scans.
 nb = {}
 for a, b in edges: nb.setdefault(a, []).append(b); nb.setdefault(b, []).append(a)
 grew = True
@@ -61,6 +82,13 @@ for i, p in enumerate(pois):
         if scan_of(p["id"]) == scan_of(q["id"]): continue
         if abs(hy.get(p["id"], 0) - hy.get(q["id"], 0)) > 1.5: continue
         if ((p["x"] - q["x"]) ** 2 + (p["z"] - q["z"]) ** 2) ** 0.5 < 2.5: edges.add(tuple(sorted((p["id"], q["id"]))))
+# Give every waypoint its height so the app sees the same floors (stairs inside a scan
+# become a level change it can announce), and flag any link between scans that jumps a floor.
+for p in pois:
+    if "y" not in p and p["id"] in hy: p["y"] = round(float(hy[p["id"]]), 3)
+for a, b in sorted(edges):
+    if scan_of(a) != scan_of(b) and a in hy and b in hy and abs(hy[a] - hy[b]) > 2.0:
+        print(f"WARNING: {a} ({hy[a]:.1f}) <-> {b} ({hy[b]:.1f}) joins two floors with no stairs")
 ids = {p["id"] for p in pois}
 bad = [e for e in edges if e[0] not in ids or e[1] not in ids]
 assert not bad, bad

@@ -1,5 +1,5 @@
 import sys, json, gzip, urllib.request, numpy as np
-slug = sys.argv[1]; sys.argv = [sys.argv[0], "nus"]; sys.path.insert(0, "nustools")
+slug = sys.argv[1]; note = sys.argv[2] if len(sys.argv) > 2 else ""; sys.argv = [sys.argv[0], "nus"]; sys.path.insert(0, "nustools")
 from align import load, apply
 BASE = "https://djfpemdkeguztyuerxqc.supabase.co"; KEY = "sb_publishable_hEk_pFTUws4X_SL7QKiFUA_DeFU9-YL"
 H = {"apikey": KEY, "Authorization": "Bearer " + KEY}
@@ -14,6 +14,6 @@ version = json.loads(call("/rest/v1/rpc/ab_next_version", {"slug": slug}))
 path = f"{slug}/v{version}/points.f32.gz"
 call(f"/storage/v1/object/aiseebin-maps/{path}", raw=gzip.compress(pts.tobytes()), ctype="application/gzip", extra={"x-upsert": "true"})
 call("/rest/v1/ab_map_versions", {"map_slug": slug, "version": version, "source": "web",
-     "note": "v7: placements from the calibration walk (paired fixes, 11 Nov 03:02-03:26 UTC), washroom corridor from the walk trail",
+     "note": note,
      "graph": graph, "worldmap_path": None, "pointcloud_path": path, "point_count": int(len(pts))}, extra={"Prefer": "return=minimal"})
 print("published", slug, "v", version, len(pts), "points")
