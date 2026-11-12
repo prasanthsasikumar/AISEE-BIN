@@ -228,6 +228,7 @@
 		CAC76647C882CC3E396895C5 /* GlassesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6FA8490E8C6B82408C82360 /* GlassesView.swift */; };
 		CBAA25470EAAC58F72E23D84 /* ExploreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8C65E7C8774BCB11D8CDAC /* ExploreView.swift */; };
 		CC46B57307401286B5F1B202 /* PathfindingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 618BF33F7C5275D8E63A4D60 /* PathfindingEngine.swift */; };
+		CCA5739FC2227B908C00E67D /* ImmersalMapNameTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CBB0A094A41B12A2DF50B83 /* ImmersalMapNameTests.swift */; };
 		CCBA8979BFA8F2A67304764A /* clips in Resources */ = {isa = PBXBuildFile; fileRef = B17CF5132281D5BC845C7C19 /* clips */; };
 		CD07AA8EB84E1CC82FF94338 /* AiSeeConnectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 707E0D0D36B544790F9C1DBC /* AiSeeConnectionService.swift */; };
 		CD305969C1791AC8EA3A7271 /* RTKAudioConnectSDK.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = B5CD47A0E9D56274EC4F805D /* RTKAudioConnectSDK.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -408,6 +409,7 @@
 		77E1B72F4F53B64E77838144 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		787BE7A6002B8C1FA6963347 /* GrayFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrayFrame.swift; sourceTree = "<group>"; };
 		79E361A2F569218646277589 /* UsageLogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageLogTests.swift; sourceTree = "<group>"; };
+		7CBB0A094A41B12A2DF50B83 /* ImmersalMapNameTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersalMapNameTests.swift; sourceTree = "<group>"; };
 		7DE1A9F99EB3F6021B96B52C /* GzipCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GzipCodec.swift; sourceTree = "<group>"; };
 		7FBFA6EDEE26F1834EECED5A /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		810316C170E8D5BADAA0282B /* FieldTestSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FieldTestSession.swift; sourceTree = "<group>"; };
@@ -755,6 +757,7 @@
 				A26AD48F3AE21178241BDF54 /* ImmersalLocalizerFactoryTests.swift */,
 				B5B9DCE8EC93EFD960A3F301 /* ImmersalMapCacheTests.swift */,
 				9623757E38AE453BB0634565 /* ImmersalMapDownloaderTests.swift */,
+				7CBB0A094A41B12A2DF50B83 /* ImmersalMapNameTests.swift */,
 				9660A13D46A344C5212F2D9E /* ImmersalNativeTests.swift */,
 				E556DF97F5DF1F731E0006F7 /* LocalizerReselectionTests.swift */,
 				A3CD1B51F70D82DD4ADB2E6C /* LocationDescriberTests.swift */,
@@ -1285,6 +1288,7 @@
 				9127EA5E2B027F932CA1F0DB /* ImmersalLocalizerFactoryTests.swift in Sources */,
 				E07E843F3F4873912D88FF02 /* ImmersalMapCacheTests.swift in Sources */,
 				083AC06FF3A59C32C8696908 /* ImmersalMapDownloaderTests.swift in Sources */,
+				CCA5739FC2227B908C00E67D /* ImmersalMapNameTests.swift in Sources */,
 				9C26A372607284A28577BFAD /* ImmersalNativeTests.swift in Sources */,
 				014C3C7812EFDEBBCEEEF9F5 /* LocalizerReselectionTests.swift in Sources */,
 				8A8FACA8783B9D9F847CDDB3 /* LocationDescriberTests.swift in Sources */,

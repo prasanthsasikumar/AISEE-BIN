@@ -40,9 +40,22 @@ struct ImmersalMappingClient {
         _ = try await post("captureb64", body, timeout: 120)
     }
 
+    /// A map name Immersal will take. It accepts only ASCII letters, digits,
+    /// space and underscore and fails the whole construct otherwise, so every
+    /// other character ("AHLab-Level3") becomes an underscore. This is only
+    /// Immersal's label for the map; the name the mapper chose is kept as is.
+    static func safeName(_ name: String) -> String {
+        let cleaned = String(name.unicodeScalars.map { scalar -> Character in
+            let ok = scalar.isASCII && (CharacterSet.alphanumerics.contains(scalar) || scalar == " " || scalar == "_")
+            return ok ? Character(scalar) : "_"
+        })
+        let trimmed = cleaned.trimmingCharacters(in: CharacterSet(charactersIn: " _"))
+        return trimmed.isEmpty ? "map" : trimmed
+    }
+
     /// Starts construction from the workspace; returns the new map's id.
     func construct(name: String, preservePoses: Bool) async throws -> Int {
-        let reply = try await post("construct", ["token": token, "name": name, "preservePoses": preservePoses])
+        let reply = try await post("construct", ["token": token, "name": Self.safeName(name), "preservePoses": preservePoses])
         guard let id = reply["id"] as? Int else { throw Failure(message: "construct: no map id in reply") }
         return id
     }
