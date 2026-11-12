@@ -105,6 +105,10 @@ final class NavigationViewModel {
     let mapStore: MapStore
     let glasses: GlassesService
     let glassesPositioning: GlassesPositioning
+    /// Free-form questions to the guide, for Explore and for Navigate.
+    @ObservationIgnored private(set) lazy var asker = AskService(client: ExploreClient(usage: usage)) { [weak self] text, interrupt in
+        self?.guidance.speak(text, interrupt: interrupt)
+    }
     /// Lanyard mode: the glasses camera as a second source of fixes.
     let glassesFeed = GlassesFixFeed()
     /// Positions the phone in a map that has an Immersal alignment but no
@@ -1043,6 +1047,7 @@ final class NavigationViewModel {
                 guidance.speak("Microphone or speech recognition permission is off. Please enable it in Settings.", interrupt: true)
                 return
             }
+            asker.cancel()                    // an answer still arriving would talk over the listener
             guidance.stopSpeaking()           // never listen to ourselves
             guidance.play(.nodeReached)       // tactile "I'm listening"
             if positioningSource != .phone, glasses.isConnected {
@@ -1101,8 +1106,25 @@ final class NavigationViewModel {
         handle(command: .navigate(poiID: poiID))
     }
 
+    /// Asks the guide about what the visitor is facing. The picture comes from
+    /// the glasses when they position the visitor, otherwise from the phone;
+    /// the answer is spoken as it arrives, and never interrupts a cue.
+    func askGuide(question: String, audience: String, onUpdate: @escaping (AskService.Update) -> Void) {
+        let source = AskPicture.source(positioning: positioningSource, glassesConnected: glasses.isConnected)
+        let jpeg = AskPicture.jpeg(source: source, glassesFrame: glasses.latestFrame()?.pixelBuffer) { [arManager] in
+            arManager.session.currentFrame.flatMap { FrameGrabber.jpeg(from: $0) }
+        }
+        let map = engine.map
+        let places = AskContext.places(map: map, position: mapPose?.position, heading: mapPose?.heading ?? 0)
+        let context = AskService.Context(jpeg: jpeg, mapSlug: mapSlug, places: places, venueInfo: map.venueInfo,
+                                         audience: audience, camera: source.rawValue, venue: map.name)
+        asker.ask(question: question, context: context, onUpdate: onUpdate)
+    }
+
     private func handle(command: VoiceCommand) {
         if command != .unknown { unknownCommandCount = 0 }
+        // A new command replaces an answer that is still arriving.
+        asker.cancel()
         let position = NavigationGeometry.planarPosition(of: currentTransform)
         let heading = NavigationGeometry.heading(of: currentTransform)
 
@@ -1162,8 +1184,10 @@ final class NavigationViewModel {
             beaconEnabled = on
             guidance.speak(on ? "Beeps on." : "Beeps off.", interrupt: true)
 
-        case .question:
-            guidance.speak("I didn't catch that. Please try again.", interrupt: true)
+        case .question(let text):
+            // Blind and low-vision visitors use Navigate: the guide describes rather than points.
+            statusMessage = "Asked: “\(text)”"
+            askGuide(question: text, audience: "nonsighted") { _ in }
 
         case .unknown:
             unknownCommandCount += 1
