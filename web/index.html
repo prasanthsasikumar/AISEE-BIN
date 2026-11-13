@@ -145,6 +145,7 @@
       <button id="fitFloat" class="overlay fitFloat narrowOnly" aria-label="Fit the view">Fit</button>
       <div id="view3d" hidden>
         <div class="v3bar">
+          <button id="close3d" class="btn" title="Back to the 2D map (Esc)">← 2D view</button>
           <strong>3D</strong>
           <div class="seg" role="group" aria-label="3D tool">
             <button data-mode3d="select" class="active" title="Click a place to select it; drag it to move it along the floor; drag empty space to turn the view">Select</button>
@@ -156,7 +157,6 @@
           <button id="dropToFloor" class="btn" title="Put the selected place on the scanned floor under it">Drop to floor</button>
           <button id="snapHeights" class="btn" title="Put every place with a height on the floor under it (fixes heights from older or imported maps)">Snap heights to floor</button>
           <button id="reset3d" class="btn">Reset view</button>
-          <button id="close3d" class="btn">Close</button>
         </div>
         <canvas id="canvas3d"></canvas>
         <div id="status3d" class="note"></div>
@@ -399,7 +399,7 @@
   <label class="menuCheck"><input type="checkbox" id="showDistances" checked><span class="box"></span>Distances</label>
   <label class="menuCheck"><input type="checkbox" id="showLegend" checked><span class="box"></span>Legend</label>
   <hr>
-  <button id="open3d" role="menuitem" title="Turn the point cloud around in 3D (Esc closes)"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg>3D view</button>
+  <button id="open3d" role="menuitem" title="Switch between the 2D map and the 3D view (Esc leaves 3D)"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg><span id="open3dLabel">3D view</span></button>
 </div>
 
 <div id="filesMenu" class="menu narrowMenu" role="menu" hidden>

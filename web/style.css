@@ -339,6 +339,7 @@ details.disclosure > *:not(summary) + * { margin-top:10px; }
 #view3d canvas { flex:1; width:100%; min-height:0; touch-action:none; cursor:grab; }
 #view3d canvas.drag { cursor:grabbing; }
 #view3d #status3d { padding:6px 16px; }
+.legend.over3d { z-index:6; top:68px; }
 
 /* ---------- sessions (usage logs) ---------- */
 .sessBody { flex:1; overflow:auto; padding:24px 32px; display:flex; flex-direction:column; gap:16px; }

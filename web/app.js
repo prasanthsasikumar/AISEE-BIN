@@ -368,7 +368,7 @@ async function loadVersion(row) {
   state.dirty = false; state.draftSavedAt = null;
   offerDraft(row.id, `v${row.version}`);
   state.history = []; state.future = []; updateUndoButtons();
-  state.points = null; state.pointsBitmap = null; state.heights = null; renderScanTools();
+  state.points = null; state.pointsBitmap = null; state.heights = null; renderScanTools(); rebuild3D();
   renderVersions(); renderSidebar(); updateSaveButton(); renderFiles();
   fitView(); draw();
   state.clouds = new Map(); state.selectedCloud = null; renderClouds();
@@ -380,12 +380,13 @@ async function loadVersion(row) {
       const buf = await fetchMaybeGzipped(publicURL(row.pointcloud_path));
       if (state.current !== row) return;   // another version or map was opened meanwhile
       state.points = new Float32Array(buf);
-      computeHeights(); renderScanTools(); buildPointsBitmap();
+      computeHeights(); renderScanTools(); buildPointsBitmap(); rebuild3D(true);
       setStatus(`Loaded v${row.version} — ${placesText()}, ${fmtInt(state.points.length / 3)} points`);
     } catch (e) { setStatus(`Point cloud failed: ${e.message}`, true); }
     fitView(); draw();
   } else {
     setStatus(`Loaded v${row.version} — ${placesText()}`);
+    if (!$('view3d').hidden) { close3D(); setStatus(`v${row.version} has no point cloud, so it opens in 2D.`); }
   }
 }
 
@@ -1277,7 +1278,7 @@ $('fit').onclick = $('fitFloat').onclick = () => { fitView(); draw(); };
 $('tidy').onclick = $('mmTidy').onclick = () => { closeMenus(); tidyRoute(); };
 $('undo').onclick = $('mmUndo').onclick = () => { undo(); closeMenus(); };
 $('redo').onclick = $('mmRedo').onclick = () => { redo(); closeMenus(); };
-['showPoints', 'showLabels', 'showDistances'].forEach(id => $(id).onchange = draw);
+['showPoints', 'showLabels', 'showDistances'].forEach(id => $(id).onchange = () => { draw(); applyView3D(); });
 $('showLegend').onchange = () => { $('legend').hidden = !$('showLegend').checked; };
 $('tabPlaces').onclick = () => setTab('places');
 $('tabHistory').onclick = () => setTab('history');
@@ -1416,7 +1417,7 @@ $('importImmersal').onclick = async () => {
     state.graph = { name: map.name, pois: [], edges: [], immersalAlignment: ImmersalImport.identityAlignment(map.id) };
     state.points = map.points; state.pendingPoints = map.points;
     computeHeights(); renderScanTools(); buildPointsBitmap();
-    state.dirty = true;
+    state.dirty = true; rebuild3D(true);
     openMap(slug);
     // Versions are fetched for History and the next version number; the import itself stays as is.
     fetchVersions().catch(() => {});
@@ -1708,12 +1709,18 @@ function loadThree() {
 }
 function open3D() {
   if (!state.points || !state.points.length) { setStatus('No point cloud loaded for this version.', true); return; }
-  $('view3d').hidden = false; $('status3d').textContent = 'Loading…';
+  $('view3d').hidden = false; sync3DToggle(); $('status3d').textContent = 'Loading…';
   loadThree().then(() => { init3D(); rebuild3D(true); setMode3D(v3.mode); })
     .catch(e => { $('status3d').textContent = e.message; });
 }
-function close3D() { $('view3d').hidden = true; }
-$('open3d').onclick = open3D; $('close3d').onclick = close3D;
+function close3D() { $('view3d').hidden = true; sync3DToggle(); draw(); }
+/// The View menu entry switches both ways, and the legend stays readable over the 3D view.
+function sync3DToggle() {
+  const on = !$('view3d').hidden;
+  $('open3dLabel').textContent = on ? '2D view' : '3D view';
+  $('legend').classList.toggle('over3d', on);
+}
+$('open3d').onclick = () => ($('view3d').hidden ? open3D() : close3D()); $('close3d').onclick = close3D;
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('view3d').hidden) close3D(); });
 function init3D() {
   if (v3.renderer) return;
@@ -1774,19 +1781,20 @@ function status3D(extra) {
 }
 /// Where a place is drawn: on its floor, else on the map's median floor.
 function nodeBase3D(p) { const fl = Ground.floorOf(p); return fl !== null ? fl : (state.heights ? state.heights.med : 0); }
-function label3D(text) {
+function label3D(text, size = 0.35) {
   const c = document.createElement('canvas'), g = c.getContext('2d'); g.font = '600 40px system-ui, sans-serif';
   c.width = Math.ceil(g.measureText(text).width) + 24; c.height = 56;
   g.font = '600 40px system-ui, sans-serif'; g.fillStyle = 'rgba(12,14,20,.75)'; g.fillRect(0, 0, c.width, c.height);
   g.fillStyle = '#F7F5FD'; g.textBaseline = 'middle'; g.fillText(text, 12, 30);
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false }));
-  sp.scale.set(0.35 * c.width / c.height, 0.35, 1); sp.renderOrder = 2; return sp;
+  sp.scale.set(size * c.width / c.height, size, 1); sp.renderOrder = 2; return sp;
 }
 function rebuildNodes3D() {
   if (!v3.renderer || $('view3d').hidden) return;
   if (v3.nodes) { v3.scene.remove(v3.nodes); v3.nodes.traverse(o => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose(); }); }
   v3.nodes = new THREE.Group();
   const pois = state.graph?.pois || [], at = new Map();
+  const showLabels = $('showLabels').checked, showDistances = $('showDistances').checked;
   for (const p of pois) {
     const base = nodeBase3D(p), hot = p === state.selectedNode || p === v3.connectFrom || p === v3.pathFrom;
     at.set(p.id, [p.x, base + 0.06, p.z]);
@@ -1795,10 +1803,12 @@ function rebuildNodes3D() {
       new THREE.MeshBasicMaterial({ color: p === v3.connectFrom || p === v3.pathFrom ? '#F5C542' : hot ? '#FFFFFF' : (CATEGORY_COLORS[p.category] || '#9aa0a6') }));
     m.position.set(p.x, base + r, p.z); m.userData.poi = p; v3.nodes.add(m);
     if (typeof p.y !== 'number') { const ring = new THREE.Mesh(new THREE.RingGeometry(r * 1.4, r * 1.7, 20), new THREE.MeshBasicMaterial({ color: '#E0524A', side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.set(p.x, base + 0.01, p.z); v3.nodes.add(ring); }
-    if (p.category !== 'junction' || hot) { const l = label3D(p.name); l.position.set(p.x, base + r * 2 + 0.3, p.z); v3.nodes.add(l); }
+    if (showLabels && (p.category !== 'junction' || hot)) { const l = label3D(p.name); l.position.set(p.x, base + r * 2 + 0.3, p.z); v3.nodes.add(l); }
   }
   const segs = [];
-  for (const e of state.graph?.edges || []) { const a = at.get(e.from), b = at.get(e.to); if (a && b) segs.push(...a, ...b); }
+  for (const e of state.graph?.edges || []) { const a = at.get(e.from), b = at.get(e.to); if (!a || !b) continue; segs.push(...a, ...b);
+    // Same figure as the 2D view: the distance along the floor plan.
+    if (showDistances) { const l = label3D(`${Math.hypot(a[0] - b[0], a[2] - b[2]).toFixed(1)} m`, 0.2); l.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + 0.2, (a[2] + b[2]) / 2); v3.nodes.add(l); } }
   if (segs.length) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(segs, 3)); v3.nodes.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: '#F7D774' }))); }
   v3.scene.add(v3.nodes); syncGizmo3D(); render3D(); status3D();
 }
@@ -1914,8 +1924,16 @@ document.addEventListener('keydown', e => {
   if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if (e.key === 'Delete' || e.key === 'Backspace') { if (state.selectedNode) deleteNode(); }
 });
+/// The View menu's Point cloud, Labels and Distances apply in 3D too.
+function applyView3D() {
+  if (!v3.renderer || $('view3d').hidden) return;
+  if (v3.cloud) v3.cloud.visible = $('showPoints').checked;
+  rebuildNodes3D();
+}
 function rebuild3D(recentre = false) {
-  if (!v3.renderer || $('view3d').hidden || !state.points) return;
+  if (!v3.renderer || $('view3d').hidden) return;
+  // Another map or version is loading, or it has no scan: drop the old cloud.
+  if (!state.points) { if (v3.cloud) { v3.scene.remove(v3.cloud); v3.cloud.geometry.dispose(); v3.cloud = null; } rebuildNodes3D(); return; }
   const pts = state.points, h = state.heights || { lo: -1, hi: 1, med: 0 };
   const b = contentBounds(true);
   if (recentre || !v3.centre) {
@@ -1933,7 +1951,7 @@ function rebuild3D(recentre = false) {
     col[k * 3] = (60 + 190 * t) / 255; col[k * 3 + 1] = (110 + 100 * t) / 255; col[k * 3 + 2] = (230 - 190 * t) / 255; });
   if (v3.cloud) { v3.scene.remove(v3.cloud); v3.cloud.geometry.dispose(); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  v3.cloud = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.08, vertexColors: true })); v3.scene.add(v3.cloud);
+  v3.cloud = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.08, vertexColors: true })); v3.cloud.visible = $('showPoints').checked; v3.scene.add(v3.cloud);
   rebuildNodes3D();
 }
 function render3D() {
