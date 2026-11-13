@@ -1722,6 +1722,12 @@ function sync3DToggle() {
 }
 $('open3d').onclick = () => ($('view3d').hidden ? open3D() : close3D()); $('close3d').onclick = close3D;
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('view3d').hidden) close3D(); });
+/// Slide the view: the point the camera looks at moves with the pointer, from where the drag began.
+function pan3D(from, dx, dy) {
+  const k = 2 * (v3.orbit.dist || v3.dist0) * Math.tan(v3.cam.fov * Math.PI / 360) / ($('canvas3d').clientHeight || 1);
+  const right = new THREE.Vector3().setFromMatrixColumn(v3.cam.matrixWorld, 0), up = new THREE.Vector3().setFromMatrixColumn(v3.cam.matrixWorld, 1);
+  v3.centre.copy(from).addScaledVector(right, -dx * k).addScaledVector(up, dy * k);
+}
 function init3D() {
   if (v3.renderer) return;
   const cv3 = $('canvas3d');
@@ -1734,12 +1740,16 @@ function init3D() {
   let drag = null, down = null; const touches = new Map(); let pinch = null;
   cv3.addEventListener('pointerdown', e => { cv3.setPointerCapture(e.pointerId); touches.set(e.pointerId, e);
     if (v3.gizmo.dragging) { down = null; return; }
-    if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), dist: v3.orbit.dist }; drag = null; return; }
+    if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), dist: v3.orbit.dist, x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2, centre: v3.centre.clone() }; drag = null; return; }
+    // Shift, right or middle drag slides the view, as in 2D.
+    if (e.button === 1 || e.button === 2 || e.shiftKey) { e.preventDefault(); down = null; drag = { pan: true, x: e.clientX, y: e.clientY, centre: v3.centre.clone() }; cv3.classList.add('drag'); return; }
     down = { x: e.clientX, y: e.clientY };
     drag = { x: e.clientX, y: e.clientY, yaw: v3.orbit.yaw, pitch: v3.orbit.pitch }; cv3.classList.add('drag'); });
   cv3.addEventListener('pointermove', e => { if (touches.has(e.pointerId)) touches.set(e.pointerId, e);
-    if (pinch && touches.size === 2) { const [a, b] = [...touches.values()]; v3.orbit.dist = Math.max(0.5, Math.min(v3.dist0 * 5, pinch.dist * pinch.d / Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY))); render3D(); return; }
-    if (!drag) return; v3.orbit.yaw = drag.yaw - (e.clientX - drag.x) * 0.008; v3.orbit.pitch = Math.max(-1.4, Math.min(1.5, drag.pitch + (e.clientY - drag.y) * 0.006)); render3D(); });
+    if (pinch && touches.size === 2) { const [a, b] = [...touches.values()]; v3.orbit.dist = Math.max(0.5, Math.min(v3.dist0 * 5, pinch.dist * pinch.d / Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY))); pan3D(pinch.centre, (a.clientX + b.clientX) / 2 - pinch.x, (a.clientY + b.clientY) / 2 - pinch.y); render3D(); return; }
+    if (!drag) return;
+    if (drag.pan) { pan3D(drag.centre, e.clientX - drag.x, e.clientY - drag.y); render3D(); return; }
+    v3.orbit.yaw = drag.yaw - (e.clientX - drag.x) * 0.008; v3.orbit.pitch = Math.max(-1.4, Math.min(1.5, drag.pitch + (e.clientY - drag.y) * 0.006)); render3D(); });
   const end = e => {
     const tap = down && touches.size === 1 && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 5;
     touches.delete(e.pointerId); if (touches.size < 2) pinch = null;
@@ -1747,7 +1757,8 @@ function init3D() {
     if (!touches.size) { drag = null; down = null; cv3.classList.remove('drag'); } };
   cv3.addEventListener('pointerup', end); cv3.addEventListener('pointercancel', end);
   cv3.addEventListener('wheel', e => { e.preventDefault(); v3.orbit.dist = Math.max(0.5, Math.min(v3.dist0 * 5, v3.orbit.dist * Math.exp(e.deltaY * 0.0015))); render3D(); }, { passive: false });
-  const reset = () => { v3.orbit.yaw = 0.6; v3.orbit.pitch = 0.5; v3.orbit.dist = v3.dist0; render3D(); };
+  cv3.addEventListener('contextmenu', e => e.preventDefault());
+  const reset = () => { v3.orbit.yaw = 0.6; v3.orbit.pitch = 0.5; v3.orbit.dist = v3.dist0; if (v3.home) v3.centre.copy(v3.home); render3D(); };
   cv3.addEventListener('dblclick', reset); $('reset3d').onclick = reset;
   window.addEventListener('resize', () => { if (!$('view3d').hidden) render3D(); });
 }
@@ -1761,7 +1772,7 @@ let nodes3DQueued = false;
 after2DDraw = () => { if (!nodes3DQueued && v3.renderer && !$('view3d').hidden) { nodes3DQueued = true; requestAnimationFrame(() => { nodes3DQueued = false; rebuildNodes3D(); }); } };
 document.querySelectorAll('[data-mode3d]').forEach(b => b.addEventListener('click', () => setMode3D(b.dataset.mode3d)));
 const HINTS3D = {
-  select: 'click a place, then drag an arrow: red x / blue z slide it, green y raises it; a square slides it across a plane · drag empty space to turn · ⌦ delete · ⌘Z undo',
+  select: 'click a place, then drag an arrow: red x / blue z slide it, green y raises it; a square slides it across a plane · drag empty space to turn, shift-drag or right-drag to slide · ⌦ delete · ⌘Z undo',
   add: 'click the floor to add a place at that height (through a ceiling is fine; Scan view’s height band hides it) · drag to turn',
   connect: 'click a place, then another, to connect them (or remove their connection)',
   path: 'click a place to start, then click along the floor to lay waypoints · click a place to end there',
@@ -1937,7 +1948,7 @@ function rebuild3D(recentre = false) {
   const pts = state.points, h = state.heights || { lo: -1, hi: 1, med: 0 };
   const b = contentBounds(true);
   if (recentre || !v3.centre) {
-    v3.centre = new THREE.Vector3((b.minX + b.maxX) / 2, h.med, (b.minZ + b.maxZ) / 2);
+    v3.centre = new THREE.Vector3((b.minX + b.maxX) / 2, h.med, (b.minZ + b.maxZ) / 2); v3.home = v3.centre.clone();
     const span = Math.max(b.maxX - b.minX, b.maxZ - b.minZ, 2); v3.dist0 = span * 1.15; v3.orbit.dist = v3.dist0;
     if (v3.grid) v3.scene.remove(v3.grid);
     v3.grid = new THREE.GridHelper(Math.ceil(span) + 4, Math.ceil(span) + 4, 0x3a4150, 0x22262f); v3.grid.position.set(v3.centre.x, h.med - 0.02, v3.centre.z); v3.scene.add(v3.grid);
