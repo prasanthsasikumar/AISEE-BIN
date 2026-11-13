@@ -109,4 +109,39 @@ struct BuildingLevels: Equatable {
         let up = level(of: b) > level(of: a) ? "up" : "down"
         return "Take the \(kind.rawValue) \(up) to Level \(level(of: b))"
     }
+
+    /// The next stairs or lift on `path`: the first one whose far end is at or
+    /// after `target`, the index of the node the visitor is heading to.
+    ///
+    /// A level changes on one edge, which on a real staircase falls somewhere
+    /// in the middle. Route nodes named as stairs ("MPH stairs 3") either side
+    /// of that edge belong to the same staircase, so `start` is its first step
+    /// and `end` its last.
+    func stairRun(on path: [String], heading target: Int) -> StairRun? {
+        guard path.count > 1 else { return nil }
+        func isStair(_ i: Int) -> Bool { namesByID[path[i]]?.lowercased().contains("stair") ?? false }
+        for i in 0..<(path.count - 1) {
+            guard let kind = levelChange(from: path[i], to: path[i + 1]) else { continue }
+            var start = i, end = i + 1
+            if kind == .stairs {
+                if isStair(start) { while start > 0, isStair(start - 1) { start -= 1 } }
+                if isStair(end) { while end < path.count - 1, isStair(end + 1) { end += 1 } }
+            }
+            guard end >= target else { continue }
+            let to = level(of: path[i + 1])
+            return StairRun(start: start, end: end, kind: kind, up: to > level(of: path[i]), toLevel: to)
+        }
+        return nil
+    }
+}
+
+/// One staircase or lift ride on a route (indices into the route's nodes).
+struct StairRun: Equatable {
+    /// The last node before the first step (or the lift door).
+    var start: Int
+    /// The first node after the last step.
+    var end: Int
+    var kind: LevelChangeKind
+    var up: Bool
+    var toLevel: Int
 }

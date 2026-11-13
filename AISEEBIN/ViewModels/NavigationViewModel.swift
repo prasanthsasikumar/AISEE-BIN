@@ -8,6 +8,8 @@ struct MapPose: Equatable {
     var position: SIMD2<Float>
     /// Radians; heading h faces (sin h, -cos h) on (x, z), as in NavigationGeometry.
     var heading: Float
+    /// Camera height in the graph frame, metres: which floor the visitor is on.
+    var height: Float = 0
 }
 
 /// Snapshot of internals for the on-screen debug visualizer.
@@ -1591,7 +1593,8 @@ final class NavigationViewModel {
         guard now - lastMapPoseUpdate >= 0.2 else { return }
         lastMapPoseUpdate = now
         mapPose = MapPose(position: NavigationGeometry.planarPosition(of: snapshot.cameraTransform),
-                          heading: NavigationGeometry.heading(of: snapshot.cameraTransform))
+                          heading: NavigationGeometry.heading(of: snapshot.cameraTransform),
+                          height: snapshot.cameraTransform.columns.3.y)
     }
 
     private func updateDebug(with snapshot: PoseSnapshot) {

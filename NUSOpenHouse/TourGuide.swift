@@ -29,6 +29,10 @@ final class TourGuide {
     /// The tour was started before the phone knew where it is: the first stop
     /// is picked (the nearest one) as soon as positioning is reliable.
     private(set) var startPending = false
+    /// A short line confirming what just changed ("Skipped Seating. Next: MPH 2"),
+    /// shown for a few seconds.
+    private(set) var notice: String?
+    @ObservationIgnored private var noticeTask: Task<Void, Never>?
     /// Spoken guidance on or off (off by default: open-house halls are loud and shared).
     var voiceOn: Bool = UserDefaults.standard.bool(forKey: "nus.voice") {
         didSet {
@@ -114,9 +118,33 @@ final class TourGuide {
         leadToCurrent()
     }
 
+    /// Moves on to the next stop and says so: the way to the next place often
+    /// starts along the same corridor, so nothing else on screen shows the skip.
     func skipStop() {
-        viewModel.usage.log("tour.skip", ["id": .string(current?.id ?? "")])
+        let skipped = current
+        viewModel.usage.log("tour.skip", ["id": .string(skipped?.id ?? "")])
         nextStop()
+        guard phase == .leading, let skipped, let next = current else { return }
+        show(notice: Self.skipNotice(skipped: skipped.name, next: next.name, level: levelName(of: next.id)))
+    }
+
+    static func skipNotice(skipped: String, next: String, level: String?) -> String {
+        "Skipped \(skipped). Next: \(next)" + (level.map { ", \($0)" } ?? "")
+    }
+
+    private func show(notice text: String) {
+        notice = text
+        noticeTask?.cancel()
+        noticeTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(6))
+            guard !Task.isCancelled else { return }
+            self?.notice = nil
+        }
+    }
+
+    private func clearNotice() {
+        noticeTask?.cancel()
+        notice = nil
     }
 
     func exit() {
@@ -124,6 +152,7 @@ final class TourGuide {
             viewModel.usage.log("tour.abandon", ["at": .number(Double(index))])
         }
         viewModel.stopNavigation()
+        clearNotice()
         phase = .home
         stops = []
         index = 0
@@ -146,6 +175,7 @@ final class TourGuide {
     private func arrived(at id: String) {
         guard phase == .leading, current?.id == id else { return }
         if isTour { viewModel.usage.log("tour.stop_arrived", ["id": .string(id), "index": .number(Double(index))]) }
+        clearNotice()
         phase = .arrived
     }
 }

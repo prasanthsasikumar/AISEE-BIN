@@ -141,3 +141,88 @@ final class NUSMapFilterTests: XCTestCase {
         XCTAssertNil(ServerConfig.starterSlug(from: [summary("x", 1)], nusApp: true))
     }
 }
+
+/// A switchback staircase whose level change falls on a middle edge, as in the
+/// NUS Computing map ("MPH stairs 1…6").
+final class StairRunTests: XCTestCase {
+    private func poi(_ id: String, _ name: String, _ x: Float, _ z: Float, y: Float?,
+                     _ category: POICategory = .junction) -> NavigationPOI {
+        var p = NavigationPOI(id: id, name: name, x: x, z: z, category: category)
+        p.y = y
+        return p
+    }
+
+    private var map: NavigationMap {
+        NavigationMap(name: "nus-test", pois: [
+            poi("seating", "Seating", 0, 0, y: 0.1, .destination),
+            poi("junction", "Junction", 6, 0, y: 0.1),
+            poi("s1", "MPH stairs 1", 12, 0, y: 0.1),
+            poi("s2", "MPH stairs 2", 14, 0, y: 0.1),
+            poi("s3", "MPH stairs 3", 14, -2, y: 4.5),
+            poi("s4", "MPH stairs 4", 12, -2, y: 4.5),
+            poi("corridor", "MPH corridor", 8, -2, y: 4.5),
+            poi("mph", "MPH 2", 0, -2, y: 4.5, .destination),
+        ], edges: [
+            NavigationEdge(from: "seating", to: "junction"), NavigationEdge(from: "junction", to: "s1"),
+            NavigationEdge(from: "s1", to: "s2"), NavigationEdge(from: "s2", to: "s3"),
+            NavigationEdge(from: "s3", to: "s4"), NavigationEdge(from: "s4", to: "corridor"),
+            NavigationEdge(from: "corridor", to: "mph"),
+        ])
+    }
+    private let up = ["seating", "junction", "s1", "s2", "s3", "s4", "corridor", "mph"]
+
+    func testStaircaseRunsFromFirstStepToLast() {
+        let levels = BuildingLevels(map: map)
+        XCTAssertEqual(levels.stairRun(on: up, heading: 1),
+                       StairRun(start: 2, end: 5, kind: .stairs, up: true, toLevel: 2))
+        // Still the same staircase while on it; gone once past the top.
+        XCTAssertEqual(levels.stairRun(on: up, heading: 5)?.start, 2)
+        XCTAssertNil(levels.stairRun(on: up, heading: 6))
+        let down = levels.stairRun(on: Array(up.reversed()), heading: 0)
+        XCTAssertEqual(down, StairRun(start: 2, end: 5, kind: .stairs, up: false, toLevel: 1))
+        XCTAssertNil(levels.stairRun(on: ["seating", "junction"], heading: 1))
+    }
+
+    func testCueStagesAlongTheRoute() {
+        let m = map
+        let levels = BuildingLevels(map: m)
+        let at = Dictionary(uniqueKeysWithValues: m.pois.map { ($0.id, $0.planarPosition) })
+        func cue(leg: Int, x: Float, z: Float, y: Float) -> RouteCue {
+            RouteCue(path: up, routeLeg: leg, user: SIMD2(x, z), cameraY: y, levels: levels) { at[$0] }
+        }
+        // 12 m from the first step: nothing about stairs yet.
+        XCTAssertEqual(cue(leg: 2, x: 0, z: 0, y: 1.4).stage, .walk)
+        // 4 m away: stairs ahead.
+        let ahead = cue(leg: 3, x: 8, z: 0, y: 1.4)
+        guard case .stairsAhead(let run, let metres) = ahead.stage else { return XCTFail("expected stairs ahead") }
+        XCTAssertEqual(metres, 4, accuracy: 1e-3)
+        XCTAssertTrue(run.up)
+        XCTAssertEqual(ahead.stairsText, "Take the stairs up to Level 2")
+        XCTAssertEqual(ahead.userLevel, 1)
+        // Heading to the second stair node: on the stairs.
+        let on = cue(leg: 4, x: 13, z: 0, y: 2)
+        XCTAssertEqual(on.stage, .onStairs(run))
+        XCTAssertEqual(on.stairsText, "Keep going up to Level 2")
+        // Past the top: walking again, upstairs.
+        let top = cue(leg: 7, x: 10, z: -2, y: 5.8)
+        XCTAssertEqual(top.stage, .walk)
+        XCTAssertEqual(top.userLevel, 2)
+    }
+
+    func testTrailStaysPutAndStopsAtTheStairs() {
+        let stops: [GuidePlacement.Stop] = [
+            .init(planar: SIMD2(10.1, 0), floorY: 0, holdHere: true),
+            .init(planar: SIMD2(10.1, -10), floorY: 4),
+        ]
+        let a = GuidePlacement.trail(from: SIMD2(0, 0), userFloorY: 0, stops: stops, start: 1.2, reach: 8, spacing: 0.8)
+        let b = GuidePlacement.trail(from: SIMD2(0.3, 0), userFloorY: 0, stops: stops, start: 1.2, reach: 8, spacing: 0.8)
+        XCTAssertEqual(a.first!.position.x, 1.3, accuracy: 1e-3)
+        XCTAssertEqual(a.count, 9)
+        // A step forward drops the nearest mark; the rest have not moved.
+        XCTAssertEqual(b.first!.position.x, a[1].position.x, accuracy: 1e-3)
+        // Near the stairs the trail ends at the first step and never climbs.
+        let near = GuidePlacement.trail(from: SIMD2(7, 0), userFloorY: 0, stops: stops, start: 1.2, reach: 8, spacing: 0.8)
+        XCTAssertFalse(near.isEmpty)
+        XCTAssertTrue(near.allSatisfy { $0.position.z == 0 && $0.position.y == 0 && $0.position.x < 10.11 })
+    }
+}

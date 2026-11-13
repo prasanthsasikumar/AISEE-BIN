@@ -53,4 +53,24 @@ enum GuidePlacement {
         }
         return Result(position: SIMD3(point.x, pointY, point.y), facing: facing, waiting: true)
     }
+
+    /// Floor marks every `spacing` metres along the route, from `start` to
+    /// `reach` metres ahead of the visitor, nearest first (the NUS app's floor
+    /// arrows). Marks are counted from the first stop, so they stay put on the
+    /// floor as the visitor walks instead of sliding along with them. The
+    /// trail ends at a hold point or the destination.
+    static func trail(from user: SIMD2<Float>, userFloorY: Float, stops: [Stop],
+                      start: Float, reach: Float, spacing: Float) -> [Result] {
+        guard let first = stops.first, spacing > 0, reach > start else { return [] }
+        let toFirst = simd_length(first.planar - user)
+        // Distances ahead of the visitor that fall on the spacing grid anchored at the first stop.
+        var ahead = toFirst - spacing * ((toFirst - start) / spacing).rounded(.down)
+        var marks: [Result] = []
+        while ahead <= reach {
+            guard let mark = place(from: user, userFloorY: userFloorY, stops: stops, lookAhead: ahead), !mark.waiting else { break }
+            marks.append(mark)
+            ahead += spacing
+        }
+        return marks
+    }
 }

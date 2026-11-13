@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// NUS Computing Tour (built as NUS Open House Guide): the AISEE-BIN positioning and routing, with a tour of
-/// the open-house locations and SoCat walking ahead on the camera view.
+/// the open-house locations and the way drawn on the camera view.
 @main
 struct NUSOpenHouseApp: App {
     @State private var viewModel: NavigationViewModel

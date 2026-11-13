@@ -1,26 +1,37 @@
 import SwiftUI
 
-/// The camera view with SoCat leading, a header with the stop, and a card with
-/// what to do next.
+/// The camera view with arrows on the floor, a small map, a header with the
+/// stop, and a card with what to do next.
 struct NUSGuideView: View {
     let viewModel: NavigationViewModel
     let guide: TourGuide
     let onStaff: () -> Void
-    @State private var hint: SoCatHint = .hidden
+    @State private var hint: RouteHint = .hidden
 
     var body: some View {
         ZStack {
-            SoCatARView(viewModel: viewModel, guide: guide) { hint = $0 }
+            RouteARView(viewModel: viewModel, guide: guide) { hint = $0 }
                 .ignoresSafeArea()
 
+            let cue = RouteCue(viewModel: viewModel, pose: viewModel.mapPose)
             VStack(spacing: 0) {
                 header
+                if guide.phase == .leading, viewModel.localizationStatus.isReliable, let pose = viewModel.mapPose {
+                    NUSMiniMap(map: viewModel.displayMap, levels: viewModel.engine.levels, pose: pose,
+                               cue: cue, destinationID: guide.current?.id)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 10)
+                }
                 Spacer()
-                if guide.phase == .leading, viewModel.localizationStatus.isReliable, hint == .left || hint == .right {
+                if let notice = guide.notice {
+                    noticeBanner(notice)
+                } else if guide.phase == .leading, cue != nil, hint == .left || hint == .right || hint == .down {
                     lookHint
                 }
-                card
+                card(cue)
             }
+            .animation(.snappy, value: guide.notice)
         }
         .preferredColorScheme(.light)
         .onChange(of: viewModel.localizationStatus.isReliable) { _, reliable in
@@ -72,9 +83,10 @@ struct NUSGuideView: View {
 
     // MARK: Cards
 
-    @ViewBuilder private var card: some View {
+    @ViewBuilder private func card(_ cue: RouteCue?) -> some View {
         switch guide.phase {
-        case .leading: leadingCard
+        case .leading:
+            if let cue, let text = cue.stairsText, let run = cue.run { stairsCard(text, run: run, cue: cue) } else { leadingCard }
         case .arrived: arrivedCard
         case .finished: finishedCard
         case .home: EmptyView()
@@ -94,7 +106,7 @@ struct NUSGuideView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if reliable, viewModel.isNavigating {
-                Text("\(max(1, Int(viewModel.remainingDistance.rounded()))) m to go · follow \(NUS.mascot)")
+                Text("\(max(1, Int(viewModel.remainingDistance.rounded()))) m to \(guide.current?.name ?? "go") · follow the arrows")
                     .font(.subheadline)
                     .foregroundStyle(NUS.inkSecondary)
             } else if !reliable {
@@ -102,17 +114,78 @@ struct NUSGuideView: View {
                     .font(.subheadline)
                     .foregroundStyle(NUS.inkSecondary)
             }
-            if guide.isTour && !guide.startPending {
-                Button("Skip this stop") { guide.skipStop() }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(NUS.blue)
-            }
+            skipButton
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
         .background(NUS.card, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
         .padding(16)
+    }
+
+    @ViewBuilder private var skipButton: some View {
+        if guide.isTour && !guide.startPending {
+            Button(guide.isLastStop ? "Skip and finish the tour" : "Skip to \(guide.stops[guide.index + 1].name)") { guide.skipStop() }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(NUS.blue)
+                .frame(minHeight: 32)
+        }
+    }
+
+    /// Stairs or a lift are next: a card of its own, big enough to read at a glance.
+    private func stairsCard(_ text: String, run: StairRun, cue: RouteCue) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 14) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: run.kind == .lift ? "arrow.up.arrow.down.square.fill" : "figure.stairs")
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 68, height: 68)
+                        .background(NUS.blue, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    Image(systemName: run.up ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(.white, NUS.orange)
+                        .offset(x: 8, y: -8)
+                }
+                .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(text)
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(NUS.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(stairsDetail(cue))
+                        .font(.subheadline)
+                        .foregroundStyle(NUS.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            skipButton
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(NUS.card, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+        .padding(16)
+    }
+
+    private func stairsDetail(_ cue: RouteCue) -> String {
+        let place = guide.current?.name ?? "the next stop"
+        let onLevel = "\(place) is on Level \(guide.current.map { viewModel.engine.levels.level(of: $0.id) } ?? cue.run?.toLevel ?? 1)"
+        if case .stairsAhead(_, let metres) = cue.stage, metres > 2 {
+            return "\(Int(metres.rounded())) m ahead · \(onLevel)"
+        }
+        return onLevel
+    }
+
+    private func noticeBanner(_ text: String) -> some View {
+        Label(text, systemImage: "forward.end.fill")
+            .font(.headline)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 18).padding(.vertical, 12)
+            .background(NUS.blue, in: Capsule())
+            .shadow(color: .black.opacity(0.2), radius: 8, y: 3)
+            .padding(.horizontal, 16)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     private var arrivedCard: some View {
@@ -149,7 +222,7 @@ struct NUSGuideView: View {
         VStack(spacing: 12) {
             Image("SoCatWave").resizable().scaledToFit().frame(height: 80)
             Text("Tour complete!").font(.title.weight(.bold)).foregroundStyle(NUS.ink)
-            Text("You've visited all \(guide.stops.count) stops. Thanks for exploring NUS Computing with \(NUS.mascot).")
+            Text("You've visited all \(guide.stops.count) stops. Thanks for exploring NUS Computing.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(NUS.inkSecondary)
             Button { guide.exit() } label: { Text("Back to start") }
@@ -164,42 +237,27 @@ struct NUSGuideView: View {
     private var lookHint: some View {
         HStack(spacing: 8) {
             if hint == .left { Image(systemName: "arrow.left") }
-            Text("\(NUS.mascot) is to your \(hint == .left ? "left" : "right")")
+            if hint == .down { Image(systemName: "arrow.down") }
+            Text(hint == .down ? "Tilt your phone down to see the arrows" : "Turn \(hint == .left ? "left" : "right") to see the arrows")
             if hint == .right { Image(systemName: "arrow.right") }
         }
         .font(.headline)
         .foregroundStyle(.white)
         .padding(.horizontal, 16).padding(.vertical, 10)
         .background(NUS.blue.opacity(0.9), in: Capsule())
-        .frame(maxWidth: .infinity, alignment: hint == .left ? .leading : .trailing)
+        .frame(maxWidth: .infinity, alignment: hint == .left ? .leading : hint == .right ? .trailing : .center)
         .padding(.horizontal, 16)
     }
 
     // MARK: Instruction
 
-    /// The level change on the current leg, or on the next one when it is close.
-    private var levelChangeText: String? {
-        let path = viewModel.routePath
-        let target = viewModel.routeLeg - 1
-        guard target >= 0, target < path.count else { return nil }
-        let levels = viewModel.engine.levels
-        if target > 0, let text = levels.levelChangeText(from: path[target - 1], to: path[target]) { return text }
-        if target + 1 < path.count, let text = levels.levelChangeText(from: path[target], to: path[target + 1]),
-           let instruction = viewModel.currentInstruction, instruction.distance < 6 {
-            return text
-        }
-        return nil
-    }
-
     private var instructionText: String {
-        if let text = levelChangeText { return text }
-        guard let instruction = viewModel.currentInstruction else { return "Follow \(NUS.mascot)" }
-        if viewModel.isOffRoute { return "Let's go back to \(NUS.mascot)" }
+        guard let instruction = viewModel.currentInstruction else { return "Follow the arrows" }
+        if viewModel.isOffRoute { return "Head back to the arrows" }
         return instruction.bannerText
     }
 
     private var instructionIcon: String {
-        if levelChangeText != nil { return levelChangeText!.contains("lift") ? "arrow.up.arrow.down.square" : "figure.stairs" }
         switch viewModel.currentInstruction?.direction {
         case .left?, .slightLeft?, .sharpLeft?: return "arrow.turn.up.left"
         case .right?, .slightRight?, .sharpRight?: return "arrow.turn.up.right"

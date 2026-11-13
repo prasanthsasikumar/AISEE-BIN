@@ -113,7 +113,7 @@ struct NUSHomeView: View {
                 Text("Hi! I'm \(NUS.mascot).")
                     .font(.largeTitle.weight(.bold))
                     .foregroundStyle(NUS.ink)
-                Text("Follow me around for a tour of NUS Computing. Hold up your phone and I'll walk ahead of you.")
+                Text("Let me show you around NUS Computing. Hold up your phone and follow the arrows on the floor.")
                     .font(.body)
                     .foregroundStyle(NUS.inkSecondary)
                     .multilineTextAlignment(.center)
