@@ -32,15 +32,20 @@ enum ServerConfig {
     static let isNUSApp = false
     #endif
 
+    /// The NUS app's map: NUS Computing from the Aria Gen 2 walk, published
+    /// under a `nus-` name (a copy of AISEE-BIN's `aria-nus-computing`).
+    static let nusDefaultSlug = "nus-computing"
+
     /// Whether this app offers a map in its pickers.
     static func lists(slug: String, nusApp: Bool = isNUSApp) -> Bool {
         slug.hasPrefix(nusPrefix) == nusApp
     }
 
-    /// The map to install on a phone with none: AISEE-BIN's starter, or the most
-    /// recently published `nus-` map in the NUS app.
+    /// The map to install on a phone with none: AISEE-BIN's starter; in the NUS
+    /// app its default map, or failing that the most recently published `nus-` map.
     static func starterSlug(from maps: [RemoteMapSummary], nusApp: Bool = isNUSApp) -> String? {
         guard nusApp else { return starterMapSlug }
+        if maps.contains(where: { $0.slug == nusDefaultSlug }) { return nusDefaultSlug }
         return maps.filter { lists(slug: $0.slug, nusApp: true) }.max { $0.createdAt < $1.createdAt }?.slug
     }
 

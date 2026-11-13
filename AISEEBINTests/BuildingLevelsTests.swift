@@ -156,10 +156,10 @@ final class StairRunTests: XCTestCase {
         NavigationMap(name: "nus-test", pois: [
             poi("seating", "Seating", 0, 0, y: 0.1, .destination),
             poi("junction", "Junction", 6, 0, y: 0.1),
-            poi("s1", "MPH stairs 1", 12, 0, y: 0.1),
-            poi("s2", "MPH stairs 2", 14, 0, y: 0.1),
-            poi("s3", "MPH stairs 3", 14, -2, y: 4.5),
-            poi("s4", "MPH stairs 4", 12, -2, y: 4.5),
+            poi("s1", "MPH stairs 1", 12, 0, y: nil),
+            poi("s2", "MPH stairs 2", 14, 0, y: nil),
+            poi("s3", "MPH stairs 3", 14, -2, y: nil),
+            poi("s4", "MPH stairs 4", 12, -2, y: nil),
             poi("corridor", "MPH corridor", 8, -2, y: 4.5),
             poi("mph", "MPH 2", 0, -2, y: 4.5, .destination),
         ], edges: [
@@ -224,5 +224,41 @@ final class StairRunTests: XCTestCase {
         let near = GuidePlacement.trail(from: SIMD2(7, 0), userFloorY: 0, stops: stops, start: 1.2, reach: 8, spacing: 0.8)
         XCTAssertFalse(near.isEmpty)
         XCTAssertTrue(near.allSatisfy { $0.position.z == 0 && $0.position.y == 0 && $0.position.x < 10.11 })
+    }
+
+    /// A map made from a recorded walk: a height on every node, so the steps
+    /// carry in-between heights, and a long ramp joins the same two floors.
+    func testMeasuredStairsAndARamp() {
+        var pois = [poi("lobby", "Lobby", -4, 0, y: -4.55), poi("a", "Entrance", 0, 0, y: -4.6, .destination), poi("b", "Hall", 4, 0, y: -4.5),
+                    poi("lab2", "Lab annexe", 18, 0, y: 0.05)]
+        // Stairs: 4.5 m up over 6 m.
+        for k in 1...5 { pois.append(poi("st\(k)", "Step \(k)", 4 + Float(k), 0, y: -4.5 + 0.75 * Float(k))) }
+        pois.append(poi("top", "Landing", 10, 0, y: 0))
+        pois.append(poi("lab", "Lab", 14, 0, y: 0.1, .destination))
+        // Ramp: the same climb over 90 m, back round to the hall.
+        for k in 1...17 { pois.append(poi("r\(k)", "Slope \(k)", 14, 5 * Float(k), y: -0.02 - 0.25 * Float(k - 1))) }
+        let stairs = ["a", "b", "st1", "st2", "st3", "st4", "st5", "top", "lab"]
+        let ramp = ["lab"] + (1...17).map { "r\($0)" } + ["b"]
+        var edges = [NavigationEdge(from: "lobby", to: "a"), NavigationEdge(from: "lab", to: "lab2")]
+        for path in [stairs, ramp] { for (x, y) in zip(path, path.dropFirst()) { edges.append(NavigationEdge(from: x, to: y)) } }
+        let levels = BuildingLevels(map: NavigationMap(name: "walk", pois: pois, edges: edges))
+        XCTAssertEqual(levels.levelHeights.count, 2)
+        XCTAssertEqual(levels.level(of: "a"), 1)
+        XCTAssertEqual(levels.level(of: "lab"), 2)
+        // The staircase is every climbing edge, found from the heights, not from names.
+        XCTAssertEqual(levels.stairRun(on: stairs, heading: 0), StairRun(start: 1, end: 7, kind: .stairs, up: true, toLevel: 2))
+        // The ramp changes floor without anything to climb.
+        XCTAssertNil(levels.stairRun(on: ramp, heading: 0))
+        XCTAssertNil(levels.levelChangeText(from: "r8", to: "r9"))
+    }
+
+    func testNUSStarterPrefersTheDefaultMap() {
+        func summary(_ slug: String, _ t: TimeInterval) -> RemoteMapSummary {
+            let json = #"{"mapSlug":"\#(slug)","name":"\#(slug)","version":1,"source":"ios","pointCount":0,"createdAt":\#(t)}"#
+            return try! JSONDecoder().decode(RemoteMapSummary.self, from: Data(json.utf8))
+        }
+        let maps = [summary("nus-com", 30), summary(ServerConfig.nusDefaultSlug, 20), summary("aria-nus-computing", 40)]
+        XCTAssertEqual(ServerConfig.starterSlug(from: maps, nusApp: true), ServerConfig.nusDefaultSlug)
+        XCTAssertFalse(ServerConfig.lists(slug: "aria-nus-computing", nusApp: true))
     }
 }

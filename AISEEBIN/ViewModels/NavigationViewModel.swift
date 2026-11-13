@@ -773,6 +773,18 @@ final class NavigationViewModel {
     /// Fetches the newest map version from the server and installs it when it
     /// is newer than the local bundle. Silent when offline.
     func checkForMapUpdate() async {
+        if ServerConfig.isNUSApp {
+            // Phones that installed the earlier iPhone-scanned map move to the
+            // Aria map once. After that the staff screen's choice stands.
+            let movedKey = "nus.movedTo." + ServerConfig.nusDefaultSlug
+            if localVersion?.slug == ServerConfig.nusDefaultSlug {
+                UserDefaults.standard.set(true, forKey: movedKey)
+            } else if localVersion != nil, !UserDefaults.standard.bool(forKey: movedKey) {
+                await switchMap(to: ServerConfig.nusDefaultSlug)
+                if localVersion?.slug == ServerConfig.nusDefaultSlug { UserDefaults.standard.set(true, forKey: movedKey) }
+                return
+            }
+        }
         syncState = .checking
         do {
             var slug = localVersion?.slug ?? (mapStore.hasSavedMap ? ServerConfig.mapSlug : ServerConfig.starterMapSlug)
