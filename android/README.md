@@ -96,7 +96,7 @@ glasses code is not started and its permissions are removed from this flavour's 
 | Positioning | `positioning/PhonePositioning.kt`, `immersal/Localizers.kt` | A map that names the Aria map server (`immersalAlignment.ariaServer`) is positioned by `AriaServerLocalizer` (`loc.flowsxr.com/localizeb64`); any other `nus-` map by Immersal. The anchor carries height, a far jump (over 8 m) needs six fixes in a row, and a jump in ARCore's own frame drops the anchor until the next fix. |
 | Tour | `nus/TourGuide.kt`, `nus/NusModel.kt` | Starts at the nearest stop, then map order; skip, arrival cards, one place at a time. Voice is off until the visitor turns it on. |
 | Camera view | `nus/RouteOverlay.kt` | Floor arrows, the pin over the place and the 3D staircase, drawn with OpenGL over ARCore's camera picture. |
-| Screens | `nus/NusScreens.kt`, `nus/NusGuideScreen.kt`, `nus/NusMiniMap.kt` | Home, the first-launch welcome with the tour map (`nus/NusIntro.kt`), places, guide cards, the heading-up one-floor map, and the staff screen (five taps on the NUS logo). |
+| Screens | `nus/NusScreens.kt`, `nus/NusGuideScreen.kt`, `nus/NusMiniMap.kt` | Home, places, guide cards, the heading-up one-floor map, and the staff screen (five taps on the NUS logo). |
 
 **Debug builds** can be driven over USB:
 
@@ -104,7 +104,7 @@ glasses code is not started and its permissions are removed from this flavour's 
 adb shell am broadcast -a com.flowsxr.nusopenhouse.DEBUG -p com.flowsxr.nusopenhouse --es cmd <command>
 ```
 
-- **Tour:** `tour`, `go --es id <poi id>`, `skip`, `next`, `exit`, `places`, `staff`, `intro` (the welcome screen), `voice --es on true|false`, `map --es slug <slug>`.
+- **Tour:** `tour`, `go --es id <poi id>`, `skip`, `next`, `exit`, `places`, `staff`, `voice --es on true|false`, `map --es slug <slug>`.
 - **Stand somewhere:** `standat --es id <poi id>` behaves as if a fix had found the phone at that place, facing the way the camera faces. The camera must be tracking (hold the phone up in a lit room). The arrows then show from anywhere.
 - **Inject a position:** `fix --ef x <m> --ef z <m> --ef h <rad> --ef y <height m>`. Works without tracking, but draws nothing on the camera view.
 

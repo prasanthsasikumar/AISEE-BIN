@@ -7,35 +7,20 @@ struct NUSRootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingPlaces = false
     @State private var showingStaff = false
-    /// The welcome screen is shown once, on the first launch; "About this tour" on the home screen brings it back.
-    @AppStorage("nus.introSeen") private var introSeen = false
-    @State private var showingIntro = false
 
     var body: some View {
         ZStack {
             if guide.phase == .home {
                 NUSHomeView(viewModel: viewModel, guide: guide,
                             onChoose: { showingPlaces = true },
-                            onStaff: { showingStaff = true },
-                            onAbout: { showingIntro = true })
+                            onStaff: { showingStaff = true })
                     .transition(.opacity)
             } else {
                 NUSGuideView(viewModel: viewModel, guide: guide, onStaff: { showingStaff = true })
                     .transition(.opacity)
             }
         }
-        .overlay {
-            if guide.phase == .home, !introSeen || showingIntro {
-                NUSIntroView(viewModel: viewModel, guide: guide) {
-                    viewModel.usage.log("intro.done", ["first": .bool(!introSeen)])
-                    introSeen = true
-                    showingIntro = false
-                }
-                .transition(.opacity)
-            }
-        }
         .animation(.easeInOut(duration: 0.25), value: guide.phase == .home)
-        .animation(.easeInOut(duration: 0.25), value: introSeen || !showingIntro)
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
             viewModel.startSession()
@@ -106,7 +91,6 @@ struct NUSHomeView: View {
     let guide: TourGuide
     let onChoose: () -> Void
     let onStaff: () -> Void
-    let onAbout: () -> Void
 
     private var hasMap: Bool { viewModel.localVersion != nil }
 
@@ -126,12 +110,12 @@ struct NUSHomeView: View {
             .padding(.horizontal, 20)
             .padding(.top, 8)
 
-            Spacer(minLength: 12)
+            Spacer(minLength: 8)
 
             Image("SoCat")
                 .resizable()
                 .scaledToFit()
-                .frame(maxHeight: 190)
+                .frame(maxHeight: hasMap ? 104 : 190)
                 .padding(.horizontal, 40)
                 .accessibilityHidden(true)
 
@@ -145,9 +129,19 @@ struct NUSHomeView: View {
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, 28)
-            .padding(.top, 16)
+            .padding(.top, 12)
 
-            Spacer(minLength: 16)
+            if hasMap, !guide.places.isEmpty {
+                NUSTourCloud(map: viewModel.displayMap, levels: viewModel.engine.levels, places: guide.places,
+                             pointData: viewModel.mapStore.loadPointCloud())
+                    .frame(maxWidth: .infinity, minHeight: 140, maxHeight: 250)
+                    .background(Color(dsHex: TourScene.background), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .padding(.horizontal, 20)
+                    .padding(.top, 14)
+            }
+
+            Spacer(minLength: 14)
 
             VStack(spacing: 14) {
                 Button {
@@ -163,11 +157,6 @@ struct NUSHomeView: View {
                 }
                 .buttonStyle(NUSButtonStyle(fill: NUS.blue))
                 .disabled(!hasMap || guide.places.isEmpty)
-
-                Button("About this tour", action: onAbout)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(NUS.blue)
-                    .frame(minHeight: 44)
 
                 Text(statusLine)
                     .font(.footnote)
@@ -194,103 +183,164 @@ struct NUSHomeView: View {
     }
 }
 
-// MARK: - Welcome (first launch): what this is, and the tour on a map
+// MARK: - The tour in 3D on the home screen
 
-struct NUSIntroView: View {
-    let viewModel: NavigationViewModel
-    let guide: TourGuide
-    let onDone: () -> Void
-
-    private var hasMap: Bool { viewModel.localVersion != nil }
+/// The building as the scan's point cloud, with the paths and the numbered
+/// stops. It turns for three seconds when it appears, then rests seen from
+/// above at a slight angle. Tap to play it again.
+struct NUSTourCloud: View {
+    let map: NavigationMap
+    let levels: BuildingLevels
+    let places: [NavigationPOI]
+    /// Raw little-endian float triplets (x, y, z), as `MapStore` keeps them.
+    let pointData: Data?
+    @State private var scene: TourScene?
+    @State private var started = Date()
+    @State private var settled = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let places = hasMap ? guide.places : []
-        let levels = viewModel.engine.levels
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Image("NUSLogo").resizable().scaledToFit().frame(height: 40)
-                        .accessibilityLabel("NUS Computing")
-                    Text("Welcome to NUS Computing")
-                        .font(.largeTitle.weight(.bold))
-                        .foregroundStyle(NUS.ink)
-                        .accessibilityAddTraits(.isHeader)
-                    Text(NUSTourOverview.summary(stops: places.count, floors: levels.levelHeights.count))
-                        .font(.body)
-                        .foregroundStyle(NUS.inkSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    if places.isEmpty {
-                        Text("Getting the building map…")
-                            .font(.subheadline)
-                            .foregroundStyle(NUS.inkSecondary)
-                            .frame(maxWidth: .infinity, minHeight: 160)
-                            .background(NUS.card, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-                    } else {
-                        VStack(alignment: .leading, spacing: 12) {
-                            NUSTourMap(map: viewModel.displayMap, levels: levels, places: places)
-                            LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)],
-                                      alignment: .leading, spacing: 8) {
-                                ForEach(Array(places.enumerated()), id: \.element.id) { index, poi in
-                                    HStack(spacing: 8) {
-                                        Text("\(index + 1)")
-                                            .font(.caption.weight(.bold))
-                                            .foregroundStyle(.white)
-                                            .frame(width: 22, height: 22)
-                                            .background(NUSTourOverview.colour(level: levels.level(of: poi.id)), in: Circle())
-                                        Text(poi.name).font(.subheadline).foregroundStyle(NUS.ink).lineLimit(1)
-                                    }
-                                    .accessibilityElement(children: .ignore)
-                                    .accessibilityLabel("\(index + 1), \(poi.name)" + (levels.isMultiLevel ? ", Level \(levels.level(of: poi.id))" : ""))
-                                }
-                            }
-                            if levels.isMultiLevel {
-                                HStack(spacing: 14) {
-                                    ForEach(1...levels.levelHeights.count, id: \.self) { level in
-                                        HStack(spacing: 6) {
-                                            Circle().fill(NUSTourOverview.colour(level: level)).frame(width: 10, height: 10)
-                                            Text("Level \(level)").font(.caption.weight(.semibold)).foregroundStyle(NUS.inkSecondary)
-                                        }
-                                    }
-                                }
-                                .accessibilityHidden(true)
-                            }
-                        }
-                        .padding(14)
-                        .background(NUS.card, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-
-                        Text("The tour starts from the stop nearest to you, and you can skip any stop.")
-                            .font(.footnote)
-                            .foregroundStyle(NUS.inkSecondary)
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 16)
+        TimelineView(.animation(paused: settled || scene == nil)) { timeline in
+            Canvas { context, size in
+                guard let scene else { return }
+                let t = reduceMotion ? 1 : min(1, timeline.date.timeIntervalSince(started) / TourScene.seconds)
+                draw(scene, progress: t, &context, size)
+                if t >= 1, !settled { DispatchQueue.main.async { settled = true } }
             }
-            Button(action: onDone) { Text("Got it") }
-                .buttonStyle(NUSButtonStyle(fill: NUS.orange))
-                .padding(.horizontal, 20)
-                .padding(.vertical, 14)
         }
-        .background(NUS.canvas.ignoresSafeArea())
-        .preferredColorScheme(.light)
-        .onAppear { viewModel.usage.log("intro.shown", [:]) }
+        .contentShape(Rectangle())
+        .onTapGesture { started = Date(); settled = false }
+        .task(id: "\(map.name)-\(map.pois.count)-\(pointData?.count ?? 0)") {
+            let map = map, levels = levels, data = pointData
+            scene = await Task.detached(priority: .userInitiated) { TourScene(map: map, levels: levels, pointData: data) }.value
+            started = Date(); settled = false
+        }
+        .accessibilityElement()
+        .accessibilityLabel("Map of the tour from above, with \(places.count) numbered stops")
+    }
+
+    private func draw(_ scene: TourScene, progress: Double, _ context: inout GraphicsContext, _ size: CGSize) {
+        let view = scene.view(progress: Float(progress), width: Float(size.width), height: Float(size.height))
+        func pt(_ p: SIMD3<Float>) -> CGPoint { let q = view.project(p); return CGPoint(x: CGFloat(q.x), y: CGFloat(q.y)) }
+        // The cloud, coloured by height: blue at the bottom, yellow at the top.
+        var bands = [Path](repeating: Path(), count: TourScene.bandColours.count)
+        for p in scene.points {
+            let q = pt(p)
+            bands[scene.band(of: p.y)].addRect(CGRect(x: q.x - 0.65, y: q.y - 0.65, width: 1.3, height: 1.3))
+        }
+        let fade = min(1, progress / 0.15)
+        for (band, path) in bands.enumerated() {
+            context.fill(path, with: .color(Color(dsHex: TourScene.bandColours[band]).opacity(0.85 * fade)))
+        }
+
+        var paths = Path()
+        for (a, b) in scene.edges {
+            paths.move(to: pt(a)); paths.addLine(to: pt(b))
+        }
+        context.stroke(paths, with: .color(.white.opacity(0.9)), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+
+        let badges = NUSTourOverview.spread(scene.stops.map { pt($0.position) }, minDistance: 21)
+        for (index, p) in badges.enumerated() {
+            let badge = CGRect(x: p.x - 10, y: p.y - 10, width: 20, height: 20)
+            context.fill(Path(ellipseIn: badge), with: .color(scene.stops[index].level <= 1 ? NUS.blue : NUS.orange))
+            context.stroke(Path(ellipseIn: badge), with: .color(.white), lineWidth: 1.5)
+            context.draw(Text("\(index + 1)").font(.system(size: 11, weight: .bold)).foregroundStyle(.white), at: p)
+        }
     }
 }
 
-/// Words, colours and layout the welcome map shares with Android (`TourOverview`).
-enum NUSTourOverview {
-    static func summary(stops: Int, floors: Int) -> String {
-        let intro = "This is a self-guided tour of the School of Computing. Hold up your phone and follow the orange arrows on the floor"
-        guard stops > 0 else { return intro + "." }
-        let places = "\(stops) place\(stops == 1 ? "" : "s")" + (floors > 1 ? " across \(floors) floors" : "")
-        return intro + " to \(places). The whole tour takes about ten minutes."
+/// What the home screen's 3D map draws, worked out once per map. The same numbers as Android's `TourScene`.
+struct TourScene: Sendable {
+    static let seconds = 3.0
+    static let maxPoints = 36_000
+    /// The card behind the cloud, and the cloud's colours from the lowest points to the highest.
+    static let background: UInt32 = 0x0D1017
+    static let bandColours: [UInt32] = [0x3F6FD8, 0x7F9BD6, 0xBFC3A0, 0xE3C85A, 0xF5C518]
+
+    struct Stop: Sendable { let position: SIMD3<Float>; let level: Int }
+    let points: [SIMD3<Float>]
+    let edges: [(SIMD3<Float>, SIMD3<Float>)]
+    let stops: [Stop]
+    let centre: SIMD3<Float>
+    /// The larger of the map's width and depth, metres.
+    let span: Float
+    /// The heights the colours run between.
+    let lowest: Float, highest: Float
+
+    func band(of y: Float) -> Int {
+        let t = (y - lowest) / max(highest - lowest, 0.1)
+        return max(0, min(Self.bandColours.count - 1, Int(t * Float(Self.bandColours.count))))
     }
 
-    /// Level 1 is blue, every floor above it orange.
-    static func colour(level: Int) -> Color { level <= 1 ? NUS.blue : NUS.orange }
+    init?(map: NavigationMap, levels: BuildingLevels, pointData: Data?) {
+        guard !map.pois.isEmpty else { return nil }
+        let xs = map.pois.map(\.x), zs = map.pois.map(\.z)
+        // Floor heights: places are marked at camera height.
+        func floor(_ poi: NavigationPOI) -> Float { levels.floorHeight(of: poi.id) ?? 0 }
+        let ys = map.pois.map(floor)
+        let lo = SIMD3(xs.min()!, ys.min()!, zs.min()!), hi = SIMD3(xs.max()!, ys.max()!, zs.max()!)
+        centre = (lo + hi) / 2
+        span = max(hi.x - lo.x, hi.z - lo.z, 1)
+        lowest = lo.y - 0.5
+        highest = hi.y + 4
+        let byID = Dictionary(map.pois.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        func at(_ poi: NavigationPOI) -> SIMD3<Float> { SIMD3(poi.x, floor(poi), poi.z) }
+        edges = map.edges.compactMap { e in
+            guard let a = byID[e.from], let b = byID[e.to] else { return nil }
+            return (at(a), at(b))
+        }
+        stops = map.pois.filter { ($0.category == .destination || $0.category == .exhibit) && $0.id != map.tourStart }
+            .map { Stop(position: at($0), level: levels.level(of: $0.id)) }
+        points = Self.sample(pointData, centre: centre, span: span, minY: lo.y - 1, maxY: hi.y + 6)
+    }
 
+    /// An even sample of the cloud, kept to the area of the paths and to sensible heights.
+    static func sample(_ data: Data?, centre: SIMD3<Float>, span: Float, minY: Float, maxY: Float) -> [SIMD3<Float>] {
+        guard let data, data.count >= 12 else { return [] }
+        let count = data.count / 12
+        let stride = max(1, count / (maxPoints * 5 / 4))
+        var out: [SIMD3<Float>] = []
+        out.reserveCapacity(maxPoints)
+        data.withUnsafeBytes { raw in
+            var i = 0
+            while i < count, out.count < maxPoints {
+                let p = SIMD3(raw.loadUnaligned(fromByteOffset: i * 12, as: Float.self),
+                              raw.loadUnaligned(fromByteOffset: i * 12 + 4, as: Float.self),
+                              raw.loadUnaligned(fromByteOffset: i * 12 + 8, as: Float.self))
+                if abs(p.x - centre.x) < span * 0.62, abs(p.z - centre.z) < span * 0.62, p.y > minY, p.y < maxY { out.append(p) }
+                i += stride
+            }
+        }
+        return out
+    }
+
+    /// The camera at `progress` 0…1: it swings round and rises, easing to rest.
+    func view(progress: Float, width: Float, height: Float) -> View {
+        let e = 1 - pow(1 - max(0, min(1, progress)), 3)
+        return View(centre: centre, yaw: (1 - e) * -1.92, pitch: 0.42 + e * (0.92 - 0.42),
+                    scale: min(width / (span * 1.45), height / (span * 1.02)), width: width, height: height)
+    }
+
+    struct View {
+        let centre: SIMD3<Float>
+        /// Radians about the vertical; 0 has the map's −z at the top.
+        let yaw: Float
+        /// Radians down from the horizon; π/2 is straight down.
+        let pitch: Float
+        let scale: Float
+        let width: Float, height: Float
+
+        func project(_ p: SIMD3<Float>) -> SIMD2<Float> {
+            let d = p - centre
+            let x = d.x * cos(yaw) - d.z * sin(yaw)
+            let z = d.x * sin(yaw) + d.z * cos(yaw)
+            return SIMD2(width / 2 + x * scale, height / 2 + (z * sin(pitch) - d.y * cos(pitch)) * scale)
+        }
+    }
+}
+
+/// Layout the home map shares with Android (`TourOverview`).
+enum NUSTourOverview {
     /// Moves badges that would overlap apart, a little at a time, so each number can be read.
     static func spread(_ points: [CGPoint], minDistance: CGFloat) -> [CGPoint] {
         var p = points
@@ -308,50 +358,6 @@ enum NUSTourOverview {
             }
         }
         return p
-    }
-}
-
-/// The whole tour from above: every path, and the stops numbered in tour order.
-struct NUSTourMap: View {
-    let map: NavigationMap
-    let levels: BuildingLevels
-    let places: [NavigationPOI]
-
-    var body: some View {
-        Canvas { context, size in
-            let all = map.pois.map(\.planarPosition)
-            guard let minX = all.map(\.x).min(), let maxX = all.map(\.x).max(),
-                  let minZ = all.map(\.y).min(), let maxZ = all.map(\.y).max() else { return }
-            let pad: CGFloat = 18
-            let span = CGFloat(max(maxX - minX, maxZ - minZ, 1))
-            let scale = (min(size.width, size.height) - 2 * pad) / span
-            let offset = CGPoint(x: (size.width - CGFloat(maxX - minX) * scale) / 2, y: (size.height - CGFloat(maxZ - minZ) * scale) / 2)
-            func pt(_ p: SIMD2<Float>) -> CGPoint {
-                CGPoint(x: offset.x + CGFloat(p.x - minX) * scale, y: offset.y + CGFloat(p.y - minZ) * scale)
-            }
-            let byID = Dictionary(map.pois.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-            var paths = Path()
-            for edge in map.edges {
-                guard let a = byID[edge.from], let b = byID[edge.to] else { continue }
-                paths.move(to: pt(a.planarPosition))
-                paths.addLine(to: pt(b.planarPosition))
-            }
-            context.stroke(paths, with: .color(NUS.inkSecondary.opacity(0.3)), style: StrokeStyle(lineWidth: 4, lineCap: .round))
-
-            let badges = NUSTourOverview.spread(places.map { pt($0.planarPosition) }, minDistance: 26)
-            for (index, p) in badges.enumerated() {
-                let badge = CGRect(x: p.x - 12, y: p.y - 12, width: 24, height: 24)
-                context.fill(Path(ellipseIn: badge), with: .color(NUSTourOverview.colour(level: levels.level(of: places[index].id))))
-                context.stroke(Path(ellipseIn: badge), with: .color(.white), lineWidth: 2)
-                context.draw(Text("\(index + 1)").font(.caption.weight(.bold)).foregroundStyle(.white), at: p)
-            }
-        }
-        .aspectRatio(1, contentMode: .fit)
-        .frame(maxWidth: 300)
-        .frame(maxWidth: .infinity)
-        .background(NUS.canvas, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .accessibilityElement()
-        .accessibilityLabel("Map of the tour with \(places.count) numbered stops")
     }
 }
 

@@ -38,6 +38,7 @@ object MapRepository {
             ?: maps.filter { lists(it.slug, nusApp = true) }.maxByOrNull { it.createdAt }?.slug
 
     private const val BASE = "https://djfpemdkeguztyuerxqc.supabase.co/rest/v1/ab_map_versions"
+    private const val STORAGE = "https://djfpemdkeguztyuerxqc.supabase.co/storage/v1/object/public/aiseebin-maps"
     private const val KEY = "sb_publishable_hEk_pFTUws4X_SL7QKiFUA_DeFU9-YL"
 
     /** What came back, and whether it is the copy saved on the phone because the server was unreachable. */
@@ -100,6 +101,47 @@ object MapRepository {
         val rows = JSONArray(get(url))
         require(rows.length() > 0) { "No map called $slug on the server" }
         return rows.getJSONObject(0).getJSONObject("graph")
+    }
+
+    /**
+     * The scan's point cloud for the newest version of [slug]: x, y, z floats
+     * in the graph frame, or null when the map has none. Downloaded once per
+     * cloud and kept in [cacheDir]; the saved copy is used when offline.
+     */
+    fun loadPoints(slug: String, cacheDir: File): FloatArray? {
+        val safe = slug.replace(Regex("[^A-Za-z0-9_-]"), "_")
+        val file = File(cacheDir.apply { mkdirs() }, "$safe.points.f32")
+        val which = File(cacheDir, "$safe.points.path")
+        val path = try {
+            val rows = JSONArray(get("$BASE?select=pointcloud_path&map_slug=eq.${enc(slug)}&order=version.desc&limit=1"))
+            if (rows.length() == 0 || rows.getJSONObject(0).isNull("pointcloud_path")) return null
+            rows.getJSONObject(0).getString("pointcloud_path")
+        } catch (e: Exception) {
+            if (!file.isFile) throw e
+            null
+        }
+        if (path != null && !(file.isFile && which.isFile && which.readText() == path)) {
+            val conn = (URL("$STORAGE/$path").openConnection() as HttpURLConnection).apply {
+                connectTimeout = 10_000
+                readTimeout = 60_000
+            }
+            try {
+                if (conn.responseCode !in 200..299) error("Point cloud download answered ${conn.responseCode}")
+                val bytes = conn.inputStream.use { it.readBytes() }
+                // Stored gzipped; the server may or may not have unpacked it already.
+                val raw = if (bytes.size > 2 && bytes[0] == 0x1f.toByte() && bytes[1] == 0x8b.toByte()) {
+                    java.util.zip.GZIPInputStream(bytes.inputStream()).use { it.readBytes() }
+                } else bytes
+                file.writeBytes(raw)
+                which.writeText(path)
+            } finally {
+                conn.disconnect()
+            }
+        }
+        val raw = file.readBytes()
+        val floats = FloatArray(raw.size / 4)
+        java.nio.ByteBuffer.wrap(raw).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer().get(floats)
+        return floats
     }
 
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")

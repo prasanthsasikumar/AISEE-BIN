@@ -145,14 +145,21 @@ class NusModel(app: Application) : AndroidViewModel(app), TourHost {
     private val _voiceOn = MutableStateFlow(prefs.getBoolean(KEY_VOICE, false))
     val voiceOn: StateFlow<Boolean> = _voiceOn
 
-    /** The welcome screen has been seen (it is shown once, on the first launch). */
-    private val _introSeen = MutableStateFlow(prefs.getBoolean(KEY_INTRO, false))
-    val introSeen: StateFlow<Boolean> = _introSeen
+    /** The home screen's 3D map of the tour; null until the map (and, if it has one, its point cloud) is in. */
+    private val _tourScene = MutableStateFlow<TourScene?>(null)
+    val tourScene: StateFlow<TourScene?> = _tourScene
+    private var sceneJob: Job? = null
 
-    fun finishIntro() {
-        log("intro.done", JSONObject().put("first", !_introSeen.value))
-        _introSeen.value = true
-        prefs.edit().putBoolean(KEY_INTRO, true).apply()
+    private fun loadTourScene(slug: String, graph: RouteGraph) {
+        sceneJob?.cancel()
+        // Paths and stops at once; the cloud joins them when it has downloaded.
+        _tourScene.value = TourScene.of(graph, null)
+        sceneJob = viewModelScope.launch {
+            val points = withContext(Dispatchers.IO) { runCatching { MapRepository.loadPoints(slug, mapDir) } }
+            points.exceptionOrNull()?.let { append("point cloud: ${it.message}") }
+            val cloud = points.getOrNull() ?: return@launch
+            _tourScene.value = withContext(Dispatchers.Default) { TourScene.of(graph, cloud) }
+        }
     }
 
     fun setVoice(on: Boolean) {
@@ -296,6 +303,7 @@ class NusModel(app: Application) : AndroidViewModel(app), TourHost {
                         })
                 }
                 announcer = ProximityAnnouncer(map.pois)
+                loadTourScene(slug, RouteGraph(map))
                 append("loaded map ${map.name} ($slug v$version): ${map.pois.size} nodes, ${places.size} stops")
                 Usage.record("map.loaded", usageData("slug" to slug, "version" to version, "name" to map.name,
                     "source" to if (offline) "cache" else "network", "ms" to System.currentTimeMillis() - loadStart))
@@ -708,7 +716,6 @@ class NusModel(app: Application) : AndroidViewModel(app), TourHost {
         private const val KEY_MAP = "map.slug"
         /** The same preference name as iOS. */
         private const val KEY_VOICE = "nus.voice"
-        private const val KEY_INTRO = "nus.introSeen"
         /** `mode.enter`'s name for the visitor screen, as iOS logs it. */
         private const val MODE = "Navigate"
 
