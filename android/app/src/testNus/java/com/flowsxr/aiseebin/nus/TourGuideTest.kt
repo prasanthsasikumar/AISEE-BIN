@@ -155,4 +155,19 @@ class TourGuideTest {
         assertEquals(listOf(0f, 0f, 0f, 2f, 1f, 2f), kept.toList())
         assertEquals(0, TourScene.sample(null, 0f, 0f, 100f, -5f, 10f).size)
     }
+
+    @Test
+    fun `home map names go beside their badge and never over another badge or name`() {
+        val badges = listOf(Vec2(50f, 50f), Vec2(80f, 50f), Vec2(290f, 100f))
+        val sizes = List(3) { Vec2(40f, 12f) }
+        val boxes = TourOverview.placeLabels(badges, sizes, radius = 10f, gap = 3f, width = 300f, height = 200f)
+        // Badge 2 blocks the right of badge 1, and the left edge is too close: the name goes below.
+        assertEquals(63f, boxes[0]!!.top, 0.001f)
+        // Badge 2 has room on its right.
+        assertEquals(93f, boxes[1]!!.left, 0.001f)
+        // At the right edge the name goes to the left.
+        assertEquals(277f, boxes[2]!!.right, 0.001f)
+        val all = boxes.filterNotNull()
+        for (i in all.indices) for (j in i + 1 until all.size) assertFalse(all[i].overlaps(all[j]))
+    }
 }

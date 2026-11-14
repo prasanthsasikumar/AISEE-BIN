@@ -59,6 +59,33 @@ object TourOverview {
         }
         return x.indices.map { Vec2(x[it], y[it]) }
     }
+
+    /** A label's box: left, top, right, bottom. */
+    class Box(val left: Float, val top: Float, val right: Float, val bottom: Float) {
+        fun overlaps(o: Box) = left < o.right && o.left < right && top < o.bottom && o.top < bottom
+    }
+
+    /**
+     * Where each badge's name goes: beside it on the right, else the left,
+     * below or above, wherever it fits inside the card without covering a
+     * badge or a name already placed. Null when there is no room.
+     * [sizes] are the names' widths and heights.
+     */
+    fun placeLabels(badges: List<Vec2>, sizes: List<Vec2>, radius: Float, gap: Float, width: Float, height: Float): List<Box?> {
+        val taken = badges.map { Box(it.x - radius, it.z - radius, it.x + radius, it.z + radius) }.toMutableList()
+        return badges.indices.map { i ->
+            val b = badges[i]; val w = sizes[i].x; val h = sizes[i].z
+            val options = listOf(
+                Box(b.x + radius + gap, b.z - h / 2, b.x + radius + gap + w, b.z + h / 2),
+                Box(b.x - radius - gap - w, b.z - h / 2, b.x - radius - gap, b.z + h / 2),
+                Box(b.x - w / 2, b.z + radius + gap, b.x + w / 2, b.z + radius + gap + h),
+                Box(b.x - w / 2, b.z - radius - gap - h, b.x + w / 2, b.z - radius - gap),
+            )
+            options.firstOrNull { o ->
+                o.left >= 2 && o.top >= 2 && o.right <= width - 2 && o.bottom <= height - 2 && taken.none { it.overlaps(o) }
+            }?.also { taken += it }
+        }
+    }
 }
 
 /**
@@ -77,7 +104,7 @@ class TourScene private constructor(
     /** The heights the colours run between. */
     val lowest: Float, val highest: Float,
 ) {
-    class Stop(val x: Float, val y: Float, val z: Float, val level: Int)
+    class Stop(val x: Float, val y: Float, val z: Float, val level: Int, val name: String)
 
     fun band(y: Float): Int = (((y - lowest) / max(highest - lowest, 0.1f)) * BAND_COLOURS.size).toInt().coerceIn(0, BAND_COLOURS.size - 1)
 
@@ -122,7 +149,7 @@ class TourScene private constructor(
                 edges += listOf(a.position.x, floor(a.id), a.position.z, b.position.x, floor(b.id), b.position.z)
             }
             val stops = map.pois.filter { it.isDestination && it.id != map.tourStart }
-                .map { Stop(it.position.x, floor(it.id), it.position.z, graph.levels.levelOf(it.id)) }
+                .map { Stop(it.position.x, floor(it.id), it.position.z, graph.levels.levelOf(it.id), it.name) }
             return TourScene(sample(cloud, cx, cz, span, minY - 1, maxY + 6), edges.toFloatArray(), stops, cx, cy, cz, span,
                 lowest = minY - 0.5f, highest = maxY + 4)
         }
@@ -156,10 +183,14 @@ class TourScene private constructor(
 @Composable
 fun NusTourCloud(scene: TourScene, modifier: Modifier = Modifier) {
     val progress = remember { Animatable(0f) }
+    // The stops' names fade in once the map has come to rest.
+    val names = remember { Animatable(0f) }
     var replay by remember { mutableIntStateOf(0) }
     LaunchedEffect(scene, replay) {
+        names.snapTo(0f)
         progress.snapTo(0f)
         progress.animateTo(1f, tween(TourScene.MILLIS, easing = LinearEasing))
+        names.animateTo(1f, tween(500))
     }
     val measurer = rememberTextMeasurer()
     // Points sorted into colour bands once; only their screen positions change per frame.
@@ -198,6 +229,20 @@ fun NusTourCloud(scene: TourScene, modifier: Modifier = Modifier) {
             drawCircle(Color.White, 10.dp.toPx(), centre, style = Stroke(1.5.dp.toPx()))
             val text = measurer.measure("${index + 1}", style)
             drawText(text, topLeft = Offset(centre.x - text.size.width / 2f, centre.y - text.size.height / 2f))
+        }
+        if (names.value > 0f) {
+            val nameStyle = TextStyle(color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+            val texts = scene.stops.map { measurer.measure(it.name, nameStyle, maxLines = 1) }
+            val padX = 5.dp.toPx(); val padY = 2.dp.toPx()
+            val boxes = TourOverview.placeLabels(badges, texts.map { Vec2(it.size.width + 2 * padX, it.size.height + 2 * padY) },
+                radius = 10.dp.toPx(), gap = 3.dp.toPx(), width = size.width, height = size.height)
+            boxes.forEachIndexed { index, box ->
+                if (box == null) return@forEachIndexed
+                drawRoundRect(TourScene.BACKGROUND.copy(alpha = 0.78f * names.value), Offset(box.left, box.top),
+                    androidx.compose.ui.geometry.Size(box.right - box.left, box.bottom - box.top),
+                    androidx.compose.ui.geometry.CornerRadius(6.dp.toPx()))
+                drawText(texts[index], topLeft = Offset(box.left + padX, box.top + padY), alpha = names.value)
+            }
         }
     }
 }
