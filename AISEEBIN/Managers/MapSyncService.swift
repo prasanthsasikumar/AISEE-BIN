@@ -107,17 +107,25 @@ struct LocalMapVersion: Codable, Equatable {
     /// Which server map this bundle belongs to. Once set, publishing keeps using
     /// it, so renaming a map does not orphan its version history.
     var slug: String
+    /// The app build that saved this copy; nil on copies from before this was
+    /// recorded. The saved map is re-encoded by the app, so a build drops any
+    /// field it does not know: a copy from another build is fetched again.
+    var savedByBuild: String?
 
-    init(version: Int, source: MapSource, updatedAt: Date, slug: String = ServerConfig.mapSlug) {
+    static var currentBuild: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "" }
+
+    init(version: Int, source: MapSource, updatedAt: Date, slug: String = ServerConfig.mapSlug,
+         savedByBuild: String? = LocalMapVersion.currentBuild) {
         self.version = version
         self.source = source
         self.updatedAt = updatedAt
         self.slug = slug
+        self.savedByBuild = savedByBuild
     }
 
     // Records written before maps could be named have no slug on disk; they are
     // all bundles of the one hardcoded map.
-    private enum CodingKeys: String, CodingKey { case version, source, updatedAt, slug }
+    private enum CodingKeys: String, CodingKey { case version, source, updatedAt, slug, savedByBuild }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -125,6 +133,7 @@ struct LocalMapVersion: Codable, Equatable {
         source = try c.decode(MapSource.self, forKey: .source)
         updatedAt = try c.decode(Date.self, forKey: .updatedAt)
         slug = try c.decodeIfPresent(String.self, forKey: .slug) ?? ServerConfig.mapSlug
+        savedByBuild = try c.decodeIfPresent(String.self, forKey: .savedByBuild)
     }
 }
 
@@ -221,9 +230,16 @@ struct MapSyncService {
     }()
 
     /// `true` when the server has something the device does not.
-    static func shouldDownload(remoteVersion: Int, local: LocalMapVersion?) -> Bool {
+    /// A newer version is always fetched. The same version is fetched again
+    /// when the copy on the phone was saved by a different build of the app
+    /// (see `LocalMapVersion.savedByBuild`): on 14 Nov 2026 a phone kept a copy
+    /// an older build had saved without the map's Aria server, and could not
+    /// find its position.
+    static func shouldDownload(remoteVersion: Int, local: LocalMapVersion?,
+                               currentBuild: String = LocalMapVersion.currentBuild) -> Bool {
         guard let local else { return true }
-        return remoteVersion > local.version
+        if remoteVersion > local.version { return true }
+        return remoteVersion == local.version && local.savedByBuild != currentBuild
     }
 
     // MARK: - Read

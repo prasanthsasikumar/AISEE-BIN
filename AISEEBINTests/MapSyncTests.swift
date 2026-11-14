@@ -45,6 +45,18 @@ final class MapSyncTests: XCTestCase {
         XCTAssertTrue(MapSyncService.shouldDownload(remoteVersion: 1, local: nil))
     }
 
+    func testSameVersionIsFetchedAgainWhenAnotherBuildSavedTheCopy() {
+        let byThisBuild = LocalMapVersion(version: 2, source: .web, updatedAt: Date(), slug: "nus-computing", savedByBuild: "9")
+        XCTAssertFalse(MapSyncService.shouldDownload(remoteVersion: 2, local: byThisBuild, currentBuild: "9"))
+        XCTAssertTrue(MapSyncService.shouldDownload(remoteVersion: 2, local: byThisBuild, currentBuild: "10"))
+        // A copy from before the build was recorded decodes with no build, and is fetched once.
+        let old = try! JSONDecoder().decode(LocalMapVersion.self, from: Data(#"{"version":2,"source":"web","updatedAt":0,"slug":"nus-computing"}"#.utf8))
+        XCTAssertNil(old.savedByBuild)
+        XCTAssertTrue(MapSyncService.shouldDownload(remoteVersion: 2, local: old, currentBuild: "9"))
+        // An older server version never replaces a newer copy.
+        XCTAssertFalse(MapSyncService.shouldDownload(remoteVersion: 1, local: old, currentBuild: "9"))
+    }
+
     // MARK: Map listing
 
     func testAvailableMapsKeepsOnlyTheHighestVersionOfEachSlug() throws {
