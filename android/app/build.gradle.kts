@@ -93,8 +93,8 @@ android {
         create("nus") {
             dimension = "app"
             applicationId = "com.flowsxr.nusopenhouse"
-            versionCode = 1
-            versionName = "1.0"
+            versionCode = 2
+            versionName = "1.1"
             buildConfigField("boolean", "NUS_APP", "true")
             buildConfigField("String", "USAGE_APP", "\"nus-open-house\"")
         }
