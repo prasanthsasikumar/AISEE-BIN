@@ -26,6 +26,7 @@ class NusActivity : ComponentActivity() {
     private var cameraGranted by mutableStateOf(false)
     private var showPlaces by mutableStateOf(false)
     private var showStaff by mutableStateOf(false)
+    private var showIntro by mutableStateOf(false)
 
     private val cameraRequest = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         cameraGranted = granted
@@ -48,7 +49,8 @@ class NusActivity : ComponentActivity() {
             NusRoot(model, cameraGranted,
                 requestCamera = { cameraRequest.launch(Manifest.permission.CAMERA) },
                 showPlaces = showPlaces, onShowPlaces = { showPlaces = it },
-                showStaff = showStaff, onShowStaff = { showStaff = it })
+                showStaff = showStaff, onShowStaff = { showStaff = it },
+                showIntro = showIntro, onShowIntro = { showIntro = it })
         }
     }
 
@@ -97,6 +99,7 @@ class NusActivity : ComponentActivity() {
             "exit" -> model.guide.exit()
             "places" -> showPlaces = true
             "staff" -> showStaff = true
+            "intro" -> showIntro = true
             "voice" -> model.setVoice(intent.getStringExtra("on") != "false")
             "map" -> intent.getStringExtra("slug")?.let(model::switchMap)
             "standat" -> model.debugStandAt(id)

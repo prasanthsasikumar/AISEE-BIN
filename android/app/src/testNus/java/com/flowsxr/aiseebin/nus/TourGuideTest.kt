@@ -137,4 +137,24 @@ class TourGuideTest {
         assertEquals("Finding where you are", positioningStatus(PositioningState(running = true), false, null))
         assertEquals("This build has no Immersal token.", positioningStatus(PositioningState(), false, "This build has no Immersal token."))
     }
+
+    @Test
+    fun `welcome summary counts places and floors`() {
+        assertEquals(
+            "This is a self-guided tour of the School of Computing. Hold up your phone and follow the orange arrows on the floor to 10 places across 2 floors. The whole tour takes about ten minutes.",
+            TourOverview.summary(10, 2),
+        )
+        assertTrue(TourOverview.summary(1, 1).contains("to 1 place. "))
+        assertTrue(TourOverview.summary(0, 1).endsWith("on the floor."))
+    }
+
+    @Test
+    fun `welcome map badges that overlap are moved apart and others stay put`() {
+        val out = TourOverview.spread(listOf(Vec2(100f, 100f), Vec2(104f, 100f), Vec2(100f, 100f), Vec2(300f, 300f)), 26f)
+        for (i in out.indices) for (j in i + 1 until out.size) {
+            assertTrue("badges $i and $j", out[i].distanceTo(out[j]) > 20f)
+        }
+        assertEquals(300f, out[3].x, 0.001f)
+        assertEquals(300f, out[3].z, 0.001f)
+    }
 }

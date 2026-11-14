@@ -145,6 +145,16 @@ class NusModel(app: Application) : AndroidViewModel(app), TourHost {
     private val _voiceOn = MutableStateFlow(prefs.getBoolean(KEY_VOICE, false))
     val voiceOn: StateFlow<Boolean> = _voiceOn
 
+    /** The welcome screen has been seen (it is shown once, on the first launch). */
+    private val _introSeen = MutableStateFlow(prefs.getBoolean(KEY_INTRO, false))
+    val introSeen: StateFlow<Boolean> = _introSeen
+
+    fun finishIntro() {
+        log("intro.done", JSONObject().put("first", !_introSeen.value))
+        _introSeen.value = true
+        prefs.edit().putBoolean(KEY_INTRO, true).apply()
+    }
+
     fun setVoice(on: Boolean) {
         _voiceOn.value = on
         prefs.edit().putBoolean(KEY_VOICE, on).apply()
@@ -698,6 +708,7 @@ class NusModel(app: Application) : AndroidViewModel(app), TourHost {
         private const val KEY_MAP = "map.slug"
         /** The same preference name as iOS. */
         private const val KEY_VOICE = "nus.voice"
+        private const val KEY_INTRO = "nus.introSeen"
         /** `mode.enter`'s name for the visitor screen, as iOS logs it. */
         private const val MODE = "Navigate"
 

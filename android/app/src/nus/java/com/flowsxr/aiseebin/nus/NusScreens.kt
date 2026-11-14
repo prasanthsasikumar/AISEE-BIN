@@ -78,16 +78,26 @@ fun NusRoot(
     model: NusModel, cameraGranted: Boolean, requestCamera: () -> Unit,
     showPlaces: Boolean, onShowPlaces: (Boolean) -> Unit,
     showStaff: Boolean, onShowStaff: (Boolean) -> Unit,
+    showIntro: Boolean = false, onShowIntro: (Boolean) -> Unit = {},
 ) {
     val tour by model.guide.state.collectAsStateWithLifecycle()
     val maps by model.maps.collectAsStateWithLifecycle()
+    val introSeen by model.introSeen.collectAsStateWithLifecycle()
     MaterialTheme(colorScheme = NusColors) {
         Box(Modifier.fillMaxSize().background(Nus.Canvas)) {
             // The camera runs under the home screen too, so the phone is usually
             // found by the time the visitor presses Start (as on iOS).
             NusGuideScreen(model, tour, maps, cameraGranted, requestCamera, onStaff = { onShowStaff(true) })
             AnimatedVisibility(tour.phase == TourPhase.HOME, enter = fadeIn(), exit = fadeOut()) {
-                NusHomeScreen(model, maps, onChoose = { onShowPlaces(true) }, onStaff = { onShowStaff(true) })
+                NusHomeScreen(model, maps, onChoose = { onShowPlaces(true) }, onStaff = { onShowStaff(true) },
+                    onAbout = { onShowIntro(true) })
+            }
+            // Welcome: once on the first launch, and again from "About this tour".
+            AnimatedVisibility(tour.phase == TourPhase.HOME && (!introSeen || showIntro), enter = fadeIn(), exit = fadeOut()) {
+                NusIntroScreen(model, maps) {
+                    model.finishIntro()
+                    onShowIntro(false)
+                }
             }
             if (showPlaces) {
                 ModalBottomSheet(onDismissRequest = { onShowPlaces(false) }, containerColor = Nus.Card) {
@@ -127,7 +137,7 @@ fun Modifier.staffTaps(onStaff: () -> Unit): Modifier {
 // MARK: - Home
 
 @Composable
-private fun NusHomeScreen(model: NusModel, maps: NusMaps, onChoose: () -> Unit, onStaff: () -> Unit) {
+private fun NusHomeScreen(model: NusModel, maps: NusMaps, onChoose: () -> Unit, onStaff: () -> Unit, onAbout: () -> Unit) {
     val voiceOn by model.voiceOn.collectAsStateWithLifecycle()
     val hasMap = maps.map != null
     val places = model.places
@@ -166,6 +176,10 @@ private fun NusHomeScreen(model: NusModel, maps: NusMaps, onChoose: () -> Unit, 
                 NusButton(if (hasMap) "Start the tour (${places.size} stops)" else "Start the tour", Nus.Orange,
                     onClick = { model.guide.startTour() }, icon = NusIcons.Walk, enabled = hasMap && places.isNotEmpty())
                 NusButton("Choose a place", Nus.Blue, onClick = onChoose, icon = NusIcons.List, enabled = hasMap && places.isNotEmpty())
+                Box(Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button, onClick = onAbout)
+                    .padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+                    Text("About this tour", color = Nus.Blue, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                }
                 Text(homeStatus(maps), color = Nus.InkSecondary, fontSize = 13.sp, textAlign = TextAlign.Center,
                     modifier = Modifier.heightIn(min = 20.dp))
             }
