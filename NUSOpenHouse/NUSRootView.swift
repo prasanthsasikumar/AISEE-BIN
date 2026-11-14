@@ -203,9 +203,11 @@ struct NUSTourCloud: View {
         TimelineView(.animation(paused: settled || scene == nil)) { timeline in
             Canvas { context, size in
                 guard let scene else { return }
-                let t = reduceMotion ? 1 : min(1, timeline.date.timeIntervalSince(started) / TourScene.seconds)
-                draw(scene, progress: t, &context, size)
-                if t >= 1, !settled { DispatchQueue.main.async { settled = true } }
+                let elapsed = reduceMotion ? .infinity : timeline.date.timeIntervalSince(started)
+                // The stops' names fade in once the map has come to rest.
+                let names = max(0, min(1, (elapsed - TourScene.seconds) / 0.5))
+                draw(scene, progress: min(1, elapsed / TourScene.seconds), names: names, &context, size)
+                if names >= 1, !settled { DispatchQueue.main.async { settled = true } }
             }
         }
         .contentShape(Rectangle())
@@ -219,7 +221,7 @@ struct NUSTourCloud: View {
         .accessibilityLabel("Map of the tour from above, with \(places.count) numbered stops")
     }
 
-    private func draw(_ scene: TourScene, progress: Double, _ context: inout GraphicsContext, _ size: CGSize) {
+    private func draw(_ scene: TourScene, progress: Double, names: Double, _ context: inout GraphicsContext, _ size: CGSize) {
         let view = scene.view(progress: Float(progress), width: Float(size.width), height: Float(size.height))
         func pt(_ p: SIMD3<Float>) -> CGPoint { let q = view.project(p); return CGPoint(x: CGFloat(q.x), y: CGFloat(q.y)) }
         // The cloud, coloured by height: blue at the bottom, yellow at the top.
@@ -246,6 +248,20 @@ struct NUSTourCloud: View {
             context.stroke(Path(ellipseIn: badge), with: .color(.white), lineWidth: 1.5)
             context.draw(Text("\(index + 1)").font(.system(size: 11, weight: .bold)).foregroundStyle(.white), at: p)
         }
+
+        guard names > 0 else { return }
+        let texts = scene.stops.map { context.resolve(Text($0.name).font(.system(size: 10, weight: .semibold)).foregroundStyle(.white)) }
+        let sizes = texts.map { text -> CGSize in
+            let s = text.measure(in: CGSize(width: 400, height: 40))
+            return CGSize(width: s.width + 10, height: s.height + 4)
+        }
+        let boxes = NUSTourOverview.placeLabels(badges: badges, sizes: sizes, radius: 10, gap: 3, in: size)
+        context.opacity = names
+        for (index, box) in boxes.enumerated() {
+            guard let box else { continue }
+            context.fill(Path(roundedRect: box, cornerRadius: 6), with: .color(Color(dsHex: TourScene.background).opacity(0.78)))
+            context.draw(texts[index], at: CGPoint(x: box.midX, y: box.midY))
+        }
     }
 }
 
@@ -257,7 +273,7 @@ struct TourScene: Sendable {
     static let background: UInt32 = 0x0D1017
     static let bandColours: [UInt32] = [0x3F6FD8, 0x7F9BD6, 0xBFC3A0, 0xE3C85A, 0xF5C518]
 
-    struct Stop: Sendable { let position: SIMD3<Float>; let level: Int }
+    struct Stop: Sendable { let position: SIMD3<Float>; let level: Int; let name: String }
     let points: [SIMD3<Float>]
     let edges: [(SIMD3<Float>, SIMD3<Float>)]
     let stops: [Stop]
@@ -290,7 +306,7 @@ struct TourScene: Sendable {
             return (at(a), at(b))
         }
         stops = map.pois.filter { ($0.category == .destination || $0.category == .exhibit) && $0.id != map.tourStart }
-            .map { Stop(position: at($0), level: levels.level(of: $0.id)) }
+            .map { Stop(position: at($0), level: levels.level(of: $0.id), name: $0.name) }
         points = Self.sample(pointData, centre: centre, span: span, minY: lo.y - 1, maxY: hi.y + 6)
     }
 
@@ -358,6 +374,26 @@ enum NUSTourOverview {
             }
         }
         return p
+    }
+
+    /// Where each badge's name goes: beside it on the right, else the left,
+    /// below or above, wherever it fits inside the card without covering a
+    /// badge or a name already placed. Nil when there is no room.
+    static func placeLabels(badges: [CGPoint], sizes: [CGSize], radius: CGFloat, gap: CGFloat, in card: CGSize) -> [CGRect?] {
+        var taken = badges.map { CGRect(x: $0.x - radius, y: $0.y - radius, width: radius * 2, height: radius * 2) }
+        let inside = CGRect(origin: .zero, size: card).insetBy(dx: 2, dy: 2)
+        return badges.indices.map { i in
+            let b = badges[i], w = sizes[i].width, h = sizes[i].height
+            let options = [
+                CGRect(x: b.x + radius + gap, y: b.y - h / 2, width: w, height: h),
+                CGRect(x: b.x - radius - gap - w, y: b.y - h / 2, width: w, height: h),
+                CGRect(x: b.x - w / 2, y: b.y + radius + gap, width: w, height: h),
+                CGRect(x: b.x - w / 2, y: b.y - radius - gap - h, width: w, height: h),
+            ]
+            let box = options.first { o in inside.contains(o) && !taken.contains { $0.intersects(o) } }
+            if let box { taken.append(box) }
+            return box
+        }
     }
 }
 
