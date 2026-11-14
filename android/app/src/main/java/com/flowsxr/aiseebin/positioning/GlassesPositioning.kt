@@ -21,7 +21,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
 
-data class Fix(val position: Vec2, val heading: Float, val atMillis: Long, val mapId: Int?)
+data class Fix(val position: Vec2, val heading: Float, val atMillis: Long, val mapId: Int?,
+               /** Camera height in the graph frame (phone camera only): which floor the visitor is on. */
+               val height: Float? = null)
 
 /** One localization request, for `loc.attempt`: [ok] means Immersal returned a usable pose, [accepted] that it then moved the visitor; [jump] (metres) is null with nothing to jump from. */
 data class LocAttempt(val localizer: String, val result: LocalizeResult, val ok: Boolean, val jump: Float?, val accepted: Boolean)
@@ -41,6 +43,8 @@ data class PositioningState(
     val localizer: String? = null,
     /** Phone camera only: why ARCore is not tracking right now, or null while it is. */
     val tracking: String? = null,
+    /** Phone camera only: a fix has tied ARCore's frame to the map, so positions are flowing. */
+    val anchored: Boolean = false,
 )
 
 /**

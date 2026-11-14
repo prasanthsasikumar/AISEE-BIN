@@ -20,6 +20,31 @@ class CloudLocalizer(token: String, mapIds: List<Int>) : Localizer {
 }
 
 /**
+ * The Aria map server: the same `/localizeb64` request and answer as Immersal's
+ * cloud, posted to our own HLoc server. The pose comes back in the server's
+ * map frame, which an Aria map's identity alignment makes the graph frame.
+ * No token and no map download. iOS `AriaServerLocalizer`.
+ */
+class AriaServerLocalizer(server: String?, mapIds: List<Int>) : Localizer {
+    val endpoint = localizeUrl(server)
+    private val client = ImmersalClient("", mapIds, endpoint)
+    override val label = "aria server"
+    override fun localize(frame: GrayImage, k: GlassesCamera.Intrinsics) = client.localize(frame.toPng(), k)
+
+    companion object {
+        const val DEFAULT_SERVER = "https://loc.flowsxr.com"
+
+        /** `/localizeb64` on the map's server: "" or null is the default, a bare host gets https (iOS `ariaLocalizeURL`). */
+        fun localizeUrl(server: String?): String {
+            var base = server.orEmpty().trim().trimEnd('/')
+            if (base.isEmpty()) base = DEFAULT_SERVER
+            if (!base.contains("://")) base = "https://$base"
+            return "$base/localizeb64"
+        }
+    }
+}
+
+/**
  * Cloud when the phone's default network has working internet (fast: ~0.5 s a
  * fix on iOS), on-device otherwise — the usual case while the phone sits on
  * the glasses' Wi-Fi with no SIM data. A cloud call that fails on the network

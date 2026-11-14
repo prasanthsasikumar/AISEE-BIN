@@ -38,6 +38,20 @@ class PhonePositioning(private val scope: CoroutineScope) {
     var onLocAttempt: ((LocAttempt) -> Unit)? = null
 
     private val anchor = PlanarAnchor()
+    private val jumps = SessionJumpDetector()
+    /** Times ARCore re-placed its session frame under a running session. */
+    @Volatile var sessionJumps = 0; private set
+    /** When ARCore's current frame began (ms): a fix shot before it belongs to the old frame. */
+    @Volatile private var sessionFrameSince = Long.MIN_VALUE
+
+    /** Graph-from-session right now, for drawing in the camera view; null before the first fix. Any thread. */
+    fun currentFit(): PlanarAnchor.Fit? = synchronized(anchor) { anchor.fit }
+
+    /** Debug: behave as if a fix had put this session pose at [graph]. */
+    fun installAnchor(graph: FloorPose, session: FloorPose) {
+        synchronized(anchor) { anchor.install(PlanarAnchor.fitOf(graph, session)) }
+        _state.update { it.copy(anchored = true, fixes = synchronized(anchor) { anchor.fixes }) }
+    }
     @Volatile private var localizer: Localizer? = null
     @Volatile private var alignment: ImmersalAlignment? = null
     @Volatile private var generation = 0
@@ -52,6 +66,9 @@ class PhonePositioning(private val scope: CoroutineScope) {
         this.localizer = localizer
         this.alignment = alignment
         synchronized(anchor) { anchor.reset() }
+        jumps.reset()
+        sessionJumps = 0
+        sessionFrameSince = Long.MIN_VALUE
         generation++
         inFlight = false
         lastAttempt = Long.MIN_VALUE / 2
@@ -63,7 +80,7 @@ class PhonePositioning(private val scope: CoroutineScope) {
         val old = localizer ?: return
         localizer = null
         generation++
-        _state.update { it.copy(running = false) }
+        _state.update { it.copy(running = false, anchored = false) }
         // Closing frees native maps; never on the caller's (GL or main) thread mid-localize.
         Thread({ old.close() }, "phone-localizer-close").start()
     }
@@ -83,10 +100,20 @@ class PhonePositioning(private val scope: CoroutineScope) {
         }
         if (lastProblem != null) { lastProblem = null; _state.update { it.copy(tracking = null) } }
 
+        // ARCore moved its own frame: the fit no longer says where anything is.
+        val jumped = jumps.jump(session, nowMs)
+        if (jumped != null) {
+            sessionJumps++
+            sessionFrameSince = nowMs
+            val wasAnchored = synchronized(anchor) { anchor.isAnchored.also { anchor.invalidate() } }
+            if (wasAnchored) _state.update { it.copy(anchored = false) }
+            onAttempt?.invoke("phone: the camera's tracking jumped %.1f m; waiting for a new fix".format(jumped))
+        }
+
         val graph = synchronized(anchor) { anchor.toGraph(session) }
         if (graph != null && nowMs - lastEmit >= EMIT_INTERVAL_MS) {
             lastEmit = nowMs
-            emit(Fix(graph.position, graph.heading, System.currentTimeMillis(), lastMapId))
+            emit(Fix(graph.position, graph.heading, System.currentTimeMillis(), lastMapId, graph.y))
         }
 
         if (inFlight || nowMs - lastAttempt < LOCALIZE_INTERVAL_MS) return
@@ -101,7 +128,8 @@ class PhonePositioning(private val scope: CoroutineScope) {
                 val f = sent.width.toFloat() / shot.image.width
                 val k = shot.intrinsics.let { GlassesCamera.Intrinsics(it.fx * f, it.fy * f, it.ox * f, it.oy * f) }
                 val result = loc.localize(sent, k)
-                if (gen == generation) apply(result, session, align, PhoneShot(sent, k))
+                // A fix shot before ARCore re-placed its frame pairs with a pose from the old one.
+                if (gen == generation && nowMs >= sessionFrameSince) apply(result, session, align, PhoneShot(sent, k))
             } finally {
                 inFlight = false
             }
@@ -117,6 +145,7 @@ class PhonePositioning(private val scope: CoroutineScope) {
             val graph = FloorPose(
                 alignment.toGraph(Vec2(planar.x, planar.z), result.mapId),
                 alignment.toGraphHeading(planar.heading, result.mapId),
+                (result.pose?.py ?: 0f) + alignment.placement(result.mapId).ty,
             )
             synchronized(anchor) {
                 hadAnchor = anchor.isAnchored
@@ -133,6 +162,7 @@ class PhonePositioning(private val scope: CoroutineScope) {
                 attempts = it.attempts + 1,
                 fixes = counts.first,
                 rejected = counts.second,
+                anchored = synchronized(anchor) { anchor.isAnchored },
                 lastLatencyMs = result.latencyMs,
                 lastRequestBytes = result.requestBytes,
                 frameSize = shot.image.width to shot.image.height,

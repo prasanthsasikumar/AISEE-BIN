@@ -307,6 +307,6 @@ fun SessionHeader.Companion.current(context: Context): SessionHeader {
         appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
         buildConfig = if (BuildConfig.DEBUG) "debug" else "release",
         simulator = Build.FINGERPRINT.contains("generic") || Build.PRODUCT.contains("sdk"),
-        staff = storedStaff(context), startedAt = System.currentTimeMillis(),
+        staff = storedStaff(context), startedAt = System.currentTimeMillis(), app = BuildConfig.USAGE_APP,
     )
 }

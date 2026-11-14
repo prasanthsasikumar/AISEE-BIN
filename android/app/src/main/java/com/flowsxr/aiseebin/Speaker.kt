@@ -71,6 +71,11 @@ class Speaker(context: Context) {
         }
     }
 
+    /** Cuts off whatever is being said and drops what was waiting. */
+    fun stop() {
+        main.post { stopNow() }
+    }
+
     private fun stopNow() {
         queue.clear()
         player?.run { stop(); release() }

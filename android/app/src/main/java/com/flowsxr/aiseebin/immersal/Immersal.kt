@@ -73,7 +73,12 @@ data class LocalizeResult(
 )
 
 /** Server-side localization, the same `/localizeb64` call iOS makes. Blocking; call off the main thread. */
-class ImmersalClient(private val token: String, mapIds: List<Int>) {
+class ImmersalClient(
+    private val token: String,
+    mapIds: List<Int>,
+    /** Immersal's `/localizeb64`, or a server that speaks the same request and answer (the Aria map server). */
+    private val endpoint: String = ENDPOINT,
+) {
     private val mapIds = mapIds.take(MAX_MAPS)
 
     fun localize(png: ByteArray, k: GlassesCamera.Intrinsics): LocalizeResult {
@@ -88,7 +93,7 @@ class ImmersalClient(private val token: String, mapIds: List<Int>) {
         val started = System.nanoTime()
         fun elapsed() = (System.nanoTime() - started) / 1_000_000
         val (status, text) = try {
-            val conn = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
+            val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 doOutput = true
                 connectTimeout = 10_000

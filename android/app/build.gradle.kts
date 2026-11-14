@@ -59,12 +59,9 @@ android {
     ndkVersion = "27.3.13750724"
 
     defaultConfig {
-        applicationId = "com.flowsxr.aiseebin"
         // Realtek's SDK floor; the Nova 5T runs Android 10 (29).
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.2.2"
         buildConfigField("String", "IMMERSAL_TOKEN", "\"$immersalToken\"")
 
         ndk {
@@ -76,6 +73,30 @@ android {
                 cppFlags += listOf("-std=c++17")
                 arguments += listOf("-DANDROID_STL=c++_shared", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
             }
+        }
+    }
+
+    // Two apps from one code base, as on iOS (targets AISEEBIN and NUSOpenHouse):
+    // `aisee` is AISEE-BIN; `nus` is the NUS Computing Tour, whose own screens
+    // live in src/nus and which lists only maps named `nus-…`.
+    flavorDimensions += "app"
+    productFlavors {
+        create("aisee") {
+            dimension = "app"
+            applicationId = "com.flowsxr.aiseebin"
+            versionCode = 6
+            versionName = "0.2.2"
+            buildConfigField("boolean", "NUS_APP", "false")
+            // `ab_sessions.app`, the names iOS sends.
+            buildConfigField("String", "USAGE_APP", "\"aiseebin\"")
+        }
+        create("nus") {
+            dimension = "app"
+            applicationId = "com.flowsxr.nusopenhouse"
+            versionCode = 1
+            versionName = "1.0"
+            buildConfigField("boolean", "NUS_APP", "true")
+            buildConfigField("String", "USAGE_APP", "\"nus-open-house\"")
         }
     }
 

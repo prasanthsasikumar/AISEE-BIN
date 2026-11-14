@@ -35,7 +35,14 @@ data class NavigationPoi(
     val details: String?,
     /** Radius set in the web editor (`announceRadius`), metres; null means the default. */
     val customAnnounceRadius: Float? = null,
+    /** Camera height (metres) where the place was marked; null on maps made before heights. Tells floors apart. */
+    val y: Float? = null,
+    /** Longer facts about the place (Explore's `about`), shown when `details` is empty. */
+    val about: String? = null,
 ) {
+    /** A place a visitor can be taken to (iOS `isDestination`). */
+    val isDestination: Boolean get() = category == PoiCategory.DESTINATION || category == PoiCategory.EXHIBIT
+
     val isNamed: Boolean get() = category != PoiCategory.JUNCTION
 
     /** Metres within which this place is announced while walking; 0 = never (iOS `NavigationPOI.announceRadius`). */
@@ -67,8 +74,14 @@ data class ImmersalAlignment(
     val origin: String?,
     /** Per-map placements when several Immersal maps were lined up in the web editor. */
     val maps: Map<Int, Placement> = emptyMap(),
+    /**
+     * Set on maps built from an Aria recording: fixes come from the Aria map
+     * server, not Immersal. The address, or "" for the default (iOS `ariaServer`).
+     */
+    val ariaServer: String? = null,
 ) {
-    data class Placement(val yaw: Float, val tx: Float, val tz: Float)
+    /** [ty] is the scan's height offset, added to a fix's height so floors line up across scans. */
+    data class Placement(val yaw: Float, val tx: Float, val tz: Float, val ty: Float = 0f)
 
     /** The placement a fix from [mapId] uses: its own if the editor gave one, else the top-level. */
     fun placement(mapId: Int?): Placement = mapId?.let { maps[it] } ?: Placement(yaw, tx, tz)
@@ -88,6 +101,8 @@ data class NavigationMap(
     val pois: List<NavigationPoi>,
     val edges: List<NavigationEdge>,
     val alignment: ImmersalAlignment?,
+    /** Where a tour starts (a POI id); never one of its stops. */
+    val tourStart: String? = null,
 ) {
     companion object {
         fun parse(json: JSONObject): NavigationMap {
@@ -102,6 +117,8 @@ data class NavigationMap(
                         details = if (p.isNull("details")) null else p.optString("details").ifBlank { null },
                         customAnnounceRadius = if (p.has("announceRadius") && !p.isNull("announceRadius"))
                             p.optDouble("announceRadius", Double.NaN).toFloat().takeIf { it.isFinite() } else null,
+                        y = if (p.has("y") && !p.isNull("y")) p.optDouble("y", Double.NaN).toFloat().takeIf { it.isFinite() } else null,
+                        about = if (p.isNull("about")) null else p.optString("about").ifBlank { null },
                     )
                 }
             } ?: emptyList()
@@ -124,12 +141,15 @@ data class NavigationMap(
                         (0 until arr.length()).associate { i ->
                             val m = arr.getJSONObject(i)
                             m.getInt("id") to ImmersalAlignment.Placement(
-                                m.optDouble("yaw", 0.0).toFloat(), m.optDouble("tx", 0.0).toFloat(), m.optDouble("tz", 0.0).toFloat())
+                                m.optDouble("yaw", 0.0).toFloat(), m.optDouble("tx", 0.0).toFloat(), m.optDouble("tz", 0.0).toFloat(),
+                                m.optDouble("ty", 0.0).toFloat().takeIf { it.isFinite() } ?: 0f)
                         }
                     } ?: emptyMap(),
+                    ariaServer = if (a.has("ariaServer") && !a.isNull("ariaServer")) a.optString("ariaServer") else null,
                 )
             }
-            return NavigationMap(json.optString("name", "Map"), pois, edges, alignment)
+            return NavigationMap(json.optString("name", "Map"), pois, edges, alignment,
+                tourStart = if (json.isNull("tourStart")) null else json.optString("tourStart").ifBlank { null })
         }
     }
 }

@@ -19,9 +19,11 @@ data class SessionHeader(
     val simulator: Boolean,
     val staff: Boolean,
     val startedAt: Long,
+    /** Which app this is: "aiseebin", or "nus-open-house" for the NUS build (the names iOS sends). */
+    val app: String = "aiseebin",
 ) {
     fun toJson(): JSONObject = JSONObject()
-        .put("session_id", sessionId).put("install_id", installId).put("app", "aiseebin").put("platform", platform)
+        .put("session_id", sessionId).put("install_id", installId).put("app", app).put("platform", platform)
         .put("device", device).put("os_version", osVersion).put("app_version", appVersion)
         .put("build_config", buildConfig).put("simulator", simulator).put("staff", staff)
         .put("started_at", UsageLog.timestamp(startedAt))

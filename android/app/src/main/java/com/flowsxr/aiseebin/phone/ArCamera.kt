@@ -117,7 +117,7 @@ class ArCamera(private val context: Context) {
             val pose = frame.camera.pose
             val z = pose.zAxis
             // forward = −z; heading = atan2(forward.x, −forward.z) (NavigationGeometry.heading).
-            return FloorPose(Vec2(pose.tx(), pose.tz()), atan2(-z[0], z[2]))
+            return FloorPose(Vec2(pose.tx(), pose.tz()), atan2(-z[0], z[2]), pose.ty())
         }
 
         fun problem(frame: Frame): String? {
@@ -151,11 +151,21 @@ class ArCamera(private val context: Context) {
     }
 }
 
+/** Something drawn over the camera picture in ARCore's frame (the NUS app's floor arrows). GL thread. */
+interface ArOverlay {
+    fun onSurfaceCreated()
+    fun draw(frame: Frame, width: Int, height: Int)
+}
+
 /**
  * Draws ARCore's camera image full screen and hands each frame on. Runs on
  * the GLSurfaceView's thread.
  */
-class ArRenderer(private val camera: ArCamera, private val onFrame: (Frame) -> Unit) : GLSurfaceView.Renderer {
+class ArRenderer(
+    private val camera: ArCamera,
+    private val onFrame: (Frame) -> Unit,
+    private val overlay: ArOverlay? = null,
+) : GLSurfaceView.Renderer {
     private var texture = 0
     private var program = 0
     private var width = 0
@@ -177,6 +187,7 @@ class ArRenderer(private val camera: ArCamera, private val onFrame: (Frame) -> U
         GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
         program = link(VERTEX, FRAGMENT)
         geometrySet = false
+        overlay?.onSurfaceCreated()
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
@@ -186,7 +197,7 @@ class ArRenderer(private val camera: ArCamera, private val onFrame: (Frame) -> U
     }
 
     override fun onDrawFrame(gl: GL10?) {
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
         // No session or a paused one: wait a frame rather than spin the GL thread.
         val session = camera.session ?: return Thread.sleep(IDLE_MS)
         if (!geometrySet && width > 0) { session.setDisplayGeometry(rotation, width, height); geometrySet = true }
@@ -198,9 +209,14 @@ class ArRenderer(private val camera: ArCamera, private val onFrame: (Frame) -> U
         }
         if (frame.timestamp != 0L) draw()
         onFrame(frame)
+        if (frame.timestamp != 0L) overlay?.draw(frame, width, height)
     }
 
     private fun draw() {
+        // The camera picture is the backdrop: it never hides what an overlay draws.
+        GLES20.glDisable(GLES20.GL_DEPTH_TEST)
+        GLES20.glDepthMask(false)
+        GLES20.glDisable(GLES20.GL_BLEND)
         GLES20.glUseProgram(program)
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, texture)
@@ -214,6 +230,7 @@ class ArRenderer(private val camera: ArCamera, private val onFrame: (Frame) -> U
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
         GLES20.glDisableVertexAttribArray(pos)
         GLES20.glDisableVertexAttribArray(tex)
+        GLES20.glDepthMask(true)
     }
 
     private companion object {

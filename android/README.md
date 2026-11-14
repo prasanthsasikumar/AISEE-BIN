@@ -11,8 +11,10 @@ Two cameras can find the visitor (Settings → Find my position with):
 
 Maps are authored on iPhone or in the web editor and read from the same Supabase table.
 
-Started 2026-09-29. Out of scope here: routing and turn-by-turn guidance, Author
-mode, and phone-only positioning.
+Started 2026-09-29. Out of scope in AISEE-BIN for Android: turn-by-turn guidance and Author mode.
+
+The same project also builds **NUS Computing Tour** for Android (the `nus` flavour, added
+2026-11-14): see [NUS Computing Tour](#nus-computing-tour) below.
 
 ## How it fits together
 
@@ -33,8 +35,11 @@ mode, and phone-only positioning.
 - **Build and install:**
   ```
   cd android
-  JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:installDebug
+  JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:installAiseeDebug
   ```
+  The project has two flavours, so every task names one: `Aisee` (AISEE-BIN, `com.flowsxr.aiseebin`)
+  or `Nus` (NUS Computing Tour, `com.flowsxr.nusopenhouse`). For example `:app:installNusDebug`,
+  `:app:testAiseeDebugUnitTest`, `:app:assembleNusRelease`.
 - **Immersal token:** baked in from `~/.config/aiseebin/immersal_pro_token`, as on iOS. It's never in the repo. A token typed in Settings overrides it.
 - **Immersal's native plugin** (`libPosePlugin.so`, SDK 2.4.0) may not be redistributed. The build downloads it from Immersal's public Unity SDK repo and checks its sha256, the way iOS uses `Vendor/Immersal/fetch.sh`. Without it the app uses the cloud only.
 - **Realtek libraries** are vendored in `app/libs`, as delivered (they have no Maven coordinates). The vendor's reference app and guides are in `~/Downloads`, in `Android_AIGlass_APP_Sourcecode_v0.5.55(235038) (1).zip` and `smartwear-lib-v1.8.48 2.zip`.
@@ -77,3 +82,35 @@ Logs go to logcat under `AISEEBIN`, `Glasses` and `aiseebin-native`. The app's o
 - The live preview and frame callback with the stream running.
 - How the temple button presses arrive: every event is logged as `button: …` and `key event …`.
 - Whether the on-device path keeps up while walking.
+
+## NUS Computing Tour
+
+The Android build of the iPhone app in `NUSOpenHouse/`: a tour of NUS Computing with the way drawn
+on the camera view. Phone camera only, so it needs ARCore ("Google Play Services for AR"); the
+glasses code is not started and its permissions are removed from this flavour's manifest.
+
+| Piece | Where | Notes |
+|---|---|---|
+| Flavour | `app/build.gradle.kts`, `src/nus/` | Its own manifest, icon, pictures and screens. Lists only maps whose slug starts `nus-`; AISEE-BIN hides those (`MapRepository.lists`). Usage sessions are logged with `app = nus-open-house`. |
+| Routes and floors | `route/` (shared, in `src/main`) | Ports of iOS `PathfindingEngine`, `RouteTracker`, `BuildingLevels`, `RouteCue`, `GuidePlacement`, `GuidancePolicy`. Floors come from the heights on the map's places. |
+| Positioning | `positioning/PhonePositioning.kt`, `immersal/Localizers.kt` | A map that names the Aria map server (`immersalAlignment.ariaServer`) is positioned by `AriaServerLocalizer` (`loc.flowsxr.com/localizeb64`); any other `nus-` map by Immersal. The anchor carries height, a far jump (over 8 m) needs six fixes in a row, and a jump in ARCore's own frame drops the anchor until the next fix. |
+| Tour | `nus/TourGuide.kt`, `nus/NusModel.kt` | Starts at the nearest stop, then map order; skip, arrival cards, one place at a time. Voice is off until the visitor turns it on. |
+| Camera view | `nus/RouteOverlay.kt` | Floor arrows, the pin over the place and the 3D staircase, drawn with OpenGL over ARCore's camera picture. |
+| Screens | `nus/NusScreens.kt`, `nus/NusGuideScreen.kt`, `nus/NusMiniMap.kt` | Home, places, guide cards, the heading-up one-floor map, and the staff screen (five taps on the NUS logo). |
+
+**Debug builds** can be driven over USB:
+
+```
+adb shell am broadcast -a com.flowsxr.nusopenhouse.DEBUG -p com.flowsxr.nusopenhouse --es cmd <command>
+```
+
+- **Tour:** `tour`, `go --es id <poi id>`, `skip`, `next`, `exit`, `places`, `staff`, `voice --es on true|false`, `map --es slug <slug>`.
+- **Stand somewhere:** `standat --es id <poi id>` behaves as if a fix had found the phone at that place, facing the way the camera faces. The camera must be tracking (hold the phone up in a lit room). The arrows then show from anywhere.
+- **Inject a position:** `fix --ef x <m> --ef z <m> --ef h <rad> --ef y <height m>`. Works without tracking, but draws nothing on the camera view.
+
+Logs go to logcat under `NUSTour`.
+
+**Checked on a Pixel 9a (2026-11-14):** the app installs and loads `nus-computing` v2; the camera
+starts; home, places, staff, route, stairs, skip and arrival screens and the small map, driven with
+injected positions. **Not yet checked:** a real fix from the Aria server inside the building, and the
+arrows, pin and staircase on the live camera (their shapes were only rendered off the phone).

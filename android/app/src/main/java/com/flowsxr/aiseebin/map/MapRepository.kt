@@ -1,5 +1,6 @@
 package com.flowsxr.aiseebin.map
 
+import com.flowsxr.aiseebin.BuildConfig
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -13,6 +14,8 @@ data class MapSummary(
     val version: Int,
     /** Immersal map ids, empty when the map has no Immersal alignment (glasses cannot position in it). */
     val immersalMapIds: List<Int>,
+    /** When this version was published (ISO 8601, sorts as text); "" in lists saved by older builds. */
+    val createdAt: String = "",
 )
 
 /**
@@ -22,6 +25,18 @@ data class MapSummary(
  * Blocking; call off the main thread.
  */
 object MapRepository {
+    /** Maps for the NUS app are published as `nus-…`; that app lists only those and AISEE-BIN hides them (iOS `ServerConfig.lists`). */
+    const val NUS_PREFIX = "nus-"
+    /** The NUS app's map: NUS Computing from the Aria walk (iOS `nusDefaultSlug`). */
+    const val NUS_DEFAULT_SLUG = "nus-computing"
+
+    fun lists(slug: String, nusApp: Boolean = BuildConfig.NUS_APP) = slug.startsWith(NUS_PREFIX) == nusApp
+
+    /** The NUS app's map on a phone with none: its default, else the most recently published `nus-` map. */
+    fun nusStarterSlug(maps: List<MapSummary>): String? =
+        maps.firstOrNull { it.slug == NUS_DEFAULT_SLUG }?.slug
+            ?: maps.filter { lists(it.slug, nusApp = true) }.maxByOrNull { it.createdAt }?.slug
+
     private const val BASE = "https://djfpemdkeguztyuerxqc.supabase.co/rest/v1/ab_map_versions"
     private const val KEY = "sb_publishable_hEk_pFTUws4X_SL7QKiFUA_DeFU9-YL"
 
@@ -34,7 +49,7 @@ object MapRepository {
      * unreachable — the usual case on the glasses' Wi-Fi with no SIM data.
      */
     fun list(cacheDir: File): Loaded<List<MapSummary>> {
-        val select = "map_slug,version,name:graph->>name,alignment:graph->immersalAlignment"
+        val select = "map_slug,version,created_at,name:graph->>name,alignment:graph->immersalAlignment"
         val file = File(cacheDir.apply { mkdirs() }, "index.json")
         return try {
             val body = get("$BASE?select=${enc(select)}&order=map_slug.asc,version.desc")
@@ -60,11 +75,12 @@ object MapRepository {
         }
     }
 
-    private fun parseList(rows: JSONArray): List<MapSummary> {
+    internal fun parseList(rows: JSONArray, nusApp: Boolean = BuildConfig.NUS_APP): List<MapSummary> {
         val newest = linkedMapOf<String, MapSummary>()
         for (i in 0 until rows.length()) {
             val r = rows.getJSONObject(i)
             val slug = r.getString("map_slug")
+            if (!lists(slug, nusApp)) continue
             val version = r.getInt("version")
             if ((newest[slug]?.version ?: Int.MIN_VALUE) >= version) continue
             val ids = r.optJSONObject("alignment")?.optJSONArray("mapIDs")
@@ -73,6 +89,7 @@ object MapRepository {
                 name = r.optString("name").ifBlank { slug },
                 version = version,
                 immersalMapIds = ids?.let { a -> (0 until a.length()).map { a.getInt(it) } } ?: emptyList(),
+                createdAt = r.optString("created_at"),
             )
         }
         return newest.values.sortedWith(compareBy({ it.immersalMapIds.isEmpty() }, { it.name.lowercase() }))

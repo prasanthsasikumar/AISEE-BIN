@@ -258,6 +258,8 @@ The loop is deliberate: from the entrance to the Palm Conservatory, A\* picks th
 
 `android/` is a glasses-only visitor app in Kotlin and Compose. The AiSee glasses' camera positions the visitor with Immersal, on the phone or in the cloud, and the app answers "where am I" and announces exhibits and hazards on the way past. It reads the same maps from the same Supabase table, so phones without ARCore work. Routing, turn-by-turn guidance and Author mode are iPhone only for now.
 
+The same project also builds **NUS Computing Tour** for Android (the `nus` flavour): the tour, floor arrows, stairs, small map and staff screen of the iPhone app in `NUSOpenHouse/`, on ARCore phones.
+
 Builds are on the repo's [Releases](https://github.com/prasanthsasikumar/AISEE-BIN/releases) page as pre-releases. Building it, the debug hooks and what has been verified are in [`android/README.md`](android/README.md).
 
 ## Status

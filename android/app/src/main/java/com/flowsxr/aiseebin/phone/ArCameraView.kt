@@ -17,10 +17,10 @@ import com.google.ar.core.Frame
  * runs while this is on screen and the app is in front, and pauses otherwise.
  */
 @Composable
-fun ArCameraView(camera: ArCamera, onFrame: (Frame) -> Unit, modifier: Modifier = Modifier) {
+fun ArCameraView(camera: ArCamera, onFrame: (Frame) -> Unit, modifier: Modifier = Modifier, overlay: ArOverlay? = null) {
     val activity = LocalContext.current as Activity
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val renderer = remember(camera) { ArRenderer(camera, onFrame) }
+    val renderer = remember(camera) { ArRenderer(camera, onFrame, overlay) }
     val view = remember(camera) {
         GlTextureView(activity, renderer)
     }
