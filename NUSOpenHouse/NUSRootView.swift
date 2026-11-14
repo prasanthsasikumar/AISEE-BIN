@@ -48,26 +48,40 @@ struct NUSRootView: View {
     }
 }
 
-// MARK: - Header logo (5 taps opens the staff screen)
+// MARK: - Header logo: the NUS Computing lockup (5 taps opens the staff screen)
 
 struct NUSLogoMark: View {
-    var size: CGFloat = 44
+    var size: CGFloat = 40
     let onStaff: () -> Void
-    @State private var taps: [Date] = []
 
     var body: some View {
         Image("NUSLogo")
             .resizable()
             .scaledToFit()
             .frame(height: size)
+            .staffTaps(onStaff)
+            .accessibilityLabel("NUS Computing")
+    }
+}
+
+/// Five quick taps open the staff screen.
+private struct StaffTaps: ViewModifier {
+    let onStaff: () -> Void
+    @State private var taps: [Date] = []
+
+    func body(content: Content) -> some View {
+        content
             .contentShape(Rectangle())
             .onTapGesture {
                 let now = Date()
                 taps = taps.filter { now.timeIntervalSince($0) < 3 } + [now]
                 if taps.count >= 5 { taps = []; onStaff() }
             }
-            .accessibilityLabel("NUS")
     }
+}
+
+extension View {
+    func staffTaps(_ onStaff: @escaping () -> Void) -> some View { modifier(StaffTaps(onStaff: onStaff)) }
 }
 
 // MARK: - Home
@@ -84,10 +98,6 @@ struct NUSHomeView: View {
         VStack(spacing: 0) {
             HStack {
                 NUSLogoMark(onStaff: onStaff)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("NUS").font(.headline.weight(.heavy)).foregroundStyle(NUS.blue)
-                    Text("Computing").font(.subheadline.weight(.semibold)).foregroundStyle(NUS.orange)
-                }
                 Spacer()
                 Button { guide.voiceOn.toggle() } label: {
                     Image(systemName: guide.voiceOn ? "speaker.wave.2.fill" : "speaker.slash.fill")

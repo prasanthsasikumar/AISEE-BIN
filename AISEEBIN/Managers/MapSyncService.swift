@@ -23,7 +23,7 @@ enum ServerConfig {
     static let starterMapSlug = "labeltransfertest"
     static let editorURL = URL(string: "https://aiseebin.flowsxr.com")!
 
-    /// Maps for NUS Open House Guide are published as `nus-…`; that app lists
+    /// Maps for NUS Computing Tour are published as `nus-…`; that app lists
     /// only those and AISEE-BIN hides them. One rule, shared by both apps.
     static let nusPrefix = "nus-"
     #if NUS_APP

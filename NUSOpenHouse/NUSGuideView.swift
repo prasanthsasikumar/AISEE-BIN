@@ -43,14 +43,15 @@ struct NUSGuideView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            NUSLogoMark(size: 34, onStaff: onStaff)
+            // No logo here: the lockup is too wide to sit beside the stop's name. It is on the home screen.
             VStack(alignment: .leading, spacing: 1) {
                 Text(headerTitle).font(.headline).foregroundStyle(NUS.ink).lineLimit(1)
                 if let sub = headerSubtitle {
                     Text(sub).font(.caption.weight(.semibold)).foregroundStyle(NUS.orange)
                 }
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .staffTaps(onStaff)
             Button { guide.exit() } label: {
                 Image(systemName: "xmark")
                     .font(.headline)
@@ -62,12 +63,12 @@ struct NUSGuideView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(.ultraThinMaterial)
+        .background(.white.opacity(0.9))
     }
 
     private var headerTitle: String {
         if guide.startPending { return "Finding where you are" }
-        guard let stop = guide.current else { return guide.phase == .finished ? "Tour complete" : "NUS Computing" }
+        guard let stop = guide.current else { return guide.phase == .finished ? "Tour complete" : "NUS Computing Tour" }
         return stop.name
     }
 

@@ -103,19 +103,25 @@ fun NusRoot(
     }
 }
 
-/** The NUS crest. Five quick taps open the staff screen. */
+/** The NUS Computing lockup. Five quick taps open the staff screen. */
 @Composable
 fun NusLogoMark(height: Dp, onStaff: () -> Unit) {
-    val taps = remember { mutableStateListOf<Long>() }
     Image(
-        painterResource(R.drawable.nus_logo), contentDescription = "NUS", contentScale = ContentScale.Fit,
-        modifier = Modifier.height(height).clickable(remember { MutableInteractionSource() }, indication = null) {
-            val now = System.currentTimeMillis()
-            taps.removeAll { now - it >= 3000 }
-            taps += now
-            if (taps.size >= 5) { taps.clear(); onStaff() }
-        },
+        painterResource(R.drawable.nus_logo), contentDescription = "NUS Computing", contentScale = ContentScale.Fit,
+        modifier = Modifier.height(height).staffTaps(onStaff),
     )
+}
+
+/** Five quick taps open the staff screen. */
+@Composable
+fun Modifier.staffTaps(onStaff: () -> Unit): Modifier {
+    val taps = remember { mutableStateListOf<Long>() }
+    return clickable(remember { MutableInteractionSource() }, indication = null) {
+        val now = System.currentTimeMillis()
+        taps.removeAll { now - it >= 3000 }
+        taps += now
+        if (taps.size >= 5) { taps.clear(); onStaff() }
+    }
 }
 
 // MARK: - Home
@@ -128,12 +134,7 @@ private fun NusHomeScreen(model: NusModel, maps: NusMaps, onChoose: () -> Unit, 
     Surface(color = Nus.Canvas, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.systemBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                NusLogoMark(44.dp, onStaff)
-                Spacer(Modifier.width(10.dp))
-                Column {
-                    Text("NUS", color = Nus.Blue, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
-                    Text("Computing", color = Nus.Orange, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                }
+                NusLogoMark(40.dp, onStaff)
                 Spacer(Modifier.weight(1f))
                 Box(
                     Modifier.size(48.dp).clip(CircleShape)
@@ -288,7 +289,7 @@ private fun NusStaffScreen(model: NusModel, maps: NusMaps, onDone: () -> Unit) {
                             colors = SwitchDefaults.colors(checkedTrackColor = Nus.Blue, checkedThumbColor = Color.White))
                     }
                 }
-                Text("NUS Computing tour guide ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                Text("NUS Computing Tour ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                     color = Nus.InkSecondary, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             }
         }

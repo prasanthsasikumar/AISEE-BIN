@@ -141,7 +141,7 @@ class NusModel(app: Application) : AndroidViewModel(app), TourHost {
     private val _nav = MutableStateFlow(NavState())
     val nav: StateFlow<NavState> = _nav
 
-    /** Spoken guidance on or off (off by default: open-house halls are loud and shared). */
+    /** Spoken guidance on or off (off by default: the halls are loud and shared). */
     private val _voiceOn = MutableStateFlow(prefs.getBoolean(KEY_VOICE, false))
     val voiceOn: StateFlow<Boolean> = _voiceOn
 

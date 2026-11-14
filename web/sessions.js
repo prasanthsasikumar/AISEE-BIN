@@ -165,7 +165,7 @@
   }
 
   // Which app logged a session; rows from before the app column count as aiseebin.
-  const APP_NAMES = { aiseebin: 'AISEE-BIN', 'nus-open-house': 'NUS Open House' };
+  const APP_NAMES = { aiseebin: 'AISEE-BIN', 'nus-open-house': 'NUS Computing Tour' };
   const appId = a => a || 'aiseebin';
   const appName = a => APP_NAMES[appId(a)] || appId(a);
 

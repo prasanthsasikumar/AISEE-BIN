@@ -105,7 +105,7 @@ targets:
         META_APP_ID: ""
         META_CLIENT_TOKEN: ""
   NUSOpenHouse:
-    # NUS Open House Guide (2026-11-10): the AISEE-BIN sources with their own
+    # NUS Computing Tour (2026-11-10): the AISEE-BIN sources with their own
     # entry point, screens and assets, compiled with NUS_APP. No glasses SDK:
     # the RTK frameworks are not linked, so the kit compiles its stub path.
     type: application

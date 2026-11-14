@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// NUS colours for the open-house app (AISEE-BIN's `DS` tokens are untouched).
+/// NUS colours for NUS Computing Tour (AISEE-BIN's `DS` tokens are untouched).
 enum NUS {
     /// The guide's name on screen. One place, so the mascot can be renamed.
     static let mascot = "SoCCat"

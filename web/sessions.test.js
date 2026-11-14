@@ -129,6 +129,6 @@ test('appName treats a missing app as aiseebin and names the NUS app', () => {
   assert.equal(S.appId(null), 'aiseebin');
   assert.equal(S.appName(null), 'AISEE-BIN');
   assert.equal(S.appName('aiseebin'), 'AISEE-BIN');
-  assert.equal(S.appName('nus-open-house'), 'NUS Open House');
+  assert.equal(S.appName('nus-open-house'), 'NUS Computing Tour');
   assert.equal(S.appName('other'), 'other');
 });

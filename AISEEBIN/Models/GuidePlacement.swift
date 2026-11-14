@@ -2,7 +2,7 @@ import Foundation
 import simd
 
 /// Where an on-screen guide character stands: on the floor, a little way ahead
-/// of the visitor along the route (NUS Open House Guide's SoCat).
+/// of the visitor along the route (NUS Computing Tour).
 ///
 /// Pure geometry in the graph frame: `x`/`z` on the floor plan, `y` the floor
 /// height. The caller turns it into a scene position.

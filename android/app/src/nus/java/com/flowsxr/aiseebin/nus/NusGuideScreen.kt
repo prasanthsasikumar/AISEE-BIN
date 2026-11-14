@@ -130,7 +130,7 @@ private fun Header(model: NusModel, tour: TourState, onStaff: () -> Unit) {
     val stop = tour.current
     val title = when {
         tour.startPending -> "Finding where you are"
-        stop == null || tour.phase == TourPhase.FINISHED -> if (tour.phase == TourPhase.FINISHED) "Tour complete" else "NUS Computing"
+        stop == null || tour.phase == TourPhase.FINISHED -> if (tour.phase == TourPhase.FINISHED) "Tour complete" else "NUS Computing Tour"
         else -> stop.name
     }
     val level = stop?.let { model.guide.levelName(it.id) }
@@ -145,9 +145,8 @@ private fun Header(model: NusModel, tour: TourState, onStaff: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        NusLogoMark(34.dp, onStaff)
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
+        // No logo here: the lockup is too wide to sit beside the stop's name. It is on the home screen.
+        Column(Modifier.weight(1f).staffTaps(onStaff)) {
             Text(title, color = Nus.Ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (subtitle != null) Text(subtitle, color = Nus.Orange, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         }

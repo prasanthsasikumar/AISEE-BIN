@@ -27,7 +27,7 @@
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>This app does not use Bluetooth; this text is required by a shared library and the app never asks for it.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>The camera is used to find where you are in the building and show the guide cat leading the way.</string>
+	<string>The camera is used to find where you are in the building and show the way to each stop on the camera view.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>The app can listen for a spoken destination when you press the talk button.</string>
 	<key>NSMotionUsageDescription</key>

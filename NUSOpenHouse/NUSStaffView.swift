@@ -52,7 +52,7 @@ struct NUSStaffView: View {
                     Toggle("Voice guidance", isOn: Binding(get: { guide.voiceOn }, set: { guide.voiceOn = $0 }))
                 }
                 Section {
-                    Text("NUS Computing tour guide \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""))")
+                    Text("NUS Computing Tour \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""))")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }

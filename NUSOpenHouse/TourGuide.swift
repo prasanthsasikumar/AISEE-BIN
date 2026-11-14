@@ -33,7 +33,7 @@ final class TourGuide {
     /// shown for a few seconds.
     private(set) var notice: String?
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
-    /// Spoken guidance on or off (off by default: open-house halls are loud and shared).
+    /// Spoken guidance on or off (off by default: the halls are loud and shared).
     var voiceOn: Bool = UserDefaults.standard.bool(forKey: "nus.voice") {
         didSet {
             UserDefaults.standard.set(voiceOn, forKey: "nus.voice")
@@ -47,7 +47,7 @@ final class TourGuide {
         viewModel.onArrived = { [weak self] id in self?.arrived(at: id) }
     }
 
-    /// The open-house locations in the order they were marked on the map
+    /// The tour's locations in the order they were marked on the map
     /// (the tour order). The tour's start point, if set, is not a stop.
     var places: [NavigationPOI] {
         let map = viewModel.displayMap
